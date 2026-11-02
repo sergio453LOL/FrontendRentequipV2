@@ -1,6 +1,7 @@
 import { LocateFixed, Send } from 'lucide-react'
 import { useCallback, useState, type ReactNode } from 'react'
 import { Controller, useWatch, type Path } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { Button } from '../components/common/Button'
@@ -19,44 +20,46 @@ import { buildPath, PATHS } from '../routes/paths'
 import { ENDPOINTS } from '../services/endpoints'
 import { equipmentService } from '../services/equipmentService'
 import type { EquipmentCategory } from '../types'
+import { categoryName } from '../utils/categoryName'
 import { findCity, PERU_CITIES } from '../utils/cities'
 import { applyServerFieldErrors } from '../utils/formErrors'
 
 const MONEY = /^\d{1,10}(\.\d{1,2})?$/
 const CURRENT_YEAR = new Date().getFullYear()
 
-const optionalText = (max: number) => z.string().trim().max(max, `Máximo ${max} caracteres.`)
+/** Messages are i18n keys (validation.max100, ...), translated where the field shows them. */
+const optionalText = (max: 100 | 255 | 2000 | 4000) => z.string().trim().max(max, `validation.max${max}`)
 
 const publishSchema = z
   .object({
-    name: z.string().trim().min(3, 'Mínimo 3 caracteres.').max(150, 'Máximo 150 caracteres.'),
-    categoryIds: z.array(z.number()).min(1, 'Elige al menos una categoría.'),
-    brand: z.string().trim().min(1, 'Ingresa la marca.').max(80, 'Máximo 80 caracteres.'),
-    model: z.string().trim().min(1, 'Ingresa el modelo.').max(80, 'Máximo 80 caracteres.'),
+    name: z.string().trim().min(3, 'validation.min3').max(150, 'validation.max150'),
+    categoryIds: z.array(z.number()).min(1, 'validation.categoriesRequired'),
+    brand: z.string().trim().min(1, 'validation.brandRequired').max(80, 'validation.max80'),
+    model: z.string().trim().min(1, 'validation.modelRequired').max(80, 'validation.max80'),
     manufactureYear: z
       .string()
       .refine((value) => value === '' || (/^\d{4}$/.test(value) && Number(value) >= 1950 && Number(value) <= CURRENT_YEAR + 1), {
-        message: `Año entre 1950 y ${CURRENT_YEAR + 1}.`,
+        message: 'validation.yearRange',
       }),
     serialNumber: optionalText(100),
     description: optionalText(2000),
     specifications: optionalText(4000),
     dailyRate: z
       .string()
-      .regex(MONEY, 'Monto con hasta 2 decimales, por ejemplo 850.50.')
-      .refine((value) => Number(value) >= 0.01, 'La tarifa debe ser mayor a 0.'),
+      .regex(MONEY, 'validation.money')
+      .refine((value) => Number(value) >= 0.01, 'validation.ratePositive'),
     weeklyRate: z.string().refine((value) => value === '' || (MONEY.test(value) && Number(value) >= 0.01), {
-      message: 'Monto con hasta 2 decimales.',
+      message: 'validation.moneyShort',
     }),
-    securityDeposit: z.string().regex(MONEY, 'Monto con hasta 2 decimales (puede ser 0).'),
-    city: z.string().min(1, 'Selecciona la ciudad donde está el equipo.'),
+    securityDeposit: z.string().regex(MONEY, 'validation.moneyZero'),
+    city: z.string().min(1, 'validation.equipmentCity'),
     address: optionalText(255),
     latitude: z.string(),
     longitude: z.string(),
   })
   .refine((values) => values.weeklyRate === '' || Number(values.weeklyRate) <= Number(values.dailyRate) * 7, {
     path: ['weeklyRate'],
-    message: 'La tarifa semanal no debería superar 7 días de tarifa diaria.',
+    message: 'validation.weeklyTooHigh',
   })
 
 type PublishFormValues = z.infer<typeof publishSchema>
@@ -80,6 +83,7 @@ function Section({ title, description, children }: { title: string; description:
 }
 
 export default function PublishEquipmentPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const navigate = useNavigate()
   const categories = useFetch<EquipmentCategory[]>(ENDPOINTS.categories)
@@ -118,11 +122,11 @@ export default function PublishEquipmentPage() {
   const draft = useWatch({ control })
   const categoryNames = (categories.data ?? [])
     .filter((category) => (draft.categoryIds ?? []).includes(category.id))
-    .map((category) => category.name)
+    .map((category) => categoryName(category.name))
 
   const publish = useMutation(equipmentService.create, {
-    successMessage: (equipment) => `"${equipment.name}" ya está publicado en el catálogo`,
-    errorTitle: 'No se pudo publicar la maquinaria',
+    successMessage: (equipment) => t('publish.published', { name: equipment.name }),
+    errorTitle: t('publish.failed'),
     onSuccess: (equipment) => navigate(buildPath.equipmentDetail(equipment.id), { replace: true }),
     onError: (error) => applyServerFieldErrors(error, setError, SERVER_FIELD_MAP),
   })
@@ -131,17 +135,17 @@ export default function PublishEquipmentPage() {
 
   function detectLocation() {
     if (!('geolocation' in navigator)) {
-      setLocationNote('Tu navegador no permite detectar la ubicación; usaremos el centro de la ciudad.')
+      setLocationNote(t('publish.locationUnsupported'))
       return
     }
-    setLocationNote('Detectando ubicación…')
+    setLocationNote(t('publish.locating'))
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setValue('latitude', position.coords.latitude.toFixed(7))
         setValue('longitude', position.coords.longitude.toFixed(7))
-        setLocationNote('Usaremos la ubicación exacta del equipo para mostrarlo en el mapa.')
+        setLocationNote(t('publish.locationDetected'))
       },
-      () => setLocationNote('No pudimos obtener tu ubicación; usaremos el centro de la ciudad.'),
+      () => setLocationNote(t('publish.locationDenied')),
       { timeout: 10_000 },
     )
   }
@@ -152,7 +156,7 @@ export default function PublishEquipmentPage() {
     const latitude = values.latitude ? Number(values.latitude) : city?.latitude
     const longitude = values.longitude ? Number(values.longitude) : city?.longitude
     if (latitude === undefined || longitude === undefined) {
-      setError('city', { message: 'Selecciona una ciudad válida.' })
+      setError('city', { message: 'validation.cityInvalid' })
       return
     }
     await publish.mutate({
@@ -182,67 +186,67 @@ export default function PublishEquipmentPage() {
   return (
     <div className="mx-auto max-w-[1200px] space-y-6">
       <PageHeader
-        title="Publicar maquinaria"
-        description="Completa la ficha del equipo. Las empresas del catálogo podrán verlo y solicitar reservas."
-        breadcrumbs={[{ label: 'Panel', to: PATHS.home }, { label: 'Publicar maquinaria' }]}
+        title={t('publish.title')}
+        description={t('publish.description')}
+        breadcrumbs={[{ label: t('nav.dashboard'), to: PATHS.home }, { label: t('publish.title') }]}
       />
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="min-w-0 space-y-6">
-        <Section title="Datos del equipo" description="Lo que verán primero las empresas en el catálogo.">
-          <Input className="sm:col-span-2" label="Nombre" required placeholder="Excavadora hidráulica CAT 320" error={errors.name?.message} {...register('name')} />
-          <Input label="Marca" required placeholder="Caterpillar" error={errors.brand?.message} {...register('brand')} />
-          <Input label="Modelo" required placeholder="320 GC" error={errors.model?.message} {...register('model')} />
-          <Input label="Año de fabricación" inputMode="numeric" maxLength={4} placeholder={String(CURRENT_YEAR - 3)} error={errors.manufactureYear?.message} {...register('manufactureYear')} />
-          <Input label="N.º de serie" placeholder="CAT0320GCXYZ" error={errors.serialNumber?.message} {...register('serialNumber')} />
+        <Section title={t('publish.detailsTitle')} description={t('publish.detailsText')}>
+          <Input className="sm:col-span-2" label={t('publish.name')} required placeholder={t('publish.namePlaceholder')} error={errors.name?.message} {...register('name')} />
+          <Input label={t('publish.brand')} required placeholder="Caterpillar" error={errors.brand?.message} {...register('brand')} />
+          <Input label={t('publish.model')} required placeholder="320 GC" error={errors.model?.message} {...register('model')} />
+          <Input label={t('publish.year')} inputMode="numeric" maxLength={4} placeholder={String(CURRENT_YEAR - 3)} error={errors.manufactureYear?.message} {...register('manufactureYear')} />
+          <Input label={t('publish.serial')} placeholder="CAT0320GCXYZ" error={errors.serialNumber?.message} {...register('serialNumber')} />
           <div className="sm:col-span-2">
             <Controller
               control={control}
               name="categoryIds"
               render={({ field }) => (
                 <ChipSelect
-                  label="Categorías"
+                  label={t('publish.categories')}
                   required
-                  options={(categories.data ?? []).map((category) => ({ value: category.id, label: category.name }))}
+                  options={(categories.data ?? []).map((category) => ({ value: category.id, label: categoryName(category.name) }))}
                   value={field.value}
                   onChange={field.onChange}
                   error={errors.categoryIds?.message}
                   hint={
                     categories.error
-                      ? 'No pudimos cargar las categorías. Recarga la página.'
+                      ? t('publish.categoriesError')
                       : categories.data?.length === 0
-                        ? 'Aún no hay categorías: un administrador debe crearlas primero.'
+                        ? t('publish.categoriesEmpty')
                         : undefined
                   }
                 />
               )}
             />
           </div>
-          <Textarea className="sm:col-span-2" label="Descripción" rows={4} placeholder="Estado del equipo, horas de uso, si incluye operador…" error={errors.description?.message} {...register('description')} />
+          <Textarea className="sm:col-span-2" label={t('publish.descriptionLabel')} rows={4} placeholder={t('publish.descriptionPlaceholder')} error={errors.description?.message} {...register('description')} />
         </Section>
 
-        <Section title="Tarifas" description="Montos en soles (PEN). La garantía se retiene en la tarjeta del cliente y se libera al devolver el equipo.">
-          <Input label="Tarifa diaria (S/)" required inputMode="decimal" placeholder="850.00" error={errors.dailyRate?.message} {...register('dailyRate')} />
-          <Input label="Tarifa semanal (S/)" inputMode="decimal" placeholder="5000.00" hint="Opcional" error={errors.weeklyRate?.message} {...register('weeklyRate')} />
-          <Input label="Depósito de garantía (S/)" required inputMode="decimal" placeholder="2000.00" error={errors.securityDeposit?.message} {...register('securityDeposit')} />
+        <Section title={t('publish.ratesTitle')} description={t('publish.ratesText')}>
+          <Input label={t('publish.dailyRate')} required inputMode="decimal" placeholder="850.00" error={errors.dailyRate?.message} {...register('dailyRate')} />
+          <Input label={t('publish.weeklyRate')} inputMode="decimal" placeholder="5000.00" hint={t('publish.optional')} error={errors.weeklyRate?.message} {...register('weeklyRate')} />
+          <Input label={t('publish.deposit')} required inputMode="decimal" placeholder="2000.00" error={errors.securityDeposit?.message} {...register('securityDeposit')} />
         </Section>
 
-        <Section title="Especificaciones técnicas" description='Escribe una por línea como "Clave: valor"; en la ficha se mostrarán como tabla.'>
+        <Section title={t('publish.specsTitle')} description={t('publish.specsText')}>
           <Textarea
             className="sm:col-span-2"
-            label="Especificaciones"
+            label={t('publish.specs')}
             rows={6}
-            placeholder={'Peso operativo: 22 t\nPotencia: 121 kW\nCapacidad del cucharón: 1.2 m³'}
+            placeholder={t('publish.specsPlaceholder')}
             error={errors.specifications?.message}
             {...register('specifications')}
           />
         </Section>
 
-        <Section title="Ubicación" description="Dónde se recoge o entrega el equipo. Se usa para la búsqueda por cercanía.">
+        <Section title={t('publish.locationTitle')} description={t('publish.locationText')}>
           <Select
-            label="Ciudad"
+            label={t('publish.city')}
             required
-            placeholder="Selecciona una ciudad"
+            placeholder={t('publish.cityPlaceholder')}
             options={PERU_CITIES.map((city) => ({ value: city.name, label: city.name }))}
             error={errors.city?.message}
             {...cityField}
@@ -253,16 +257,16 @@ export default function PublishEquipmentPage() {
               setLocationNote(null)
             }}
           />
-          <Input label="Dirección" placeholder="Av. Industrial 450, Ate" error={errors.address?.message} {...register('address')} />
+          <Input label={t('publish.address')} placeholder="Av. Industrial 450, Ate" error={errors.address?.message} {...register('address')} />
           <div className="flex flex-col gap-2 rounded-lg bg-slate-50 p-4 text-sm sm:col-span-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-slate-600">{locationNote ?? 'Por defecto usamos el centro de la ciudad elegida.'}</p>
+            <p className="text-slate-600">{locationNote ?? t('publish.locationDefault')}</p>
             <Button variant="secondary" size="sm" onClick={detectLocation} leftIcon={<LocateFixed className="size-4" />}>
-              Usar mi ubicación
+              {t('publish.useLocation')}
             </Button>
           </div>
         </Section>
 
-        <Section title="Fotos" description="La primera foto es la portada del catálogo. Las fotos con buena luz se alquilan más.">
+        <Section title={t('publish.photosTitle')} description={t('publish.photosText')}>
           <div className="sm:col-span-2">
             <ImageUploader onChange={handleImagesChange} onBusyChange={setIsUploading} />
           </div>
@@ -270,10 +274,10 @@ export default function PublishEquipmentPage() {
 
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button variant="secondary" onClick={() => navigate(-1)} disabled={publish.isLoading}>
-            Cancelar
+            {t('common.cancel')}
           </Button>
           <Button type="submit" size="lg" variant="action" isLoading={publish.isLoading} disabled={isUploading} leftIcon={<Send className="size-4" />}>
-            {isUploading ? 'Esperando las fotos…' : 'Publicar maquinaria'}
+            {isUploading ? t('publish.waitingPhotos') : t('publish.submit')}
           </Button>
         </div>
       </form>

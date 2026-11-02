@@ -1,6 +1,6 @@
 import type { EquipmentStatus, ReservationPaymentStatus, ReservationStatus } from '../../types'
 import { cn } from '../../utils/cn'
-import { EQUIPMENT_STATUS_LABELS, RESERVATION_STATUS_LABELS } from '../../utils/labels'
+import { useTranslation } from 'react-i18next'
 
 type Tone = 'green' | 'amber' | 'blue' | 'red' | 'slate'
 
@@ -29,10 +29,10 @@ const EQUIPMENT_TONES: Record<EquipmentStatus, Tone> = {
   INACTIVE: 'slate',
 }
 
-const PAYMENT: Record<ReservationPaymentStatus, { tone: Tone; label: string }> = {
-  PAID: { tone: 'green', label: 'Pagada' },
-  UNPAID: { tone: 'amber', label: 'Pago pendiente' },
-  REFUNDED: { tone: 'slate', label: 'Reembolsada' },
+const PAYMENT_TONES: Record<ReservationPaymentStatus, Tone> = {
+  PAID: 'green',
+  UNPAID: 'amber',
+  REFUNDED: 'slate',
 }
 
 type StatusBadgeProps =
@@ -40,20 +40,26 @@ type StatusBadgeProps =
   | { kind: 'equipment'; status: EquipmentStatus }
   | { kind: 'payment'; status: ReservationPaymentStatus }
 
-function labelAndTone(props: StatusBadgeProps): [string, Tone] {
+function toneOf(props: StatusBadgeProps): Tone {
   switch (props.kind) {
     case 'reservation':
-      return [RESERVATION_STATUS_LABELS[props.status], RESERVATION_TONES[props.status]]
+      return RESERVATION_TONES[props.status]
     case 'equipment':
-      return [EQUIPMENT_STATUS_LABELS[props.status], EQUIPMENT_TONES[props.status]]
+      return EQUIPMENT_TONES[props.status]
     case 'payment':
-      return [PAYMENT[props.status].label, PAYMENT[props.status].tone]
+      return PAYMENT_TONES[props.status]
   }
 }
 
 export function StatusBadge(props: StatusBadgeProps) {
-  const [label, tone] = labelAndTone(props)
-  const classes = TONE_CLASSES[tone]
+  const { t } = useTranslation()
+  const label =
+    props.kind === 'reservation'
+      ? t(`status.reservation.${props.status}`)
+      : props.kind === 'equipment'
+        ? t(`status.equipment.${props.status}`)
+        : t(`status.payment.${props.status}`)
+  const classes = TONE_CLASSES[toneOf(props)]
   return (
     <span
       className={cn(

@@ -1,5 +1,6 @@
 import { ArrowLeft, Building2, CalendarPlus, MapPin, SearchX, ShieldCheck, Star } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 import { Button } from '../components/common/Button'
 import { EmptyState } from '../components/common/EmptyState'
@@ -8,6 +9,7 @@ import { PageHeader } from '../components/common/PageHeader'
 import { StatusBadge } from '../components/common/StatusBadge'
 import { ImageGallery } from '../components/equipment/ImageGallery'
 import { AvailabilityCalendar } from '../components/equipment/AvailabilityCalendar'
+import { EMPTY_SELECTION, type DateSelection } from '../components/equipment/dateSelection'
 import { QuickQuote } from '../components/equipment/QuickQuote'
 import { SpecificationList } from '../components/equipment/SpecificationList'
 import { ReservationRequestModal } from '../components/reservations/ReservationRequestModal'
@@ -16,7 +18,8 @@ import { useFetch } from '../hooks/useFetch'
 import { PATHS } from '../routes/paths'
 import { ENDPOINTS } from '../services/endpoints'
 import type { Equipment, EquipmentRating, WithLinks } from '../types'
-import { formatCurrency } from '../utils/format'
+import { categoryName } from '../utils/categoryName'
+import { formatCurrency, formatDateRange, rentalDays } from '../utils/format'
 
 function parseId(value: string | undefined): number | null {
   const id = Number(value)
@@ -24,17 +27,18 @@ function parseId(value: string | undefined): number | null {
 }
 
 function NotFoundEquipment() {
+  const { t } = useTranslation()
   return (
     <EmptyState
       icon={SearchX}
-      title="No encontramos esta maquinaria"
-      description="Puede que haya sido retirada del catálogo o que el enlace sea incorrecto."
+      title={t('equipment.notFoundTitle')}
+      description={t('equipment.notFoundText')}
       action={
         <Link
           to={PATHS.catalog}
           className="inline-flex h-9 items-center gap-2 rounded-md bg-ink px-3.5 text-sm font-medium text-white hover:bg-ink-hover"
         >
-          <ArrowLeft className="size-4" aria-hidden="true" /> Volver al catálogo
+          <ArrowLeft className="size-4" aria-hidden="true" /> {t('equipment.backToCatalog')}
         </Link>
       }
     />
@@ -55,9 +59,11 @@ function DetailSkeleton() {
 }
 
 export default function EquipmentDetailPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const equipmentId = parseId(useParams<{ id: string }>().id)
   const [isReserving, setIsReserving] = useState(false)
+  const [dates, setDates] = useState<DateSelection>(EMPTY_SELECTION)
 
   const { data: equipment, error, isLoading, refetch } = useFetch<WithLinks<Equipment>>(
     equipmentId ? ENDPOINTS.equipment(equipmentId) : null,
@@ -71,30 +77,36 @@ export default function EquipmentDetailPage() {
   const isOwnEquipment = equipment.ownerCompanyId === user?.companyId
   const isAvailable = equipment.status === 'AVAILABLE'
   const reserveBlockedReason = isOwnEquipment
-    ? 'Este equipo es de tu empresa.'
+    ? t('equipment.ownEquipment')
     : !isAvailable
-      ? 'Este equipo no está disponible para nuevas reservas.'
+      ? t('equipment.unavailable')
       : null
   const averageRating = rating.data?.averageRating ?? 0
+  const hasDates = dates.startDate !== null && dates.endDate !== null
+  const selectedDays = hasDates ? rentalDays(dates.startDate!, dates.endDate!) : undefined
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6">
       <PageHeader
         title={equipment.name}
         description={`${equipment.brand} · ${equipment.model}${equipment.manufactureYear ? ` · ${equipment.manufactureYear}` : ''}`}
-        breadcrumbs={[{ label: 'Catálogo', to: PATHS.catalog }, { label: equipment.name }]}
+        breadcrumbs={[{ label: t('nav.catalog'), to: PATHS.catalog }, { label: equipment.name }]}
       />
 
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="min-w-0 space-y-8 lg:col-span-3">
           <ImageGallery images={equipment.imageUrls} alt={equipment.name} />
 
-          <AvailabilityCalendar equipmentId={equipment.id} />
+          <AvailabilityCalendar
+            equipmentId={equipment.id}
+            selection={reserveBlockedReason === null ? dates : undefined}
+            onSelectionChange={reserveBlockedReason === null ? setDates : undefined}
+          />
 
           {equipment.description && (
             <section aria-labelledby="description-title" className="space-y-2">
               <h2 id="description-title" className="text-lg font-bold text-ink">
-                Descripción
+                {t('equipment.description')}
               </h2>
               <p className="max-w-[68ch] text-[15px] leading-6 whitespace-pre-line text-ink">{equipment.description}</p>
             </section>
@@ -102,20 +114,20 @@ export default function EquipmentDetailPage() {
 
           <section aria-labelledby="specs-title" className="space-y-3">
             <h2 id="specs-title" className="text-lg font-bold text-ink">
-              Especificaciones técnicas
+              {t('equipment.specs')}
             </h2>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg bg-raised p-5 text-sm sm:grid-cols-3">
-              <SpecItem label="Marca" value={equipment.brand} />
-              <SpecItem label="Modelo" value={equipment.model} />
-              <SpecItem label="Año" value={equipment.manufactureYear?.toString() ?? '—'} />
-              <SpecItem label="N.º de serie" value={equipment.serialNumber ?? '—'} />
-              <SpecItem label="Ciudad" value={equipment.city} />
-              <SpecItem label="Moneda" value={equipment.currency} />
+              <SpecItem label={t('equipment.brand')} value={equipment.brand} />
+              <SpecItem label={t('equipment.model')} value={equipment.model} />
+              <SpecItem label={t('equipment.year')} value={equipment.manufactureYear?.toString() ?? '—'} />
+              <SpecItem label={t('equipment.serial')} value={equipment.serialNumber ?? '—'} />
+              <SpecItem label={t('equipment.city')} value={equipment.city} />
+              <SpecItem label={t('equipment.currency')} value={equipment.currency} />
             </dl>
             {equipment.specifications ? (
               <SpecificationList specifications={equipment.specifications} />
             ) : (
-              <p className="text-sm text-slate-500">El propietario no registró especificaciones adicionales.</p>
+              <p className="text-sm text-slate-500">{t('equipment.noSpecs')}</p>
             )}
           </section>
         </div>
@@ -125,7 +137,7 @@ export default function EquipmentDetailPage() {
             <div className="flex items-center justify-between gap-3">
               <StatusBadge kind="equipment" status={equipment.status} />
               {averageRating > 0 && (
-                <span className="flex items-center gap-1 text-sm font-medium text-slate-700" aria-label={`Calificación ${averageRating.toFixed(1)} de 5`}>
+                <span className="flex items-center gap-1 text-sm font-medium text-slate-700" aria-label={t('equipment.rating', { value: averageRating.toFixed(1) })}>
                   <Star className="size-4 fill-accent text-accent" aria-hidden="true" />
                   {averageRating.toFixed(1)}
                 </span>
@@ -135,17 +147,17 @@ export default function EquipmentDetailPage() {
             <div>
               <p className="num text-3xl leading-9 font-bold text-ink">
                 {formatCurrency(equipment.dailyRate, equipment.currency)}
-                <span className="text-sm font-normal text-slate-500"> / día</span>
+                <span className="text-sm font-normal text-slate-500"> {t('common.perDay')}</span>
               </p>
               {equipment.weeklyRate !== null && (
-                <p className="num text-sm text-slate-600">{formatCurrency(equipment.weeklyRate, equipment.currency)} por semana</p>
+                <p className="num text-sm text-slate-600">{t('equipment.perWeek', { price: formatCurrency(equipment.weeklyRate, equipment.currency) })}</p>
               )}
             </div>
 
             <ul className="space-y-2 border-t border-slate-100 pt-4 text-sm text-ink">
               <li className="flex items-center gap-2">
                 <ShieldCheck className="size-4 shrink-0 text-slate-500" aria-hidden="true" />
-                Garantía reembolsable de {formatCurrency(equipment.securityDeposit, equipment.currency)}
+                {t('equipment.deposit', { price: formatCurrency(equipment.securityDeposit, equipment.currency) })}
               </li>
               <li className="flex items-center gap-2">
                 <MapPin className="size-4 shrink-0 text-slate-500" aria-hidden="true" />
@@ -158,16 +170,16 @@ export default function EquipmentDetailPage() {
             </ul>
 
             {equipment.categories.length > 0 && (
-              <ul className="flex flex-wrap gap-2" aria-label="Categorías">
+              <ul className="flex flex-wrap gap-2" aria-label={t('equipment.categories')}>
                 {equipment.categories.map((category) => (
                   <li key={category} className="rounded-full bg-accent-tint px-2.5 py-0.5 text-xs font-semibold text-amber-900">
-                    {category}
+                    {categoryName(category)}
                   </li>
                 ))}
               </ul>
             )}
 
-            {reserveBlockedReason === null && <QuickQuote equipment={equipment} />}
+            {reserveBlockedReason === null && <QuickQuote equipment={equipment} selectedDays={selectedDays} />}
 
             <Button
               size="lg"
@@ -178,14 +190,19 @@ export default function EquipmentDetailPage() {
               leftIcon={<CalendarPlus className="size-4" />}
               title={reserveBlockedReason ?? undefined}
             >
-              Reservar
+              {hasDates ? t('equipment.reserveRange', { range: formatDateRange(dates.startDate!, dates.endDate!) }) : t('equipment.reserve')}
             </Button>
             {reserveBlockedReason && <p className="text-center text-[13px] text-slate-600">{reserveBlockedReason}</p>}
           </div>
         </aside>
       </div>
 
-      <ReservationRequestModal equipment={equipment} isOpen={isReserving} onClose={() => setIsReserving(false)} />
+      <ReservationRequestModal
+        equipment={equipment}
+        isOpen={isReserving}
+        onClose={() => setIsReserving(false)}
+        initialDates={dates}
+      />
     </div>
   )
 }

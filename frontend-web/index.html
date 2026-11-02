@@ -11,6 +11,20 @@
       rel="stylesheet"
     />
     <title>RentEquip</title>
+    <!-- Applies the saved theme before the first paint, so dark mode never flashes white. -->
+    <script>
+      try {
+        var theme = localStorage.getItem('rentequip.theme')
+        if (theme === 'dark' || (theme === null && matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark')
+        }
+      } catch (error) {}
+      try {
+        var language = localStorage.getItem('rentequip.language')
+        if (language === 'en') document.documentElement.lang = 'en-US'
+        if (language === 'zh') document.documentElement.lang = 'zh-CN'
+      } catch (error) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

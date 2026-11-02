@@ -1,4 +1,6 @@
 import type {
+  ReceiptChannel,
+  ReceiptDelivery,
   Reservation,
   ReservationCreateRequest,
   ReservationStatus,
@@ -9,6 +11,12 @@ import { api } from './api'
 import { ENDPOINTS } from './endpoints'
 
 export const reservationService = {
+  /** Re-sends the receipt of a paid reservation to the user's registered email or WhatsApp. */
+  async sendReceipt(reservationId: number, channel: ReceiptChannel): Promise<ReceiptDelivery> {
+    const { data } = await api.post<ReceiptDelivery>(ENDPOINTS.reservationReceiptDeliveries(reservationId), { channel })
+    return data
+  },
+
   async create(request: ReservationCreateRequest): Promise<WithLinks<Reservation>> {
     const { data } = await api.post<WithLinks<Reservation>>(ENDPOINTS.reservations, request)
     return data

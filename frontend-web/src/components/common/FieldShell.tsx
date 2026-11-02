@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
+import { translateMessage } from '../../i18n/translateMessage'
 import { cn } from '../../utils/cn'
 
 interface FieldShellProps {
@@ -14,7 +16,8 @@ interface FieldShellProps {
 
 /** Label, control and help/error message layout shared by every form field. */
 export function FieldShell({ inputId, messageId, label, required, error, hint, className, children }: FieldShellProps) {
-  const message = error ?? hint
+  useTranslation() // re-render on language change
+  const message = translateMessage(error ?? hint)
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>

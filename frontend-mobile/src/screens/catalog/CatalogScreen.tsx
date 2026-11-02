@@ -102,7 +102,7 @@ export default function CatalogScreen() {
 
       {!list.isLoading && !list.error && list.totalElements > 0 && (
         <Text style={styles.count}>
-          {list.totalElements} {list.totalElements === 1 ? 'máquina encontrada' : 'máquinas encontradas'}
+          {list.totalElements} {list.totalElements === 1 ? 'equipo encontrado' : 'equipos encontrados'}
         </Text>
       )}
     </View>

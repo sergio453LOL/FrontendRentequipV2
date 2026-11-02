@@ -1,9 +1,13 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import i18n from '../../i18n'
 import { cn } from '../../utils/cn'
 import { Spinner } from './Spinner'
 
-/** primary: dark asphalt · action: industrial orange for Reservar/Pagar/Publicar · secondary/ghost/danger. */
-type ButtonVariant = 'primary' | 'action' | 'secondary' | 'danger' | 'ghost'
+/**
+ * primary: dark asphalt · action: industrial orange for Reservar/Pagar/Publicar · gradient: animated amber-orange
+ * pill for the login and sign-up · secondary/ghost/danger.
+ */
+type ButtonVariant = 'primary' | 'action' | 'gradient' | 'secondary' | 'danger' | 'ghost'
 type ButtonSize = 'sm' | 'md' | 'lg'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -17,6 +21,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary: 'bg-ink text-white hover:bg-ink-hover focus-visible:outline-ink',
   action: 'bg-action text-white shadow-[0_6px_20px_-8px_rgba(234,88,12,0.7)] hover:bg-action-hover hover:shadow-[0_10px_28px_-8px_rgba(234,88,12,0.8)] focus-visible:outline-action',
+  gradient:
+    'btn-gradient rounded-full text-white shadow-[0_8px_24px_-8px_rgba(194,65,12,0.75)] hover:shadow-[0_12px_32px_-8px_rgba(194,65,12,0.9)] hover:brightness-110 focus-visible:outline-action motion-reduce:animate-none',
   secondary:
     'border border-slate-300 bg-white text-ink hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-slate-400',
   danger: 'border border-red-200 bg-white text-negative hover:bg-red-50 focus-visible:outline-red-600',
@@ -57,7 +63,7 @@ export function Button({
       )}
       {...rest}
     >
-      {isLoading ? <Spinner size="sm" label="Procesando…" /> : leftIcon}
+      {isLoading ? <Spinner size="sm" label={i18n.t('common.processing')} /> : leftIcon}
       {children}
     </button>
   )

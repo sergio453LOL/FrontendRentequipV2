@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { PAGE_SIZE_OPTIONS } from '../../hooks/usePagination'
 import type { PageResponse } from '../../types'
 import { cn } from '../../utils/cn'
@@ -25,6 +26,7 @@ function buildPageItems(current: number, total: number): PageItem[] {
 
 export function Pagination({ pageData, onPageChange, onSizeChange, isDisabled = false }: PaginationProps) {
   const sizeSelectId = useId()
+  const { t } = useTranslation()
   const { page, size, totalElements, totalPages } = pageData
   if (totalElements === 0) return null
 
@@ -34,18 +36,20 @@ export function Pagination({ pageData, onPageChange, onSizeChange, isDisabled = 
 
   return (
     <nav
-      aria-label="Paginación"
+      aria-label={t('pagination.label')}
       className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 pt-4 md:flex-row"
     >
       <p className="text-sm text-slate-600" aria-live="polite">
-        Mostrando <span className="font-semibold text-slate-900">{formatNumber(firstItem)}</span>–
-        <span className="font-semibold text-slate-900">{formatNumber(lastItem)}</span> de{' '}
-        <span className="font-semibold text-slate-900">{formatNumber(totalElements)}</span> resultados
+        <Trans
+          i18nKey="pagination.showing"
+          values={{ from: formatNumber(firstItem), to: formatNumber(lastItem), total: formatNumber(totalElements) }}
+          components={{ b: <span className="font-semibold text-slate-900" /> }}
+        />
       </p>
 
       <div className="flex flex-wrap items-center justify-center gap-4">
         <div className="flex items-center gap-2 text-sm text-slate-600">
-          <label htmlFor={sizeSelectId}>Por página</label>
+          <label htmlFor={sizeSelectId}>{t('pagination.perPage')}</label>
           <select
             id={sizeSelectId}
             value={size}
@@ -63,7 +67,7 @@ export function Pagination({ pageData, onPageChange, onSizeChange, isDisabled = 
 
         <ul className="flex items-center gap-1">
           <li>
-            <PageButton label="Página anterior" disabled={isDisabled || page === 0} onClick={() => onPageChange(page - 1)}>
+            <PageButton label={t('pagination.previous')} disabled={isDisabled || page === 0} onClick={() => onPageChange(page - 1)}>
               <ChevronLeft className="size-4" />
             </PageButton>
           </li>
@@ -75,7 +79,7 @@ export function Pagination({ pageData, onPageChange, onSizeChange, isDisabled = 
             ) : (
               <li key={item} className="hidden sm:block">
                 <PageButton
-                  label={`Página ${item + 1}`}
+                  label={t('pagination.page', { page: item + 1 })}
                   isCurrent={item === page}
                   disabled={isDisabled}
                   onClick={() => onPageChange(item)}
@@ -90,7 +94,7 @@ export function Pagination({ pageData, onPageChange, onSizeChange, isDisabled = 
           </li>
           <li>
             <PageButton
-              label="Página siguiente"
+              label={t('pagination.next')}
               disabled={isDisabled || page >= totalPages - 1}
               onClick={() => onPageChange(page + 1)}
             >

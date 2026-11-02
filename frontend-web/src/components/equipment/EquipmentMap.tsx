@@ -1,8 +1,10 @@
 import 'leaflet/dist/leaflet.css'
 import { divIcon, latLngBounds } from 'leaflet'
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 import { Link } from 'react-router-dom'
+import i18n from '../../i18n'
 import { buildPath } from '../../routes/paths'
 import type { EquipmentSummary } from '../../types'
 import { formatCurrency } from '../../utils/format'
@@ -24,7 +26,7 @@ function groupByPlace(machines: EquipmentSummary[]): EquipmentSummary[][] {
 
 /** Price tag as the pin, so the map reads like a list of offers; a shared yard shows its count. */
 function pinFor(group: EquipmentSummary[]) {
-  const label = group.length === 1 ? shortPrice(group[0]) : `${group.length} equipos`
+  const label = group.length === 1 ? shortPrice(group[0]) : i18n.t('catalog.pinCount', { count: group.length })
   return divIcon({ className: '', iconSize: [0, 0], html: `<span class="re-pin">${label}</span>` })
 }
 
@@ -40,6 +42,7 @@ function FitToMachines({ machines }: { machines: EquipmentSummary[] }) {
 
 /** The catalogue on a map: one pin per yard, a card with each machine's photo and price when a pin opens. */
 export default function EquipmentMap({ machines }: { machines: EquipmentSummary[] }) {
+  const { t } = useTranslation()
   return (
     <div className="relative isolate h-[560px] overflow-hidden rounded-2xl border border-slate-200/80 shadow-sm">
       <MapContainer center={LIMA} zoom={6} scrollWheelZoom className="h-full w-full">
@@ -67,7 +70,7 @@ export default function EquipmentMap({ machines }: { machines: EquipmentSummary[
                       <span className="block text-xs text-slate-500">
                         {machine.city} · {machine.ownerCompanyName}
                       </span>
-                      <span className="num mt-1 block text-sm font-bold text-ink">{formatCurrency(machine.dailyRate, machine.currency)} / día</span>
+                      <span className="num mt-1 block text-sm font-bold text-ink">{formatCurrency(machine.dailyRate, machine.currency)} {t('common.perDay')}</span>
                     </Link>
                   </li>
                 ))}

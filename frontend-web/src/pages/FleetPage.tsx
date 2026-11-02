@@ -1,4 +1,5 @@
 import { CalendarClock, PackageOpen, Plus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { EmptyState } from '../components/common/EmptyState'
 import { ErrorState } from '../components/common/ErrorState'
@@ -43,17 +44,19 @@ function outlookFor(machineId: number, reservations: Reservation[], today: Date)
 }
 
 function PublishButton() {
+  const { t } = useTranslation()
   return (
     <Link
       to={PATHS.publishEquipment}
       className="inline-flex h-10 items-center gap-2 rounded-md bg-action px-4 text-sm font-semibold text-white transition-all duration-200 hover:bg-action-hover hover:shadow-md active:scale-[0.98]"
     >
-      <Plus className="size-4" aria-hidden="true" /> Publicar maquinaria
+      <Plus className="size-4" aria-hidden="true" /> {t('fleet.publish')}
     </Link>
   )
 }
 
 function MachineCard({ machine, outlook }: { machine: EquipmentSummary; outlook: MachineOutlook }) {
+  const { t } = useTranslation()
   const occupancy = outlook.bookedDays / OCCUPANCY_WINDOW_DAYS
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl">
@@ -75,13 +78,13 @@ function MachineCard({ machine, outlook }: { machine: EquipmentSummary; outlook:
           </div>
           <p className="num shrink-0 text-right text-base font-bold text-ink">
             {formatCurrency(machine.dailyRate, machine.currency)}
-            <span className="block text-xs font-normal text-slate-500">por día</span>
+            <span className="block text-xs font-normal text-slate-500">{t('fleet.perDay')}</span>
           </p>
         </div>
 
         <div>
           <div className="mb-1.5 flex items-baseline justify-between text-xs">
-            <span className="font-semibold text-slate-600">Ocupación próximos {OCCUPANCY_WINDOW_DAYS} días</span>
+            <span className="font-semibold text-slate-600">{t('fleet.occupancy', { days: OCCUPANCY_WINDOW_DAYS })}</span>
             <span className="num font-semibold text-ink">{Math.round(occupancy * 100)}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
@@ -92,14 +95,14 @@ function MachineCard({ machine, outlook }: { machine: EquipmentSummary; outlook:
         <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-sm">
           <span className="flex items-center gap-1.5 text-slate-600">
             <CalendarClock className="size-4 text-slate-400" aria-hidden="true" />
-            {outlook.next ? `Próximo: ${formatDateRange(outlook.next.startDate, outlook.next.endDate)}` : 'Sin reservas confirmadas'}
+            {outlook.next ? t('fleet.next', { range: formatDateRange(outlook.next.startDate, outlook.next.endDate) }) : t('fleet.noBookings')}
           </span>
           {outlook.pendingRequests > 0 && (
             <Link
               to={`${PATHS.reservations}?role=OWNER&status=PENDING`}
               className="rounded-full bg-orange-50 px-2.5 py-0.5 text-xs font-semibold text-action ring-1 ring-orange-200 ring-inset hover:bg-orange-100"
             >
-              {outlook.pendingRequests} {outlook.pendingRequests === 1 ? 'solicitud' : 'solicitudes'}
+              {t('fleet.requests', { count: outlook.pendingRequests })}
             </Link>
           )}
         </div>
@@ -109,6 +112,7 @@ function MachineCard({ machine, outlook }: { machine: EquipmentSummary; outlook:
 }
 
 export default function FleetPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const { page, size, setPage, setSize } = usePagination()
   const today = parseIsoDate(todayIso())
@@ -123,13 +127,9 @@ export default function FleetPage() {
   return (
     <div className="mx-auto max-w-[1200px] space-y-6">
       <PageHeader
-        title="Mi flota"
-        description={
-          total === undefined
-            ? 'Tus equipos publicados y qué tan ocupados están.'
-            : `${formatNumber(total)} ${total === 1 ? 'equipo publicado' : 'equipos publicados'} · ocupación calculada con las reservas confirmadas.`
-        }
-        breadcrumbs={[{ label: 'Mi flota' }]}
+        title={t('fleet.title')}
+        description={total === undefined ? t('fleet.loading') : t('fleet.summary', { count: total, formatted: formatNumber(total) })}
+        breadcrumbs={[{ label: t('fleet.title') }]}
         actions={publisher && <PublishButton />}
       />
 
@@ -138,11 +138,11 @@ export default function FleetPage() {
       {!fleet.error && fleet.data && fleet.data.totalElements === 0 && (
         <EmptyState
           icon={PackageOpen}
-          title="Aún no publicas maquinaria"
+          title={t('fleet.emptyTitle')}
           description={
             publisher
-              ? 'Publica tu primer equipo con fotos y tarifas, y empieza a recibir solicitudes de otras constructoras.'
-              : 'Pide a un administrador de tu empresa que publique los equipos.'
+              ? t('fleet.emptyPublisher')
+              : t('fleet.emptyOther')
           }
           action={publisher && <PublishButton />}
         />

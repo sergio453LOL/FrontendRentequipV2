@@ -1,38 +1,22 @@
 import { AxiosError } from 'axios'
+import i18n from '../i18n'
+import type { es } from '../i18n/es'
 import type { ErrorResponse, FieldValidationError } from '../types'
 
-const STATUS_MESSAGES: Record<number, string> = {
-  400: 'Revisa los datos ingresados e inténtalo nuevamente.',
-  401: 'Tu sesión no es válida. Inicia sesión nuevamente.',
-  403: 'No tienes permisos para realizar esta acción.',
-  404: 'No encontramos el recurso solicitado.',
-  409: 'La operación entra en conflicto con el estado actual de los datos.',
-  422: 'La operación no cumple las reglas del negocio.',
-  429: 'Demasiadas solicitudes. Espera un momento e inténtalo otra vez.',
-}
+/** HTTP statuses with their own message in i18n `errors.status`. */
+const STATUS_MESSAGES = new Set([400, 401, 403, 404, 409, 422, 429])
 
-/** Business errors whose code says more than the HTTP status alone. */
-const CODE_MESSAGES: Record<string, string> = {
-  DUPLICATE_RESOURCE: 'Ya existe un registro con esos datos (RUC o correo).',
-  EQUIPMENT_NOT_AVAILABLE: 'La maquinaria ya está reservada en esas fechas. Prueba con otro rango.',
-  EQUIPMENT_UNAVAILABLE: 'Esta maquinaria no está disponible para alquiler en este momento.',
-  INVALID_RESERVATION_DATES: 'Las fechas de la reserva no son válidas.',
-  INVALID_STATUS_TRANSITION: 'La reserva ya cambió de estado. Actualiza la lista e inténtalo otra vez.',
-  INVALID_OPERATION: 'No se puede realizar esta operación.',
-  FORBIDDEN_OPERATION: 'No tienes permisos para realizar esta acción.',
-  RESOURCE_NOT_FOUND: 'No encontramos el recurso solicitado.',
-  FILE_TOO_LARGE: 'La imagen supera el máximo de 5 MB.',
-}
+/** Business errors whose code says more than the HTTP status alone (i18n `errors.code`). */
+type MessageCode = keyof typeof es.errors.code
+const isMessageCode = (code: string): code is MessageCode => i18n.exists(`errors.code.${code}`)
 
 /** Codes whose backend message is already written for the end user (e.g. the bank's decline reason). */
-const USER_FACING_CODES = new Set(['PAYMENT_DECLINED'])
+const USER_FACING_CODES = new Set(['PAYMENT_DECLINED', 'DELIVERY_FAILED', 'CHANNEL_NOT_CONFIGURED'])
 
-const SERVER_ERROR_MESSAGE = 'Ocurrió un error en el servidor. Inténtalo más tarde.'
-const NETWORK_ERROR_MESSAGE = 'No pudimos conectarnos con el servidor. Revisa tu conexión.'
-const TIMEOUT_MESSAGE = 'El servidor tardó demasiado en responder. Inténtalo nuevamente.'
-const UNKNOWN_ERROR_MESSAGE = 'Ocurrió un error inesperado.'
-
-/** Normalized error thrown by the API layer. `message` is always safe to show to the user. */
+/**
+ * Normalized error thrown by the API layer. `message` is always safe to show to the user, in the language
+ * active when the error happened.
+ */
 export class ApiError extends Error {
   readonly status: number
   readonly code: string | undefined
@@ -70,18 +54,23 @@ export class ApiError extends Error {
     const response = error.response
     if (!response) {
       const isTimeout = error.code === AxiosError.ECONNABORTED || error.code === AxiosError.ETIMEDOUT
-      return new ApiError(isTimeout ? TIMEOUT_MESSAGE : NETWORK_ERROR_MESSAGE, { status: 0, code: error.code })
+      return new ApiError(i18n.t(isTimeout ? 'errors.timeout' : 'errors.network'), { status: 0, code: error.code })
     }
 
     const { status, data } = response
     const codeMessage =
       data?.code && USER_FACING_CODES.has(data.code) && data.message
         ? data.message
-        : data?.code
-          ? CODE_MESSAGES[data.code]
+        : data?.code && isMessageCode(data.code)
+          ? i18n.t(`errors.code.${data.code}`)
           : undefined
     const message =
-      status >= 500 ? SERVER_ERROR_MESSAGE : (codeMessage ?? STATUS_MESSAGES[status] ?? UNKNOWN_ERROR_MESSAGE)
+      codeMessage ??
+      (status >= 500
+        ? i18n.t('errors.server')
+        : STATUS_MESSAGES.has(status)
+          ? i18n.t(`errors.status.http${status as 400}`)
+          : i18n.t('errors.unknown'))
     return new ApiError(message, {
       status,
       code: data?.code,
@@ -93,7 +82,7 @@ export class ApiError extends Error {
   static from(error: unknown): ApiError {
     if (error instanceof ApiError) return error
     if (error instanceof AxiosError) return ApiError.fromAxios(error)
-    return new ApiError(UNKNOWN_ERROR_MESSAGE, { status: -1 })
+    return new ApiError(i18n.t('errors.unknown'), { status: -1 })
   }
 }
 

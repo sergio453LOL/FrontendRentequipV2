@@ -1,7 +1,9 @@
 import { CalendarX2, Check, CreditCard, FileDown, FilterX, Flag, Play, Search, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Button } from '../components/common/Button'
+import { ReceiptShareButtons } from '../components/receipts/ReceiptShareButtons'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { EmptyState } from '../components/common/EmptyState'
 import { ErrorState } from '../components/common/ErrorState'
@@ -26,60 +28,22 @@ import type { PageResponse, Reservation, ReservationRole, ReservationStatus } fr
 import { cn } from '../utils/cn'
 import { downloadReceipt } from '../utils/downloadReceipt'
 import { formatNumber } from '../utils/format'
-import { RESERVATION_ROLE_LABELS, RESERVATION_STATUS_LABELS, RESERVATION_STATUSES } from '../utils/labels'
+import { RESERVATION_STATUSES } from '../utils/labels'
 
 type ReservationAction = 'confirm' | 'reject' | 'cancel' | 'start' | 'complete'
 
+/** How each action asks for confirmation; its texts live in i18n `reservations.actions`. */
 interface ActionConfig {
-  label: string
-  title: string
-  message: string
-  success: string
   variant: 'primary' | 'danger'
   askForReason: boolean
 }
 
 const ACTIONS: Record<ReservationAction, ActionConfig> = {
-  confirm: {
-    label: 'Confirmar',
-    title: 'Confirmar reserva',
-    message: 'El equipo quedará reservado para esta empresa en las fechas indicadas.',
-    success: 'Reserva confirmada',
-    variant: 'primary',
-    askForReason: false,
-  },
-  reject: {
-    label: 'Rechazar',
-    title: 'Rechazar solicitud',
-    message: 'La empresa solicitante será notificada y las fechas quedarán libres.',
-    success: 'Solicitud rechazada',
-    variant: 'danger',
-    askForReason: true,
-  },
-  cancel: {
-    label: 'Cancelar reserva',
-    title: 'Cancelar reserva',
-    message: 'Esta acción no se puede deshacer. La otra empresa será notificada.',
-    success: 'Reserva cancelada',
-    variant: 'danger',
-    askForReason: true,
-  },
-  start: {
-    label: 'Iniciar alquiler',
-    title: 'Iniciar alquiler',
-    message: 'Confirma que el equipo fue entregado y el alquiler está en curso.',
-    success: 'Alquiler iniciado',
-    variant: 'primary',
-    askForReason: false,
-  },
-  complete: {
-    label: 'Finalizar',
-    title: 'Finalizar alquiler',
-    message: 'Confirma que el equipo fue devuelto. La reserva quedará completada.',
-    success: 'Alquiler finalizado',
-    variant: 'primary',
-    askForReason: false,
-  },
+  confirm: { variant: 'primary', askForReason: false },
+  reject: { variant: 'danger', askForReason: true },
+  cancel: { variant: 'danger', askForReason: true },
+  start: { variant: 'primary', askForReason: false },
+  complete: { variant: 'primary', askForReason: false },
 }
 
 const ACTION_ICONS = { confirm: Check, reject: X, cancel: CalendarX2, start: Play, complete: Flag } as const
@@ -137,16 +101,6 @@ function useStatusCounts(role: ReservationRole, reloadKey: number): Record<strin
   return result?.key === key ? result.counts : null
 }
 
-const STATUS_CARD_LABELS: Record<ReservationStatus | typeof ALL, string> = {
-  ALL: 'Todas',
-  PENDING: 'Pendientes',
-  CONFIRMED: 'Confirmadas',
-  IN_PROGRESS: 'En curso',
-  COMPLETED: 'Completadas',
-  CANCELLED: 'Canceladas',
-  REJECTED: 'Rechazadas',
-}
-
 function isReservationRole(value: string): value is ReservationRole {
   return value === 'RENTER' || value === 'OWNER'
 }
@@ -156,6 +110,7 @@ function isReservationStatus(value: string): value is ReservationStatus {
 }
 
 export default function MyReservationsPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [roleParam] = useQueryParam('role', 'RENTER')
   const [statusParam, setStatusParam] = useQueryParam('status')
@@ -187,16 +142,17 @@ export default function MyReservationsPage() {
     try {
       await downloadReceipt(reservation, await paymentService.list(reservation.id))
     } catch {
-      toast.error('No pudimos generar el comprobante', 'Inténtalo nuevamente en unos segundos.')
+      toast.error(t('reservations.receiptFailed'), t('reservations.receiptRetry'))
     } finally {
       setDownloadingId(null)
     }
   }
   const pendingConfig = pending ? ACTIONS[pending.action] : null
+  const pendingText = pending ? (key: 'label' | 'title' | 'message' | 'success') => t(`reservations.actions.${pending.action}.${key}`) : null
 
   const performAction = useMutation(runAction, {
-    successMessage: () => (pendingConfig ? pendingConfig.success : 'Reserva actualizada'),
-    errorTitle: 'No se pudo actualizar la reserva',
+    successMessage: () => (pendingText ? pendingText('success') : t('reservations.updated')),
+    errorTitle: t('reservations.updateFailed'),
     onSuccess: () => {
       setPending(null)
       refetch()
@@ -212,7 +168,7 @@ export default function MyReservationsPage() {
       <>
         {canPay && (
           <Button size="sm" variant="action" onClick={() => setPayingReservation(reservation)} leftIcon={<CreditCard className="size-4" />}>
-            Pagar
+            {t('reservations.pay')}
           </Button>
         )}
         {reservation.paymentStatus !== 'UNPAID' && (
@@ -222,11 +178,12 @@ export default function MyReservationsPage() {
             isLoading={downloadingId === reservation.id}
             onClick={() => void handleDownloadReceipt(reservation)}
             leftIcon={<FileDown className="size-4" />}
-            aria-label={'Descargar comprobante PDF de ' + reservation.equipmentName}
+            aria-label={t('reservations.downloadReceiptOf', { name: reservation.equipmentName })}
           >
-            Comprobante PDF
+            {t('reservations.receiptPdf')}
           </Button>
         )}
+        {role === 'RENTER' && reservation.paymentStatus === 'PAID' && <ReceiptShareButtons reservationId={reservation.id} size="sm" />}
         {availableActions(reservation, role, canManage).map((action) => {
           const Icon = ACTION_ICONS[action]
           const isNegative = action === 'reject' || action === 'cancel'
@@ -239,7 +196,7 @@ export default function MyReservationsPage() {
               onClick={() => setPending({ action, reservation })}
               leftIcon={<Icon className="size-4" />}
             >
-              {ACTIONS[action].label}
+              {t(`reservations.actions.${action}.label`)}
             </Button>
           )
         })}
@@ -250,17 +207,13 @@ export default function MyReservationsPage() {
   return (
     <div className="mx-auto max-w-[1100px] space-y-6">
       <PageHeader
-        title={RESERVATION_ROLE_LABELS[role]}
-        description={
-          role === 'RENTER'
-            ? 'Tus alquileres en orden de fecha: paga, descarga el comprobante y sigue cada solicitud.'
-            : 'Lo que otras empresas reservan de tu flota: confirma, entrega y cierra cada alquiler.'
-        }
-        breadcrumbs={[{ label: RESERVATION_ROLE_LABELS[role] }]}
+        title={t(`status.reservationRole.${role}`)}
+        description={role === 'RENTER' ? t('reservations.renterDescription') : t('reservations.ownerDescription')}
+        breadcrumbs={[{ label: t(`status.reservationRole.${role}`) }]}
       />
 
       <div className="-mx-4 overflow-x-auto border-b border-slate-200 px-4 sm:mx-0 sm:px-0">
-        <div role="tablist" aria-label="Filtrar por estado" className="-mb-px flex gap-6">
+        <div role="tablist" aria-label={t('reservations.filterByStatus')} className="-mb-px flex gap-6">
           {([ALL, ...RESERVATION_STATUSES] as const).map((value) => {
             const isSelected = (status ?? ALL) === value
             const count = counts?.[value]
@@ -276,7 +229,7 @@ export default function MyReservationsPage() {
                   isSelected ? 'border-brand text-ink' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-ink',
                 )}
               >
-                {STATUS_CARD_LABELS[value]}
+                {t(`reservations.tabs.${value}`)}
                 <span className={cn('num rounded-full px-2 py-0.5 text-xs', isSelected ? 'bg-ink text-white' : 'bg-slate-100 text-slate-600')}>
                   {count === undefined ? '–' : formatNumber(count)}
                 </span>
@@ -292,18 +245,18 @@ export default function MyReservationsPage() {
       {!error && data && data.totalElements === 0 && (
         <EmptyState
           icon={CalendarX2}
-          title={status ? 'No tienes reservas "' + RESERVATION_STATUS_LABELS[status].toLowerCase() + '"' : 'Todavía no hay reservas'}
+          title={status ? t('reservations.emptyWithStatus', { status: t(`status.reservation.${status}`).toLowerCase() }) : t('reservations.empty')}
           description={
             status
-              ? 'Quita el filtro de estado para ver el resto de tu historial.'
+              ? t('reservations.emptyWithStatusText')
               : role === 'RENTER'
-                ? 'Explora el catálogo y solicita la maquinaria que necesitas para tu obra.'
-                : 'Cuando otras empresas reserven tus equipos, las solicitudes aparecerán aquí.'
+                ? t('reservations.emptyRenterText')
+                : t('reservations.emptyOwnerText')
           }
           action={
             status ? (
               <Button variant="secondary" onClick={() => setStatusParam('')} leftIcon={<FilterX className="size-4" />}>
-                Ver todas
+                {t('reservations.seeAll')}
               </Button>
             ) : (
               role === 'RENTER' && (
@@ -311,7 +264,7 @@ export default function MyReservationsPage() {
                   to={PATHS.catalog}
                   className="inline-flex h-9 items-center gap-2 rounded-md bg-action px-3.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-action-hover active:scale-[0.98]"
                 >
-                  <Search className="size-4" aria-hidden="true" /> Explorar catálogo
+                  <Search className="size-4" aria-hidden="true" /> {t('reservations.exploreCatalog')}
                 </Link>
               )
             )
@@ -344,12 +297,12 @@ export default function MyReservationsPage() {
         />
       )}
 
-      {pending && pendingConfig && (
+      {pending && pendingConfig && pendingText && (
         <ConfirmDialog
           isOpen
-          title={pendingConfig.title}
-          message={`${pending.reservation.equipmentName}: ${pendingConfig.message}`}
-          confirmLabel={pendingConfig.label}
+          title={pendingText('title')}
+          message={`${pending.reservation.equipmentName}: ${pendingText('message')}`}
+          confirmLabel={pendingText('label')}
           variant={pendingConfig.variant}
           askForReason={pendingConfig.askForReason}
           isLoading={performAction.isLoading}

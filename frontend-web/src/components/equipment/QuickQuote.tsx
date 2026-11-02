@@ -1,5 +1,6 @@
 import { Minus, Plus } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Equipment } from '../../types'
 import { formatCurrency } from '../../utils/format'
 
@@ -10,8 +11,11 @@ const MAX_DAYS = 90
  * Rough total before asking for dates: days × daily rate plus the refundable deposit, the same way the
  * backend bills a reservation.
  */
-export function QuickQuote({ equipment }: { equipment: Equipment }) {
-  const [days, setDays] = useState(3)
+export function QuickQuote({ equipment, selectedDays }: { equipment: Equipment; selectedDays?: number }) {
+  const { t } = useTranslation()
+  const [chosenDays, setDays] = useState(3)
+  // Dates picked on the calendar win over the stepper, so the quote matches what will be booked.
+  const days = selectedDays ?? chosenDays
   const rental = days * equipment.dailyRate
   const total = rental + equipment.securityDeposit
   const change = (delta: number) => setDays((current) => Math.min(MAX_DAYS, Math.max(MIN_DAYS, current + delta)))
@@ -20,20 +24,23 @@ export function QuickQuote({ equipment }: { equipment: Equipment }) {
     <section aria-labelledby="quote-title" className="rounded-lg bg-slate-50 p-4 ring-1 ring-slate-200 ring-inset">
       <div className="flex items-center justify-between gap-3">
         <h3 id="quote-title" className="text-sm font-bold text-ink">
-          Cotizador rápido
+          {t('quote.title')}
         </h3>
+        {selectedDays !== undefined ? (
+          <span className="rounded-full bg-accent-tint px-2.5 py-0.5 text-xs font-semibold text-amber-900">{t('quote.fromDates')}</span>
+        ) : (
         <div className="flex items-center rounded-md border border-slate-300 bg-white">
           <button
             type="button"
             onClick={() => change(-1)}
             disabled={days <= MIN_DAYS}
-            aria-label="Un día menos"
+            aria-label={t('quote.dayLess')}
             className="flex size-8 items-center justify-center text-slate-600 transition-colors hover:text-ink disabled:opacity-40"
           >
             <Minus className="size-4" />
           </button>
           <label htmlFor="quote-days" className="sr-only">
-            Días de alquiler
+            {t('quote.days')}
           </label>
           <input
             id="quote-days"
@@ -52,27 +59,28 @@ export function QuickQuote({ equipment }: { equipment: Equipment }) {
             type="button"
             onClick={() => change(1)}
             disabled={days >= MAX_DAYS}
-            aria-label="Un día más"
+            aria-label={t('quote.dayMore')}
             className="flex size-8 items-center justify-center text-slate-600 transition-colors hover:text-ink disabled:opacity-40"
           >
             <Plus className="size-4" />
           </button>
         </div>
+        )}
       </div>
 
       <dl className="mt-3 space-y-1.5 text-sm" aria-live="polite">
         <div className="flex justify-between gap-3">
           <dt className="text-slate-600">
-            Alquiler ({days} {days === 1 ? 'día' : 'días'} × {formatCurrency(equipment.dailyRate, equipment.currency)})
+            {t('quote.rental', { days: t('common.day', { count: days }), rate: formatCurrency(equipment.dailyRate, equipment.currency) })}
           </dt>
           <dd className="num font-semibold text-ink">{formatCurrency(rental, equipment.currency)}</dd>
         </div>
         <div className="flex justify-between gap-3">
-          <dt className="text-slate-600">Garantía reembolsable</dt>
+          <dt className="text-slate-600">{t('quote.deposit')}</dt>
           <dd className="num font-semibold text-ink">{formatCurrency(equipment.securityDeposit, equipment.currency)}</dd>
         </div>
         <div className="flex justify-between gap-3 border-t border-slate-200 pt-2">
-          <dt className="font-bold text-ink">Total a pagar</dt>
+          <dt className="font-bold text-ink">{t('quote.total')}</dt>
           <dd className="num text-base font-bold text-ink">{formatCurrency(total, equipment.currency)}</dd>
         </div>
       </dl>

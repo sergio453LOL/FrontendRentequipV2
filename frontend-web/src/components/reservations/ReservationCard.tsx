@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { buildPath } from '../../routes/paths'
 import type { Reservation, ReservationRole } from '../../types'
@@ -13,7 +14,8 @@ interface ReservationCardProps {
 
 /** One reservation as a row: what and when on the left, the money on the right, its actions under it. */
 export function ReservationCard({ reservation, role, actions }: ReservationCardProps) {
-  const days = `${reservation.totalDays} ${reservation.totalDays === 1 ? 'día' : 'días'}`
+  const { t } = useTranslation()
+  const days = t('common.day', { count: reservation.totalDays })
   return (
     <article className="flex flex-col gap-3 px-5 py-4 md:flex-row md:items-start md:gap-6">
       <div className="min-w-0 flex-1 space-y-1">
@@ -39,7 +41,7 @@ export function ReservationCard({ reservation, role, actions }: ReservationCardP
         <p className="md:text-right">
           <span className="num block text-lg font-bold text-ink">{formatCurrency(reservation.totalAmount, reservation.currency)}</span>
           <span className="num text-xs text-slate-500">
-            incluye {formatCurrency(reservation.securityDeposit, reservation.currency)} de garantía
+            {t('reservation.includesDeposit', { price: formatCurrency(reservation.securityDeposit, reservation.currency) })}
           </span>
         </p>
         {actions && <div className="flex flex-wrap items-center gap-1 md:justify-end">{actions}</div>}

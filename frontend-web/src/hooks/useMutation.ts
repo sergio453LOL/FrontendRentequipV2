@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import i18n from '../i18n'
 import { ApiError } from '../utils/apiError'
 import { useToast } from './useToast'
 
@@ -44,7 +45,7 @@ export function useMutation<TArgs extends unknown[], TResult>(
       setIsLoading(true)
       setError(null)
 
-      const { successMessage, errorTitle = 'No se pudo completar la acción', showErrorToast = true, onSuccess, onError } =
+      const { successMessage, errorTitle = i18n.t('errors.actionFailed'), showErrorToast = true, onSuccess, onError } =
         optionsRef.current
       try {
         const result = await mutationFn(...args)
