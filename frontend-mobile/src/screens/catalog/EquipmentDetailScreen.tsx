@@ -16,6 +16,7 @@ import { equipmentService, reservationService } from '../../services/rentequipAp
 import { colors, radius, spacing, typography } from '../../theme'
 import type { Equipment, IsoDate } from '../../types/api'
 import { formatCurrency, rentalDays, todayIso } from '../../utils/format'
+import { photoCredit } from '../../utils/photoCredits'
 
 const MAX_RENTAL_DAYS = 365
 const MAX_NOTES = 500
@@ -32,6 +33,7 @@ function parseSpecifications(text: string | null): { label: string; value: strin
 function Gallery({ images, width }: { images: string[]; width: number }) {
   const [index, setIndex] = useState(0)
   if (images.length === 0) return <EquipmentImage uri={null} height={240} />
+  const credit = photoCredit(images[index])
   return (
     <View>
       <ScrollView
@@ -54,6 +56,7 @@ function Gallery({ images, width }: { images: string[]; width: number }) {
           ))}
         </View>
       )}
+      {credit && <Text style={styles.photoCredit}>{credit}</Text>}
     </View>
   )
 }
@@ -240,6 +243,7 @@ const styles = StyleSheet.create({
   body: { padding: spacing.lg, gap: spacing.md },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, position: 'absolute', bottom: 10, left: 0, right: 0 },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.6)' },
+  photoCredit: { ...typography.caption, fontSize: 11, paddingHorizontal: spacing.md, paddingTop: spacing.xs },
   dotActive: { backgroundColor: colors.brand, width: 18 },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   rating: { fontSize: 14, fontWeight: '700', color: colors.ink },

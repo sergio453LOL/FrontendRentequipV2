@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import { cn } from '../../utils/cn'
 
 interface ModalProps {
@@ -18,6 +19,7 @@ const SIZE_CLASSES = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl' } as cons
 
 export function Modal({ isOpen, title, onClose, children, footer, size = 'md', isDismissable = true }: ModalProps) {
   const titleId = useId()
+  const { t } = useTranslation()
   const dialogRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -71,7 +73,7 @@ export function Modal({ isOpen, title, onClose, children, footer, size = 'md', i
             type="button"
             onClick={onClose}
             disabled={!isDismissable}
-            aria-label="Cerrar"
+            aria-label={t('common.close')}
             className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
           >
             <X className="size-5" />

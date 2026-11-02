@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion'
 import { useId } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '../../utils/cn'
-import { MODE_LABELS, type WorkspaceMode } from '../../utils/workspaceMode'
+import type { WorkspaceMode } from '../../utils/workspaceMode'
 
 interface ModeSwitchProps {
   mode: WorkspaceMode
@@ -17,10 +18,11 @@ interface ModeSwitchProps {
 export function ModeSwitch({ mode, onChange, tone = 'light', className }: ModeSwitchProps) {
   // One indicator per switch instance, so the header and the phone menu animate independently.
   const indicatorId = useId()
+  const { t } = useTranslation()
   return (
     <div
       role="radiogroup"
-      aria-label="Perspectiva"
+      aria-label={t('modes.perspective')}
       className={cn('relative grid grid-cols-2 rounded-xl p-1', tone === 'dark' ? 'bg-white/10' : 'bg-slate-100 ring-1 ring-slate-200/80 ring-inset', className)}
     >
       {(['renter', 'owner'] as const).map((option) => {
@@ -34,7 +36,7 @@ export function ModeSwitch({ mode, onChange, tone = 'light', className }: ModeSw
             onClick={() => !isActive && onChange(option)}
             className={cn(
               'relative flex h-10 min-w-0 flex-col items-center justify-center rounded-lg px-3 leading-tight transition-colors duration-200',
-              isActive ? 'text-ink' : tone === 'dark' ? 'text-slate-300 hover:text-white' : 'text-slate-500 hover:text-ink',
+              isActive ? 'text-on-brand' : tone === 'dark' ? 'text-slate-300 hover:text-white' : 'text-slate-500 hover:text-ink',
             )}
           >
             {isActive && (
@@ -44,9 +46,9 @@ export function ModeSwitch({ mode, onChange, tone = 'light', className }: ModeSw
                 transition={{ type: 'spring', stiffness: 420, damping: 34 }}
               />
             )}
-            <span className="relative truncate text-[13px] font-bold">{MODE_LABELS[option].title}</span>
-            <span className={cn('relative truncate text-[11px] font-medium', isActive ? 'text-ink/70' : 'opacity-80')}>
-              {MODE_LABELS[option].caption}
+            <span className="relative truncate text-[13px] font-bold">{t(`modes.${option}.title`)}</span>
+            <span className={cn('relative truncate text-[11px] font-medium', isActive ? 'text-on-brand/70' : 'opacity-80')}>
+              {t(`modes.${option}.caption`)}
             </span>
           </button>
         )

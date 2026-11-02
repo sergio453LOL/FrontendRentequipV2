@@ -1,12 +1,14 @@
 import { motion } from 'framer-motion'
 import { CheckCircle2, FileDown } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useToast } from '../../hooks/useToast'
 import type { Payment, Reservation } from '../../types'
 import { celebrate } from '../../utils/celebrate'
 import { downloadReceipt } from '../../utils/downloadReceipt'
 import { formatCurrency } from '../../utils/format'
 import { Button } from '../common/Button'
+import { ReceiptShareButtons } from '../receipts/ReceiptShareButtons'
 
 interface PaymentSuccessProps {
   reservation: Reservation
@@ -15,7 +17,8 @@ interface PaymentSuccessProps {
   doneLabel?: string
 }
 
-export function PaymentSuccess({ reservation, payments, onDone, doneLabel = 'Listo' }: PaymentSuccessProps) {
+export function PaymentSuccess({ reservation, payments, onDone, doneLabel }: PaymentSuccessProps) {
+  const { t } = useTranslation()
   const toast = useToast()
   const [isGenerating, setIsGenerating] = useState(false)
 
@@ -26,7 +29,7 @@ export function PaymentSuccess({ reservation, payments, onDone, doneLabel = 'Lis
     try {
       await downloadReceipt(reservation, payments)
     } catch {
-      toast.error('No pudimos generar el comprobante', 'Inténtalo nuevamente en unos segundos.')
+      toast.error(t('reservations.receiptFailed'), t('reservations.receiptRetry'))
     } finally {
       setIsGenerating(false)
     }
@@ -43,18 +46,22 @@ export function PaymentSuccess({ reservation, payments, onDone, doneLabel = 'Lis
         <CheckCircle2 className="size-10 text-status-green" aria-hidden="true" />
       </motion.span>
       <div className="space-y-1">
-        <h3 className="text-lg font-semibold text-slate-900">¡Pago confirmado!</h3>
+        <h3 className="text-lg font-semibold text-slate-900">{t('payment.confirmed')}</h3>
         <p className="text-sm text-slate-600">
-          Cobramos {formatCurrency(reservation.rentalAmount, reservation.currency)} del alquiler y retuvimos{' '}
-          {formatCurrency(reservation.securityDeposit, reservation.currency)} de garantía. El propietario ya puede
-          confirmar tu reserva.
+          {t('payment.confirmedText', {
+            rental: formatCurrency(reservation.rentalAmount, reservation.currency),
+            deposit: formatCurrency(reservation.securityDeposit, reservation.currency),
+          })}
         </p>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button variant="secondary" onClick={handleDownload} isLoading={isGenerating} leftIcon={<FileDown className="size-4" />}>
-          Descargar comprobante PDF
+          {t('payment.downloadPdf')}
         </Button>
-        <Button onClick={onDone}>{doneLabel}</Button>
+        <Button onClick={onDone}>{doneLabel ?? t('payment.done')}</Button>
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <ReceiptShareButtons reservationId={reservation.id} size="sm" />
       </div>
     </div>
   )

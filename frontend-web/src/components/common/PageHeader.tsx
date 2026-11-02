@@ -1,5 +1,6 @@
 import { ChevronRight, Home } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { PATHS } from '../../routes/paths'
 
@@ -16,11 +17,12 @@ interface PageHeaderProps {
 }
 
 export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
+  const { t } = useTranslation()
   return (
-    <nav aria-label="Ruta de navegación">
+    <nav aria-label={t('nav.breadcrumbs')}>
       <ol className="flex flex-wrap items-center gap-1 text-[13px] text-slate-500">
         <li>
-          <Link to={PATHS.home} className="flex items-center hover:text-slate-900" aria-label="Inicio">
+          <Link to={PATHS.home} className="flex items-center hover:text-slate-900" aria-label={t('common.home')}>
             <Home className="size-3.5" />
           </Link>
         </li>

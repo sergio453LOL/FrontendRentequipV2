@@ -1,5 +1,7 @@
 import type { CSSProperties } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
+import { currentLocale } from '../../i18n'
 import { buildPath } from '../../routes/paths'
 import type { EquipmentSummary, Reservation } from '../../types'
 import { cn } from '../../utils/cn'
@@ -21,15 +23,16 @@ const BAR_CLASSES: Record<BarKind, string> = {
 }
 
 export function TimelineLegend() {
+  const { t } = useTranslation()
   return (
-    <ul className="flex items-center gap-4 text-xs text-slate-500" aria-label="Leyenda">
+    <ul className="flex items-center gap-4 text-xs text-slate-500" aria-label={t('fleet.timeline.legend')}>
       <li className="flex items-center gap-1.5">
         <span className={cn('h-2.5 w-4 rounded-[3px]', BAR_CLASSES.confirmed)} aria-hidden="true" />
-        Reservada
+        {t('fleet.timeline.booked')}
       </li>
       <li className="flex items-center gap-1.5">
         <span className={cn('h-2.5 w-4 rounded-[3px]', BAR_CLASSES.pending)} aria-hidden="true" />
-        Por confirmar
+        {t('fleet.timeline.pending')}
       </li>
     </ul>
   )
@@ -49,6 +52,7 @@ interface FleetTimelineProps {
  * bar. A confirmed booking is a filled amber bar; a request still waiting for an answer is dashed.
  */
 export function FleetTimeline({ equipment, reservations, from, days: dayCount = TIMELINE_DAYS, compact = false }: FleetTimelineProps) {
+  const { t } = useTranslation()
   const days = Array.from({ length: dayCount }, (_, index) => addDays(from, index))
   const grid: CSSProperties = { gridTemplateColumns: `${compact ? 48 : 220}px repeat(${dayCount}, minmax(0, 1fr))` }
 
@@ -64,7 +68,7 @@ export function FleetTimeline({ equipment, reservations, from, days: dayCount = 
               <span key={index} className="relative h-full">
                 {(index === 0 || isMonday) && (
                   <span className={cn('absolute bottom-1.5 left-0 text-xs whitespace-nowrap', index === 0 ? 'font-medium text-ink' : 'text-slate-500')}>
-                    {index === 0 ? 'Hoy' : day.toLocaleDateString('es-PE', { day: 'numeric', month: 'short' })}
+                    {index === 0 ? t('fleet.timeline.today') : day.toLocaleDateString(currentLocale(), { day: 'numeric', month: 'short' })}
                   </span>
                 )}
               </span>
@@ -89,7 +93,7 @@ export function FleetTimeline({ equipment, reservations, from, days: dayCount = 
                     <p className="truncate text-sm font-medium text-ink" title={machine.name}>
                       {machine.brand} {machine.model}
                     </p>
-                    <p className="num truncate text-xs text-slate-500">{formatCurrency(machine.dailyRate, machine.currency)} / día</p>
+                    <p className="num truncate text-xs text-slate-500">{formatCurrency(machine.dailyRate, machine.currency)} {t('common.perDay')}</p>
                   </span>
                 </Link>
 
@@ -115,7 +119,7 @@ export function FleetTimeline({ equipment, reservations, from, days: dayCount = 
                   return (
                     <span
                       key={reservation.id}
-                      title={`${reservation.renterCompanyName} · ${range} · ${kind === 'pending' ? 'por confirmar' : 'reservada'}`}
+                      title={`${reservation.renterCompanyName} · ${range} · ${kind === 'pending' ? t('fleet.timeline.pendingLower') : t('fleet.timeline.bookedLower')}`}
                       className={cn('z-10 mx-px flex h-6 min-w-0 items-center overflow-hidden rounded px-1.5 text-xs font-medium whitespace-nowrap', BAR_CLASSES[kind])}
                       style={{ gridRow: 1, gridColumn: `${start + 2} / span ${span}` }}
                     >

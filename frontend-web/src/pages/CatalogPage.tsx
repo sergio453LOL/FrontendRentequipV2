@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { FilterX, LayoutGrid, Map as MapIcon, SearchX } from 'lucide-react'
 import { lazy, Suspense, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '../components/common/Button'
 import { EmptyState } from '../components/common/EmptyState'
@@ -19,6 +20,7 @@ import { api } from '../services/api'
 import { ENDPOINTS } from '../services/endpoints'
 import type { EquipmentCategory, EquipmentSummary, PageResponse } from '../types'
 import { PERU_CITIES } from '../utils/cities'
+import { categoryName } from '../utils/categoryName'
 import { cn } from '../utils/cn'
 import { formatNumber } from '../utils/format'
 
@@ -30,11 +32,12 @@ const EquipmentMap = lazy(() => import('../components/equipment/EquipmentMap'))
 type CatalogView = 'grid' | 'map'
 
 function ViewToggle({ view, onChange }: { view: CatalogView; onChange: (view: CatalogView) => void }) {
+  const { t } = useTranslation()
   return (
-    <div role="radiogroup" aria-label="Vista del catálogo" className="relative grid h-9 grid-cols-2 rounded-lg bg-slate-100 p-1 ring-1 ring-slate-200/80 ring-inset">
+    <div role="radiogroup" aria-label={t('catalog.view')} className="relative grid h-9 grid-cols-2 rounded-lg bg-slate-100 p-1 ring-1 ring-slate-200/80 ring-inset">
       {([
-        { value: 'grid', label: 'Cuadrícula', icon: LayoutGrid },
-        { value: 'map', label: 'Mapa', icon: MapIcon },
+        { value: 'grid', label: t('catalog.grid'), icon: LayoutGrid },
+        { value: 'map', label: t('catalog.map'), icon: MapIcon },
       ] as const).map(({ value, label, icon: Icon }) => (
         <button
           key={value}
@@ -103,9 +106,13 @@ function CategoryCards({
   selected: string
   onSelect: (value: string) => void
 }) {
-  const items = [{ value: '', id: ALL, name: 'Todas' }, ...categories.map((category) => ({ value: String(category.id), id: String(category.id), name: category.name }))]
+  const { t } = useTranslation()
+  const items = [
+    { value: '', id: ALL, name: t('catalog.all') },
+    ...categories.map((category) => ({ value: String(category.id), id: String(category.id), name: categoryName(category.name) })),
+  ]
   return (
-    <div role="group" aria-label="Tipo de maquinaria" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+    <div role="group" aria-label={t('catalog.type')} className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
       {items.map((item) => {
         const isSelected = selected === item.value
         const count = counts?.[item.id]
@@ -116,7 +123,7 @@ function CategoryCards({
             aria-pressed={isSelected}
             onClick={() => onSelect(item.value)}
             className={cn(
-              'flex h-16 min-w-[132px] shrink-0 flex-col justify-center rounded-xl border px-4 text-left transition-all duration-200 sm:flex-1',
+              'flex h-16 min-w-0 flex-col justify-center rounded-xl border px-4 text-left transition-all duration-200',
               isSelected ? 'border-brand bg-accent-tint ring-1 ring-brand' : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm',
             )}
           >
@@ -132,6 +139,7 @@ function CategoryCards({
 }
 
 export default function CatalogPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [, setSearchParams] = useSearchParams()
   const [query] = useQueryParam('q')
@@ -161,33 +169,33 @@ export default function CatalogPage() {
   return (
     <div className="mx-auto max-w-[1200px] space-y-5">
       <PageHeader
-        title="Catálogo de maquinaria"
+        title={t('catalog.title')}
         description={
           query
-            ? `Resultados para “${query}” en equipos de otras empresas.`
-            : 'Equipos de otras empresas, listos para reservar por días.'
+            ? t('catalog.resultsFor', { query })
+            : t('catalog.description')
         }
-        breadcrumbs={[{ label: 'Catálogo' }]}
+        breadcrumbs={[{ label: t('nav.catalog') }]}
       />
 
       <CatalogSearch id="catalog-page-search" className="sm:hidden" />
 
       {categories.error ? (
-        <p className="text-sm text-slate-600">No pudimos cargar las categorías; puedes buscar por nombre o ciudad.</p>
+        <p className="text-sm text-slate-600">{t('catalog.categoriesError')}</p>
       ) : (
         <CategoryCards categories={categories.data ?? []} counts={counts} selected={categoryId} onSelect={setCategoryId} />
       )}
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <p className="num text-sm text-slate-600" aria-live="polite">
-          {total === undefined ? 'Buscando…' : total === 1 ? '1 máquina' : `${formatNumber(total)} máquinas`}
-          {city && ` en ${city}`}
+          {total === undefined ? t('catalog.searching') : t('catalog.count', { count: total, formatted: formatNumber(total) })}
+          {city && t('catalog.inCity', { city })}
         </p>
         <div className="flex items-end gap-2">
           <ViewToggle view={view} onChange={(next) => setViewParam(next === 'map' ? 'map' : '')} />
           <Select
-            label="Ciudad"
-            placeholder="Todas las ciudades"
+            label={t('catalog.city')}
+            placeholder={t('catalog.allCities')}
             value={city}
             onChange={(event) => setCity(event.target.value)}
             options={PERU_CITIES.map((item) => ({ value: item.name, label: item.name }))}
@@ -195,7 +203,7 @@ export default function CatalogPage() {
           />
           {hasFilters && (
             <Button variant="ghost" onClick={clearFilters} leftIcon={<FilterX className="size-4" />}>
-              Limpiar
+              {t('catalog.clear')}
             </Button>
           )}
         </div>
@@ -208,16 +216,16 @@ export default function CatalogPage() {
       {!results.error && results.data && results.data.totalElements === 0 && (
         <EmptyState
           icon={SearchX}
-          title={hasFilters ? 'No encontramos maquinaria con esos filtros' : 'Aún no hay maquinaria publicada'}
+          title={hasFilters ? t('catalog.noResultsTitle') : t('catalog.emptyTitle')}
           description={
             hasFilters
-              ? 'Prueba con otra búsqueda, otra categoría o quita la ciudad para ver más resultados.'
-              : 'Cuando otras empresas publiquen sus equipos los verás aquí.'
+              ? t('catalog.noResultsText')
+              : t('catalog.emptyText')
           }
           action={
             hasFilters && (
               <Button onClick={clearFilters} leftIcon={<FilterX className="size-4" />}>
-                Limpiar filtros
+                {t('catalog.clearFilters')}
               </Button>
             )
           }
@@ -225,7 +233,7 @@ export default function CatalogPage() {
       )}
 
       {!results.error && results.data && results.data.totalElements > 0 && view === 'map' && (
-        <Suspense fallback={<div className="h-[560px] rounded-2xl border border-slate-200/80 bg-white" aria-busy="true" aria-label="Cargando mapa" />}>
+        <Suspense fallback={<div className="h-[560px] rounded-2xl border border-slate-200/80 bg-white" aria-busy="true" aria-label={t('catalog.loadingMap')} />}>
           <EquipmentMap machines={results.data.content} />
         </Suspense>
       )}

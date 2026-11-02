@@ -1,12 +1,16 @@
 import { Menu, Search, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDebounce } from '../../hooks/useDebounce'
 import { PATHS } from '../../routes/paths'
 import { cn } from '../../utils/cn'
 import type { WorkspaceMode } from '../../utils/workspaceMode'
 import { BrandWordmark } from './BrandMark'
+import { FullscreenToggle } from './FullscreenToggle'
+import { LanguageMenu } from './LanguageMenu'
 import { ModeSwitch } from './ModeSwitch'
+import { ThemeToggle } from './ThemeToggle'
 
 const SEARCH_DEBOUNCE_MS = 400
 
@@ -15,6 +19,7 @@ const SEARCH_DEBOUNCE_MS = 400
  * Enter opens the catalogue with the query.
  */
 function CatalogSearch({ id, className }: { id: string; className?: string }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -55,7 +60,7 @@ function CatalogSearch({ id, className }: { id: string; className?: string }) {
   return (
     <form role="search" onSubmit={handleSubmit} className={cn('relative', className)}>
       <label htmlFor={id} className="sr-only">
-        Buscar maquinaria en el catálogo
+        {t('nav.searchLabel')}
       </label>
       <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
       <input
@@ -63,7 +68,7 @@ function CatalogSearch({ id, className }: { id: string; className?: string }) {
         type="search"
         value={text}
         onChange={(event) => setText(event.target.value)}
-        placeholder="Buscar excavadora, grúa, rodillo…"
+        placeholder={t('nav.searchPlaceholder')}
         autoComplete="off"
         className="h-9 w-full rounded-md border border-slate-200 bg-slate-50 pr-3 pl-9 text-sm text-ink transition-colors placeholder:text-slate-500 focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/30 focus:outline-none"
       />
@@ -79,19 +84,23 @@ interface TopBarProps {
   isAssistantOpen: boolean
 }
 
-/** White header: the mode switcher on the left, the catalogue search in the middle, the assistant on the right. */
+/**
+ * White header: the mode switcher on the left, the catalogue search in the middle, the assistant and the
+ * theme toggle on the right.
+ */
 export function TopBar({ mode, onModeChange, onOpenMenu, onToggleAssistant, isAssistantOpen }: TopBarProps) {
+  const { t } = useTranslation()
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-2 sm:px-4 lg:px-6">
       <button
         type="button"
         onClick={onOpenMenu}
-        aria-label="Abrir menú"
+        aria-label={t('nav.openMenu')}
         className="flex size-10 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 lg:hidden"
       >
         <Menu className="size-5" />
       </button>
-      <Link to={PATHS.home} className="lg:hidden" aria-label="RentEquip, ir al panel">
+      <Link to={PATHS.home} className="lg:hidden" aria-label={t('nav.homeLink')}>
         <BrandWordmark />
       </Link>
 
@@ -108,9 +117,12 @@ export function TopBar({ mode, onModeChange, onOpenMenu, onToggleAssistant, isAs
         )}
       >
         <Sparkles className="size-4 text-accent" aria-hidden="true" />
-        <span className="hidden sm:inline">Asistente</span>
-        <span className="sr-only sm:hidden">Asistente de IA</span>
+        <span className="hidden sm:inline">{t('nav.assistant')}</span>
+        <span className="sr-only sm:hidden">{t('nav.assistantLong')}</span>
       </button>
+      <LanguageMenu />
+      <FullscreenToggle />
+      <ThemeToggle />
     </header>
   )
 }

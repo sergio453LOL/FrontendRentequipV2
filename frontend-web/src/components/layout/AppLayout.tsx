@@ -1,7 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { CalendarRange, ClipboardList, LayoutDashboard, PlusCircle, Search, Sparkles, Truck } from 'lucide-react'
 import { Suspense, useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useSidebarCollapsed } from '../../hooks/useSidebarCollapsed'
 import { PATHS } from '../../routes/paths'
 import { PUBLISHER_ROLES } from '../../routes/roles'
 import { MODE_HOME, modeForLocation, readStoredMode, storeMode, type WorkspaceMode } from '../../utils/workspaceMode'
@@ -12,18 +14,21 @@ import { Sidebar, type SidebarItem } from '../common/Sidebar'
 import { FullPageSpinner } from '../common/Spinner'
 import { TopBar } from '../common/TopBar'
 
-const NAVIGATION: Record<WorkspaceMode, SidebarItem[]> = {
+/** Screens of each mode; `label` is an i18n key under `nav`. */
+const NAVIGATION: Record<WorkspaceMode, (Omit<SidebarItem, 'label'> & { label: NavKey })[]> = {
   renter: [
-    { label: 'Catálogo', to: PATHS.catalog, icon: Search },
-    { label: 'Mis reservas', to: `${PATHS.reservations}?role=RENTER`, icon: CalendarRange },
+    { label: 'catalog', to: PATHS.catalog, icon: Search },
+    { label: 'myReservations', to: `${PATHS.reservations}?role=RENTER`, icon: CalendarRange },
   ],
   owner: [
-    { label: 'Panel', to: PATHS.home, icon: LayoutDashboard },
-    { label: 'Mi flota', to: PATHS.fleet, icon: Truck },
-    { label: 'Reservas de mis equipos', to: `${PATHS.reservations}?role=OWNER`, icon: ClipboardList },
-    { label: 'Publicar maquinaria', to: PATHS.publishEquipment, icon: PlusCircle, allowedRoles: PUBLISHER_ROLES },
+    { label: 'dashboard', to: PATHS.home, icon: LayoutDashboard },
+    { label: 'fleet', to: PATHS.fleet, icon: Truck },
+    { label: 'ownerReservations', to: `${PATHS.reservations}?role=OWNER`, icon: ClipboardList },
+    { label: 'publish', to: PATHS.publishEquipment, icon: PlusCircle, allowedRoles: PUBLISHER_ROLES },
   ],
 }
+
+type NavKey = 'catalog' | 'myReservations' | 'dashboard' | 'fleet' | 'ownerReservations' | 'publish'
 
 /**
  * Asphalt sidebar, white header and the screen on a light slate ground. The navigation follows the
@@ -31,9 +36,11 @@ const NAVIGATION: Record<WorkspaceMode, SidebarItem[]> = {
  * fleet, requests, publish).
  */
 export function AppLayout() {
+  const { t } = useTranslation()
   const { pathname, search } = useLocation()
   const navigate = useNavigate()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isSidebarCollapsed, toggleSidebar] = useSidebarCollapsed()
   const [isAssistantOpen, setIsAssistantOpen] = useState(false)
   const [storedMode, setStoredMode] = useState<WorkspaceMode>(readStoredMode)
 
@@ -58,7 +65,15 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen bg-slate-50 lg:flex">
-      <Sidebar items={NAVIGATION[mode]} mode={mode} onModeChange={changeMode} isOpen={isMenuOpen} onClose={closeMenu} />
+      <Sidebar
+        items={NAVIGATION[mode].map((item) => ({ ...item, label: t(`nav.${item.label}`) }))}
+        mode={mode}
+        onModeChange={changeMode}
+        isOpen={isMenuOpen}
+        onClose={closeMenu}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapsed={toggleSidebar}
+      />
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <OfflineBanner />
         <TopBar
@@ -90,12 +105,12 @@ export function AppLayout() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 380, damping: 26 }}
-            aria-label="Abrir asistente de IA"
+            aria-label={t('nav.openAssistant')}
             className="fixed right-5 bottom-5 z-30 flex h-12 items-center gap-2 rounded-full bg-ink pr-5 pl-4 text-sm font-semibold text-white shadow-[0_10px_30px_-6px_rgba(15,23,42,0.55)] ring-2 ring-brand/70"
           >
             <span className="absolute inset-0 -z-10 animate-ping rounded-full bg-brand/25 [animation-duration:2.6s] motion-reduce:hidden" aria-hidden="true" />
             <Sparkles className="size-5 text-brand" aria-hidden="true" />
-            Pregúntale a la IA
+            {t('nav.askAi')}
           </motion.button>
         )}
       </AnimatePresence>

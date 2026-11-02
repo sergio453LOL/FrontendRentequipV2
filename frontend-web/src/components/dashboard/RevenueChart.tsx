@@ -1,4 +1,6 @@
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
+import { currentLocale } from '../../i18n'
 import { cn } from '../../utils/cn'
 import { formatCurrency } from '../../utils/format'
 import type { MonthRevenue } from './ownerMetrics'
@@ -19,6 +21,7 @@ function niceStep(max: number): number {
  * booked, not yet earned) hatched, so a forecast never reads as income already made.
  */
 export function RevenueChart({ months, currency }: { months: MonthRevenue[]; currency: string }) {
+  const { t } = useTranslation()
   const max = Math.max(...months.map((item) => item.amount), 0)
   const step = niceStep(max)
   const top = (Math.floor(max / step) + 1) * step
@@ -65,7 +68,7 @@ export function RevenueChart({ months, currency }: { months: MonthRevenue[]; cur
                       !item.isCurrent && !item.isFuture && 'bg-slate-700',
                       item.isFuture && 'bg-[repeating-linear-gradient(135deg,#fde68a_0,#fde68a_4px,#fef3c7_4px,#fef3c7_8px)] ring-1 ring-amber-300 ring-inset',
                     )}
-                    aria-label={`${item.month.toLocaleDateString('es-PE', { month: 'long' })}: ${formatCurrency(item.amount, currency)}${item.isFuture ? ' programado' : ''}`}
+                    aria-label={`${item.month.toLocaleDateString(currentLocale(), { month: 'long' })}: ${formatCurrency(item.amount, currency)}${item.isFuture ? t('dashboard.chart.scheduled') : ''}`}
                   />
                 </li>
               )
@@ -76,15 +79,15 @@ export function RevenueChart({ months, currency }: { months: MonthRevenue[]; cur
       <ul className="mt-2 ml-[76px] flex justify-around gap-3" aria-hidden="true">
         {months.map((item) => (
           <li key={item.month.toISOString()} className={cn('w-full max-w-16 text-center text-xs capitalize', item.isCurrent ? 'font-bold text-ink' : 'text-slate-500')}>
-            {item.month.toLocaleDateString('es-PE', { month: 'short' }).replace('.', '')}
+            {item.month.toLocaleDateString(currentLocale(), { month: 'short' }).replace('.', '')}
           </li>
         ))}
       </ul>
-      <ul className="mt-4 flex flex-wrap gap-4 text-xs text-slate-600" aria-label="Leyenda">
-        <li className="flex items-center gap-1.5"><span className="size-3 rounded-sm bg-slate-700" aria-hidden="true" /> Cobrado</li>
-        <li className="flex items-center gap-1.5"><span className="size-3 rounded-sm bg-brand" aria-hidden="true" /> Mes actual</li>
+      <ul className="mt-4 flex flex-wrap gap-4 text-xs text-slate-600" aria-label={t('dashboard.chart.legend')}>
+        <li className="flex items-center gap-1.5"><span className="size-3 rounded-sm bg-slate-700" aria-hidden="true" /> {t('dashboard.chart.charged')}</li>
+        <li className="flex items-center gap-1.5"><span className="size-3 rounded-sm bg-brand" aria-hidden="true" /> {t('dashboard.chart.currentMonth')}</li>
         <li className="flex items-center gap-1.5">
-          <span className="size-3 rounded-sm bg-[repeating-linear-gradient(135deg,#fde68a_0,#fde68a_3px,#fef3c7_3px,#fef3c7_6px)] ring-1 ring-amber-300 ring-inset" aria-hidden="true" /> Programado
+          <span className="size-3 rounded-sm bg-[repeating-linear-gradient(135deg,#fde68a_0,#fde68a_3px,#fef3c7_3px,#fef3c7_6px)] ring-1 ring-amber-300 ring-inset" aria-hidden="true" /> {t('dashboard.chart.scheduledLegend')}
         </li>
       </ul>
     </div>
@@ -98,7 +101,7 @@ export function OccupancyRing({ ratio }: { ratio: number }) {
   return (
     <div className="relative size-28 shrink-0">
       <svg viewBox="0 0 100 100" className="size-full -rotate-90" aria-hidden="true">
-        <circle cx="50" cy="50" r={radius} fill="none" stroke="#f1f5f9" strokeWidth="9" />
+        <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--color-slate-100)" strokeWidth="9" />
         <motion.circle
           cx="50"
           cy="50"

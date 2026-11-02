@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { BrandWordmark } from '../common/BrandMark'
+import { LanguageMenu } from '../common/LanguageMenu'
 
 interface AuthLayoutProps {
   title: string
@@ -9,23 +11,41 @@ interface AuthLayoutProps {
   children: ReactNode
 }
 
-/** Login and registration: a machine at work on the left half, the form on white on the right. */
+/**
+ * Clip placement in the tall left panel. A landscape clip cropped to fill the panel would cut the worker,
+ * so it keeps its ratio instead: 150% of the panel's width, which shows the worker and the towers behind
+ * him (centred at 52% of the frame), on the bottom edge. Its top fades into a backdrop of the clip's pale sky.
+ */
+const CLIP_CLASSES =
+  'absolute bottom-0 left-[-28%] h-auto w-[150%] max-w-none [mask-image:linear-gradient(to_bottom,transparent,black_12%)]'
+
+/**
+ * Login and registration: a looping clip of a construction worker over the city on the left half, the form on
+ * white on the right. With "reduce motion" on, the clip's first frame stands still instead.
+ */
 export function AuthLayout({ title, description, width = 'narrow', children }: AuthLayoutProps) {
+  const { t } = useTranslation()
   return (
-    <main className="min-h-screen bg-sheet lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-      <figure className="relative hidden lg:block">
-        <img
-          src="/images/excavadora-cat-320.jpg"
-          alt="Excavadora hidráulica Caterpillar 320 cargando tierra en una obra"
-          className="absolute inset-0 size-full object-cover object-[30%_center]"
+    <main className="theme-light min-h-screen bg-sheet lg:grid lg:grid-cols-2">
+      <figure className="relative hidden overflow-hidden bg-gradient-to-b from-[#eef8fa] to-[#d2eaee] lg:block">
+        <video
+          src="/videos/login.mp4"
+          poster="/videos/login.jpg"
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-hidden="true"
+          className={`${CLIP_CLASSES} motion-reduce:hidden`}
         />
-        <figcaption className="absolute right-0 bottom-0 left-0 bg-black/55 px-6 py-3 text-xs text-white">
-          Foto: «CAT 320 excavator», J. Smith · CC BY-SA 3.0 · Wikimedia Commons
-        </figcaption>
+        <img src="/videos/login.jpg" alt={t('photo.authAlt')} className={`${CLIP_CLASSES} hidden motion-reduce:block`} />
       </figure>
 
       <div className="flex min-h-screen flex-col px-4 py-6 sm:px-10 lg:px-16">
-        <BrandWordmark />
+        <div className="flex items-center justify-between">
+          <BrandWordmark />
+          <LanguageMenu />
+        </div>
         <div className={`m-auto w-full py-10 ${width === 'wide' ? 'max-w-[560px]' : 'max-w-[380px]'}`}>
           <h1 className="text-[22px] leading-7 font-semibold text-ink">{title}</h1>
           <p className="mt-1 mb-8 text-sm text-slate-600">{description}</p>

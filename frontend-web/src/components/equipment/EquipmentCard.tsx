@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { buildPath } from '../../routes/paths'
 import type { EquipmentSummary } from '../../types'
@@ -7,6 +8,7 @@ import { EquipmentImage } from './EquipmentImage'
 
 /** A machine in the catalogue: its photo first, then what it is, where it is and what it costs a day. */
 export function EquipmentCard({ equipment }: { equipment: EquipmentSummary }) {
+  const { t } = useTranslation()
   return (
     <Link
       to={buildPath.equipmentDetail(equipment.id)}
@@ -29,7 +31,7 @@ export function EquipmentCard({ equipment }: { equipment: EquipmentSummary }) {
         </p>
         <p className="num mt-auto pt-2 text-lg font-bold text-ink">
           {formatCurrency(equipment.dailyRate, equipment.currency)}
-          <span className="text-[13px] font-normal text-slate-500"> / día</span>
+          <span className="text-[13px] font-normal text-slate-500"> {t('common.perDay')}</span>
         </p>
       </div>
     </Link>

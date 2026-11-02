@@ -1,11 +1,13 @@
 import { motion } from 'framer-motion'
 import { Check, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { Reservation } from '../../types'
 import { cn } from '../../utils/cn'
 
 type StepState = 'done' | 'current' | 'todo' | 'stopped'
 
-const STEPS = ['Solicitada', 'Pagada', 'En obra', 'Devolución'] as const
+/** Requested, paid, on site, returned. */
+const STEP_COUNT = 4
 
 /** Where a reservation stands on its way from the request to the machine coming back. */
 function stepStates(reservation: Reservation): StepState[] {
@@ -25,13 +27,15 @@ function stepStates(reservation: Reservation): StepState[] {
 
 /** Four-step tracker: Solicitada ➔ Pagada ➔ En obra ➔ Devolución, with the line filling up to the last step done. */
 export function ReservationTracker({ reservation }: { reservation: Reservation }) {
+  const { t } = useTranslation()
+  const labels = t('reservation.tracker.steps', { returnObjects: true })
   const states = stepStates(reservation)
   const lastDone = states.lastIndexOf('done')
-  const progress = lastDone / (STEPS.length - 1)
+  const progress = lastDone / (STEP_COUNT - 1)
   const stopped = states.includes('stopped')
 
   return (
-    <div className="mt-4" aria-label="Seguimiento de la reserva">
+    <div className="mt-4" aria-label={t('reservation.tracker.label')}>
       <div className="relative mx-9">
         <div className="absolute top-3 right-0 left-0 h-0.5 rounded-full bg-slate-200" aria-hidden="true" />
         <motion.div
@@ -43,7 +47,7 @@ export function ReservationTracker({ reservation }: { reservation: Reservation }
           aria-hidden="true"
         />
         <ol className="relative flex justify-between">
-          {STEPS.map((label, index) => {
+          {labels.map((label, index) => {
             const state = states[index]
             return (
               <li key={label} className="flex w-0 flex-col items-center" aria-current={state === 'current' ? 'step' : undefined}>
@@ -51,7 +55,7 @@ export function ReservationTracker({ reservation }: { reservation: Reservation }
                   className={cn(
                     'flex size-6 items-center justify-center rounded-full ring-4 ring-white transition-colors',
                     state === 'done' && 'bg-status-green text-white',
-                    state === 'current' && 'bg-brand text-ink',
+                    state === 'current' && 'bg-brand text-on-brand',
                     state === 'todo' && 'border-2 border-slate-300 bg-white',
                     state === 'stopped' && 'bg-slate-200 text-slate-500',
                   )}
@@ -68,7 +72,7 @@ export function ReservationTracker({ reservation }: { reservation: Reservation }
                 >
                   {label}
                   <span className="sr-only">
-                    {state === 'done' ? ' (completado)' : state === 'current' ? ' (en curso)' : state === 'stopped' ? ' (no se realizará)' : ' (pendiente)'}
+                    {t(`reservation.tracker.${state}`)}
                   </span>
                 </span>
               </li>

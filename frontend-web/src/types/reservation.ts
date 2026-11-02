@@ -62,3 +62,11 @@ export interface BlockedWindow {
   endDate: IsoDate
   status: ReservationStatus
 }
+
+export type ReceiptChannel = 'EMAIL' | 'WHATSAPP'
+
+export interface ReceiptDelivery {
+  channel: ReceiptChannel
+  /** Partially masked, e.g. s***@gmail.com or +51 9•• ••• 321. */
+  destination: string
+}

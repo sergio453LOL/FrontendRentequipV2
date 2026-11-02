@@ -1,5 +1,6 @@
 import { CalendarCheck, CalendarX } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { useDebounce } from '../../hooks/useDebounce'
@@ -14,6 +15,7 @@ import { celebrate } from '../../utils/celebrate'
 import { applyServerFieldErrors } from '../../utils/formErrors'
 import { formatCurrency, rentalDays, todayIso } from '../../utils/format'
 import { Button } from '../common/Button'
+import type { DateSelection } from '../equipment/dateSelection'
 import { Input } from '../common/Input'
 import { Modal } from '../common/Modal'
 import { Spinner } from '../common/Spinner'
@@ -28,18 +30,18 @@ const reservationSchema = z
   .object({
     startDate: z
       .string()
-      .regex(ISO_DATE, 'Elige la fecha de inicio.')
-      .refine((value) => value >= todayIso(), 'La fecha de inicio no puede estar en el pasado.'),
-    endDate: z.string().regex(ISO_DATE, 'Elige la fecha de fin.'),
-    notes: z.string().max(500, 'Máximo 500 caracteres.'),
+      .regex(ISO_DATE, 'validation.startDateRequired')
+      .refine((value) => value >= todayIso(), 'validation.startDatePast'),
+    endDate: z.string().regex(ISO_DATE, 'validation.endDateRequired'),
+    notes: z.string().max(500, 'validation.max500'),
   })
   .refine((values) => values.endDate >= values.startDate, {
     path: ['endDate'],
-    message: 'La fecha de fin debe ser igual o posterior a la de inicio.',
+    message: 'validation.endBeforeStart',
   })
   .refine((values) => rentalDays(values.startDate, values.endDate) <= MAX_RENTAL_DAYS, {
     path: ['endDate'],
-    message: `Un alquiler no puede superar ${MAX_RENTAL_DAYS} días.`,
+    message: 'validation.maxRentalDays',
   })
 
 type ReservationFormValues = z.infer<typeof reservationSchema>
@@ -49,21 +51,18 @@ type CheckoutStep =
   | { name: 'payment'; reservation: Reservation }
   | { name: 'paid'; reservation: Reservation; payments: Payment[] }
 
-const STEP_TITLES: Record<CheckoutStep['name'], string> = {
-  details: 'Solicitar reserva',
-  payment: 'Pago seguro',
-  paid: 'Pago completado',
-}
-
 const STEP_NUMBERS: Record<CheckoutStep['name'], number> = { details: 1, payment: 2, paid: 3 }
 
 interface ReservationRequestModalProps {
   equipment: Equipment
   isOpen: boolean
   onClose: () => void
+  /** Dates already picked on the availability calendar; the form opens with them filled in. */
+  initialDates?: DateSelection
 }
 
-export function ReservationRequestModal({ equipment, isOpen, onClose }: ReservationRequestModalProps) {
+export function ReservationRequestModal({ equipment, isOpen, onClose, initialDates }: ReservationRequestModalProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [step, setStep] = useState<CheckoutStep>({ name: 'details' })
   const {
@@ -71,9 +70,18 @@ export function ReservationRequestModal({ equipment, isOpen, onClose }: Reservat
     handleSubmit,
     watch,
     reset,
+    getValues,
     setError,
     formState: { errors },
   } = useZodForm(reservationSchema, { defaultValues: { startDate: '', endDate: '', notes: '' } })
+
+  // Each time the form opens it takes the dates chosen on the calendar, keeping any note already typed.
+  const initialStart = initialDates?.startDate ?? ''
+  const initialEnd = initialDates?.endDate ?? ''
+  useEffect(() => {
+    if (!isOpen || (!initialStart && !initialEnd)) return
+    reset({ startDate: initialStart, endDate: initialEnd, notes: getValues('notes') })
+  }, [isOpen, initialStart, initialEnd, reset, getValues])
 
   const startDate = watch('startDate')
   const endDate = watch('endDate')
@@ -93,8 +101,8 @@ export function ReservationRequestModal({ equipment, isOpen, onClose }: Reservat
   const isUnavailable = datesAreValid && !isCheckingAvailability && availability.data?.available === false
 
   const createReservation = useMutation(reservationService.create, {
-    successMessage: 'Solicitud creada. Completa el pago para asegurarla.',
-    errorTitle: 'No se pudo enviar la solicitud',
+    successMessage: t('reservation.created'),
+    errorTitle: t('reservation.createFailed'),
     onSuccess: (reservation) => {
       celebrate()
       setStep({ name: 'payment', reservation })
@@ -127,8 +135,8 @@ export function ReservationRequestModal({ equipment, isOpen, onClose }: Reservat
 
   if (step.name !== 'details') {
     return (
-      <Modal isOpen={isOpen} onClose={handleClose} title={STEP_TITLES[step.name]}>
-        <p className="mb-4 text-[13px] font-medium text-slate-600">Paso {STEP_NUMBERS[step.name]} de 3</p>
+      <Modal isOpen={isOpen} onClose={handleClose} title={t(`reservation.steps.${step.name}`)}>
+        <p className="mb-4 text-[13px] font-medium text-slate-600">{t('reservation.stepOf', { n: STEP_NUMBERS[step.name] })}</p>
         {step.name === 'payment' ? (
           <PaymentForm
             reservation={step.reservation}
@@ -138,7 +146,7 @@ export function ReservationRequestModal({ equipment, isOpen, onClose }: Reservat
             }
           />
         ) : (
-          <PaymentSuccess reservation={step.reservation} payments={step.payments} onDone={handleClose} doneLabel="Ver mis reservas" />
+          <PaymentSuccess reservation={step.reservation} payments={step.payments} onDone={handleClose} doneLabel={t('reservation.viewMine')} />
         )}
       </Modal>
     )
@@ -148,12 +156,12 @@ export function ReservationRequestModal({ equipment, isOpen, onClose }: Reservat
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={STEP_TITLES.details}
+      title={t('reservation.steps.details')}
       isDismissable={!createReservation.isLoading}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={createReservation.isLoading}>
-            Cancelar
+            {t('common.cancel')}
           </Button>
           <Button
             type="submit"
@@ -162,22 +170,25 @@ export function ReservationRequestModal({ equipment, isOpen, onClose }: Reservat
             isLoading={createReservation.isLoading}
             disabled={isUnavailable || isCheckingAvailability}
           >
-            Enviar solicitud
+            {t('reservation.send')}
           </Button>
         </>
       }
     >
-      <p className="mb-4 text-[13px] font-medium text-slate-600">Paso 1 de 3</p>
+      <p className="mb-4 text-[13px] font-medium text-slate-600">{t('reservation.stepOf', { n: 1 })}</p>
       <form id="reservation-form" onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
         <p className="text-sm text-slate-600">
-          Estás solicitando <span className="font-semibold text-slate-900">{equipment.name}</span>. El propietario
-          debe confirmar la reserva.
+          <Trans
+            i18nKey="reservation.requesting"
+            values={{ name: equipment.name }}
+            components={{ b: <span className="font-semibold text-slate-900" /> }}
+          />
         </p>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Fecha de inicio" type="date" min={todayIso()} required error={errors.startDate?.message} {...register('startDate')} />
+          <Input label={t('reservation.startDate')} type="date" min={todayIso()} required error={errors.startDate?.message} {...register('startDate')} />
           <Input
-            label="Fecha de fin"
+            label={t('reservation.endDate')}
             type="date"
             min={startDate || todayIso()}
             required
@@ -190,28 +201,28 @@ export function ReservationRequestModal({ equipment, isOpen, onClose }: Reservat
           <div aria-live="polite" className="text-sm">
             {isCheckingAvailability && (
               <p className="flex items-center gap-2 text-slate-500">
-                <Spinner size="sm" label="Verificando disponibilidad" /> Verificando disponibilidad…
+                <Spinner size="sm" label={t('reservation.checking')} /> {t('reservation.checkingDots')}
               </p>
             )}
             {!isCheckingAvailability && availability.data?.available === true && (
               <p className="flex items-center gap-2 font-medium text-emerald-700">
-                <CalendarCheck className="size-4" aria-hidden="true" /> Disponible en esas fechas
+                <CalendarCheck className="size-4" aria-hidden="true" /> {t('reservation.available')}
               </p>
             )}
             {isUnavailable && (
               <p className="flex items-center gap-2 font-medium text-red-700">
-                <CalendarX className="size-4" aria-hidden="true" /> Ya está reservada en esas fechas. Prueba con otro rango.
+                <CalendarX className="size-4" aria-hidden="true" /> {t('reservation.unavailable')}
               </p>
             )}
             {!isCheckingAvailability && availability.error && (
-              <p className="text-amber-700">No pudimos verificar la disponibilidad: {availability.error.message}</p>
+              <p className="text-amber-700">{t('reservation.checkFailed', { message: availability.error.message })}</p>
             )}
           </div>
         )}
 
         <Textarea
-          label="Notas para el propietario"
-          placeholder="Ej.: dirección de la obra, horario de entrega, operador requerido…"
+          label={t('reservation.notes')}
+          placeholder={t('reservation.notesPlaceholder')}
           maxLength={500}
           hint={`${notesLength}/500`}
           error={errors.notes?.message}
@@ -221,16 +232,16 @@ export function ReservationRequestModal({ equipment, isOpen, onClose }: Reservat
         <dl className="space-y-2 rounded-lg bg-slate-50 p-4 text-sm">
           <div className="flex justify-between">
             <dt className="text-slate-500">
-              {formatCurrency(equipment.dailyRate, equipment.currency)} × {days} {days === 1 ? 'día' : 'días'}
+              {t('reservation.rentalLine', { rate: formatCurrency(equipment.dailyRate, equipment.currency), days: t('common.day', { count: days }) })}
             </dt>
             <dd className="font-medium text-slate-900">{formatCurrency(rentalAmount, equipment.currency)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-slate-500">Garantía (reembolsable)</dt>
+            <dt className="text-slate-500">{t('reservation.deposit')}</dt>
             <dd className="font-medium text-slate-900">{formatCurrency(equipment.securityDeposit, equipment.currency)}</dd>
           </div>
           <div className="flex justify-between border-t border-slate-200 pt-2 text-base">
-            <dt className="font-semibold text-slate-900">Total estimado</dt>
+            <dt className="font-semibold text-slate-900">{t('reservation.estimatedTotal')}</dt>
             <dd className="font-semibold text-slate-900">
               {formatCurrency(rentalAmount + equipment.securityDeposit, equipment.currency)}
             </dd>

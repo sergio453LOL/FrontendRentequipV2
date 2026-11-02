@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { cn } from '../../utils/cn'
 
 type SkeletonVariant = 'text' | 'card' | 'list'
@@ -38,12 +39,13 @@ function SkeletonListItem() {
 }
 
 export function SkeletonLoader({ variant = 'text', count = 3, className }: SkeletonLoaderProps) {
+  const { t } = useTranslation()
   const items = Array.from({ length: count }, (_, index) => index)
 
   return (
     <div
       role="status"
-      aria-label="Cargando contenido"
+      aria-label={t('common.loadingContent')}
       className={cn(
         variant === 'card' ? 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'space-y-3',
         className,

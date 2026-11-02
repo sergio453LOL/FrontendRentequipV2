@@ -12,8 +12,10 @@ import {
   Upload,
 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import { BrandMark } from '../components/common/BrandMark'
+import { LanguageMenu } from '../components/common/LanguageMenu'
 import { EquipmentImage } from '../components/equipment/EquipmentImage'
 import { AnimatedNumber } from '../components/landing/AnimatedNumber'
 import { TypedWord } from '../components/landing/TypedWord'
@@ -22,10 +24,11 @@ import { useFetch } from '../hooks/useFetch'
 import { buildPath, PATHS } from '../routes/paths'
 import { ENDPOINTS } from '../services/endpoints'
 import type { EquipmentCategory, EquipmentSummary, PageResponse } from '../types'
+import { categoryName } from '../utils/categoryName'
 import { formatCurrency, formatNumber } from '../utils/format'
 import { MODE_HOME, readStoredMode } from '../utils/workspaceMode'
 
-const HERO_WORDS = ['excavadoras', 'grúas', 'rodillos', 'cargadores']
+const TOOLS_CATEGORY = 'herramientas'
 const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
 const stagger: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.09, delayChildren: 0.1 } } }
@@ -59,6 +62,7 @@ function CtaLink({ to, children, variant = 'action' }: { to: string; children: R
 
 /** Search box with a slowly turning amber/orange border light. */
 function HeroSearch({ categories }: { categories: EquipmentCategory[] }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
 
@@ -78,13 +82,13 @@ function HeroSearch({ categories }: { categories: EquipmentCategory[] }) {
         <form role="search" onSubmit={handleSubmit} className="relative flex items-center gap-2 rounded-[15px] bg-slate-900/95 p-2 backdrop-blur">
           <Search className="ml-3 size-5 shrink-0 text-amber-400" aria-hidden="true" />
           <label htmlFor="hero-search" className="sr-only">
-            Busca maquinaria
+            {t('landing.searchLabel')}
           </label>
           <input
             id="hero-search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="¿Qué necesitas? Excavadora CAT, grúa, rodillo…"
+            placeholder={t('landing.searchPlaceholder')}
             autoComplete="off"
             className="h-11 min-w-0 flex-1 bg-transparent text-base text-white placeholder:text-slate-400 focus:outline-none"
           />
@@ -93,13 +97,13 @@ function HeroSearch({ categories }: { categories: EquipmentCategory[] }) {
             whileTap={{ scale: 0.96 }}
             className="h-11 shrink-0 rounded-xl bg-brand px-5 text-sm font-bold text-ink transition-colors hover:bg-amber-400"
           >
-            Buscar
+            {t('landing.search')}
           </motion.button>
         </form>
       </div>
 
       {categories.length > 0 && (
-        <motion.ul variants={stagger} initial="hidden" animate="show" className="mt-4 flex flex-wrap gap-2" aria-label="Filtro rápido por categoría">
+        <motion.ul variants={stagger} initial="hidden" animate="show" className="mt-4 flex flex-wrap gap-2" aria-label={t('landing.quickFilter')}>
           {categories.map((category) => (
             <motion.li key={category.id} variants={fadeUp}>
               <motion.span whileHover={{ y: -2 }} whileTap={{ scale: 0.96 }} className="inline-flex">
@@ -107,7 +111,7 @@ function HeroSearch({ categories }: { categories: EquipmentCategory[] }) {
                   to={`${PATHS.catalog}?categoryId=${category.id}`}
                   className="inline-flex h-8 items-center rounded-full border border-white/10 bg-white/5 px-3.5 text-sm font-medium text-slate-200 transition-colors hover:border-amber-400/60 hover:bg-amber-400/10 hover:text-amber-200"
                 >
-                  {category.name}
+                  {categoryName(category.name)}
                 </Link>
               </motion.span>
             </motion.li>
@@ -119,18 +123,29 @@ function HeroSearch({ categories }: { categories: EquipmentCategory[] }) {
 }
 
 export default function LandingPage() {
+  const { t, i18n } = useTranslation()
   const { isAuthenticated } = useAuth()
   const catalog = useFetch<PageResponse<EquipmentSummary>>(ENDPOINTS.equipmentSearch, { page: 0, size: 100 })
   const categories = useFetch<EquipmentCategory[]>(ENDPOINTS.categories)
 
+  // Tools carry the general "Herramientas" tag besides their own category; everything else counts as machinery.
+  const toolsCategory = categories.data?.find((category) => category.name.toLowerCase() === TOOLS_CATEGORY)
+  const tools = useFetch<PageResponse<EquipmentSummary>>(toolsCategory ? ENDPOINTS.equipmentSearch : null, {
+    page: 0,
+    size: 1,
+    categoryId: toolsCategory?.id,
+  })
+  const toolCount = toolsCategory ? tools.data?.totalElements : 0
+
   const machines = catalog.data?.content ?? []
-  const stats = catalog.data
+  const stats = catalog.data && toolCount !== undefined
     ? [
-        { label: 'Máquinas publicadas', value: catalog.data.totalElements, format: integer },
-        { label: 'Empresas arrendadoras', value: new Set(machines.map((machine) => machine.ownerCompanyId)).size, format: integer },
-        { label: 'Ciudades con equipos', value: new Set(machines.map((machine) => machine.city)).size, format: integer },
+        { label: t('landing.stats.machines'), value: catalog.data.totalElements - toolCount, format: integer },
+        { label: t('landing.stats.tools'), value: toolCount, format: integer },
+        { label: t('landing.stats.companies'), value: new Set(machines.map((machine) => machine.ownerCompanyId)).size, format: integer },
+        { label: t('landing.stats.cities'), value: new Set(machines.map((machine) => machine.city)).size, format: integer },
         {
-          label: 'Tarifa diaria desde',
+          label: t('landing.stats.from'),
           value: machines.length > 0 ? Math.min(...machines.map((machine) => machine.dailyRate)) : 0,
           format: (value: number) => formatCurrency(Math.round(value), machines[0]?.currency ?? 'PEN').replace(/\.00$/, ''),
         },
@@ -140,7 +155,7 @@ export default function LandingPage() {
   const appHome = MODE_HOME[readStoredMode()]
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="theme-light min-h-screen bg-slate-50">
       {/* ---------------------------------------------------------------- hero */}
       <section className="relative isolate overflow-hidden bg-gradient-to-b from-slate-900 to-slate-800 text-white">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
@@ -151,29 +166,30 @@ export default function LandingPage() {
         </div>
 
         <header className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
-          <Link to={PATHS.landing} className="flex items-center gap-2.5" aria-label="RentEquip, inicio">
+          <Link to={PATHS.landing} className="flex items-center gap-2.5" aria-label={t('landing.home')}>
             <BrandMark className="size-7 text-brand" />
             <span className="text-lg font-bold tracking-tight">RentEquip</span>
           </Link>
-          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-300 md:flex" aria-label="Secciones">
+          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-300 md:flex" aria-label={t('landing.sections')}>
             <a href="#maquinaria" className="transition-colors hover:text-white">
-              Maquinaria
+              {t('landing.navMachinery')}
             </a>
             <a href="#como-funciona" className="transition-colors hover:text-white">
-              Cómo funciona
+              {t('landing.navHowItWorks')}
             </a>
           </nav>
           <div className="ml-auto flex items-center gap-2">
+            <LanguageMenu tone="dark" />
             {isAuthenticated ? (
               <CtaLink to={appHome}>
-                Ir a mi panel <ArrowRight className="size-4" aria-hidden="true" />
+                {t('landing.goToPanel')} <ArrowRight className="size-4" aria-hidden="true" />
               </CtaLink>
             ) : (
               <>
                 <Link to={PATHS.login} className="hidden h-10 items-center rounded-lg px-4 text-sm font-semibold text-slate-200 transition-colors hover:text-white sm:inline-flex">
-                  Iniciar sesión
+                  {t('landing.login')}
                 </Link>
-                <CtaLink to={PATHS.register}>Crear cuenta</CtaLink>
+                <CtaLink to={PATHS.register}>{t('landing.register')}</CtaLink>
               </>
             )}
           </div>
@@ -189,28 +205,28 @@ export default function LandingPage() {
             variants={fadeUp}
             className="mb-6 inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3.5 py-1 text-sm font-medium text-amber-200"
           >
-            <Sparkles className="size-4" aria-hidden="true" /> Marketplace B2B de maquinaria pesada en el Perú
+            <Sparkles className="size-4" aria-hidden="true" /> {t('landing.badge')}
           </motion.p>
           <motion.h1 variants={fadeUp} className="max-w-4xl text-4xl leading-[1.08] font-bold tracking-tight text-balance sm:text-6xl">
-            Alquila{' '}
-            <TypedWord words={HERO_WORDS} className="bg-gradient-to-r from-amber-300 via-amber-400 to-orange-500 bg-clip-text text-transparent" />
-            <br className="hidden sm:block" /> entre constructoras, por días.
+            {t('landing.heroStart')}{' '}
+            <TypedWord key={i18n.language} words={t('landing.heroWords', { returnObjects: true })} className="bg-gradient-to-r from-amber-300 via-amber-400 to-orange-500 bg-clip-text text-transparent" />
+            <br className="hidden sm:block" /> {t('landing.heroEnd')}
           </motion.h1>
           <motion.p variants={fadeUp} className="mt-6 max-w-2xl text-lg text-slate-300">
-            Encuentra la máquina cerca de tu obra, revisa su calendario, cotiza y paga en línea. Si tu flota está parada, publícala y
-            empieza a recibir solicitudes.
+            {t('landing.heroText')}
           </motion.p>
 
           <div className="mt-10 flex w-full justify-center">
             <HeroSearch categories={categories.data ?? []} />
           </div>
 
-          <motion.dl variants={fadeUp} className="mt-14 grid w-full max-w-4xl grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-4">
-            {(stats.length > 0 ? stats : [0, 1, 2, 3]).map((stat, index) =>
+          <motion.dl variants={fadeUp} className="mt-14 grid w-full max-w-5xl grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-5">
+            {(stats.length > 0 ? stats : [0, 1, 2, 3, 4]).map((stat, index) =>
               typeof stat === 'number' ? (
-                <div key={index} className="h-[92px] bg-slate-900/80" aria-hidden="true" />
+                <div key={index} className="h-[92px] bg-slate-900/80 last:col-span-2 sm:last:col-span-1" aria-hidden="true" />
               ) : (
-                <div key={stat.label} className="bg-slate-900/80 px-5 py-5 text-left">
+                // Five tiles on two columns: the last one takes the full width on phones.
+                <div key={stat.label} className="bg-slate-900/80 px-5 py-5 text-left last:col-span-2 sm:last:col-span-1">
                   <dd className="text-2xl font-bold text-white sm:text-3xl">
                     <AnimatedNumber value={stat.value} format={stat.format} />
                   </dd>
@@ -220,7 +236,7 @@ export default function LandingPage() {
             )}
           </motion.dl>
           <motion.p variants={fadeUp} className="mt-3 text-xs text-slate-500">
-            Datos en vivo del catálogo de RentEquip.
+            {t('landing.liveData')}
           </motion.p>
         </motion.div>
       </section>
@@ -229,15 +245,15 @@ export default function LandingPage() {
       <section id="maquinaria" className="mx-auto max-w-6xl scroll-mt-8 px-4 py-20 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight text-ink">Disponible para tu próxima obra</h2>
-            <p className="mt-2 text-slate-600">Maquinaria publicada por empresas de Lima, Callao y Arequipa.</p>
+            <h2 className="text-3xl font-bold tracking-tight text-ink">{t('landing.featuredTitle')}</h2>
+            <p className="mt-2 text-slate-600">{t('landing.featuredText')}</p>
           </div>
           <Link to={PATHS.catalog} className="group inline-flex items-center gap-1.5 text-sm font-semibold text-accent-ink">
-            Ver todo el catálogo <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+            {t('landing.seeCatalog')} <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
           </Link>
         </div>
 
-        <ul className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {(featured.length > 0 ? featured : []).map((machine, index) => (
             <motion.li
               key={machine.id}
@@ -266,45 +282,41 @@ export default function LandingPage() {
                   </div>
                   <p className="num shrink-0 text-right text-lg font-bold text-ink">
                     {formatCurrency(machine.dailyRate, machine.currency)}
-                    <span className="block text-xs font-medium text-slate-500">por día</span>
+                    <span className="block text-xs font-medium text-slate-500">{t('landing.perDay')}</span>
                   </p>
                 </div>
               </Link>
             </motion.li>
           ))}
         </ul>
-        {catalog.error && <p className="mt-6 text-sm text-slate-600">No pudimos cargar el catálogo en este momento.</p>}
+        {catalog.error && <p className="mt-6 text-sm text-slate-600">{t('landing.catalogError')}</p>}
       </section>
 
       {/* ----------------------------------------------------- how it works */}
       <section id="como-funciona" className="border-t border-slate-200 bg-white">
         <div className="mx-auto max-w-6xl scroll-mt-8 px-4 py-20 sm:px-6">
-          <h2 className="text-3xl font-bold tracking-tight text-ink">Una cuenta, dos perspectivas</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-ink">{t('landing.howTitle')}</h2>
           <p className="mt-2 max-w-2xl text-slate-600">
-            Cambia entre arrendatario y arrendador desde la cabecera: la misma empresa alquila lo que le falta y renta lo que tiene parado.
+            {t('landing.howText')}
           </p>
 
           <div className="mt-10 grid gap-6 lg:grid-cols-2">
             {[
               {
-                title: 'Arrendatario',
-                subtitle: 'Comprador',
-                steps: [
-                  { icon: Search, text: 'Explora el catálogo y el mapa de equipos cerca de tu obra.' },
-                  { icon: CalendarCheck, text: 'Revisa el calendario y cotiza los días en tiempo real.' },
-                  { icon: CreditCard, text: 'Paga en línea con la garantía retenida en tu tarjeta.' },
-                  { icon: FileDown, text: 'Sigue la reserva hasta la devolución y descarga el comprobante.' },
-                ],
+                title: t('modes.renter.title'),
+                subtitle: t('modes.renter.caption'),
+                steps: [Search, CalendarCheck, CreditCard, FileDown].map((icon, index) => ({
+                  icon,
+                  text: t('landing.renterSteps', { returnObjects: true })[index],
+                })),
               },
               {
-                title: 'Arrendador',
-                subtitle: 'Vendedor',
-                steps: [
-                  { icon: Upload, text: 'Publica tu maquinaria con fotos y tarifas en minutos.' },
-                  { icon: ClipboardCheck, text: 'Aprueba solicitudes con un clic desde tu panel.' },
-                  { icon: BarChart3, text: 'Mide ingresos del mes y la ocupación de tu flota.' },
-                  { icon: CalendarCheck, text: 'Coordina entregas y devoluciones en una línea de tiempo.' },
-                ],
+                title: t('modes.owner.title'),
+                subtitle: t('modes.owner.caption'),
+                steps: [Upload, ClipboardCheck, BarChart3, CalendarCheck].map((icon, index) => ({
+                  icon,
+                  text: t('landing.ownerSteps', { returnObjects: true })[index],
+                })),
               },
             ].map((side, sideIndex) => (
               <motion.article
@@ -336,17 +348,17 @@ export default function LandingPage() {
         <div aria-hidden="true" className="absolute -top-24 left-1/3 -z-10 h-72 w-[600px] rounded-full bg-amber-500/20 blur-[110px]" />
         <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-16 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
-            <h2 className="text-2xl font-bold sm:text-3xl">¿Tu flota está parada?</h2>
-            <p className="mt-2 text-slate-300">Registra tu empresa y publica tu primera máquina hoy.</p>
+            <h2 className="text-2xl font-bold sm:text-3xl">{t('landing.ctaTitle')}</h2>
+            <p className="mt-2 text-slate-300">{t('landing.ctaText')}</p>
           </div>
           <CtaLink to={isAuthenticated ? PATHS.publishEquipment : PATHS.register}>
-            {isAuthenticated ? 'Publicar maquinaria' : 'Crear cuenta gratis'} <ArrowRight className="size-4" aria-hidden="true" />
+            {isAuthenticated ? t('landing.ctaPublish') : t('landing.ctaRegister')} <ArrowRight className="size-4" aria-hidden="true" />
           </CtaLink>
         </div>
         <footer className="border-t border-white/10">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-6 text-xs text-slate-500 sm:px-6">
-            <span>© 2026 RentEquip · Proyecto DBP 2026-2</span>
-            <span>Lima, Perú</span>
+            <span>{t('landing.footer')}</span>
+            <span>{t('landing.location')}</span>
           </div>
         </footer>
       </section>

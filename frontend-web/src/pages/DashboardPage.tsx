@@ -1,5 +1,6 @@
 import { Plus, Search } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Button } from '../components/common/Button'
 import { ErrorState } from '../components/common/ErrorState'
@@ -16,6 +17,7 @@ import { usePagination } from '../hooks/usePagination'
 import { PATHS } from '../routes/paths'
 import { canPublish } from '../routes/roles'
 import { ENDPOINTS } from '../services/endpoints'
+import { currentLocale } from '../i18n'
 import { reservationService } from '../services/reservationService'
 import type { CompanyDashboard, EquipmentSummary, PageResponse, Reservation } from '../types'
 import { cn } from '../utils/cn'
@@ -26,10 +28,6 @@ const OWNER_RESERVATIONS_PAGE = 100
 
 function startOfToday(): Date {
   return parseIsoDate(todayIso())
-}
-
-function plural(count: number, one: string, many: string): string {
-  return `${formatNumber(count)} ${count === 1 ? one : many}`
 }
 
 function Card({ title, aside, children, className }: { title: string; aside?: ReactNode; children: ReactNode; className?: string }) {
@@ -47,10 +45,11 @@ function Card({ title, aside, children, className }: { title: string; aside?: Re
   )
 }
 
-function ViewAll({ to, children = 'Ver todas', className }: { to: string; children?: ReactNode; className?: string }) {
+function ViewAll({ to, children, className }: { to: string; children?: ReactNode; className?: string }) {
+  const { t } = useTranslation()
   return (
     <Link to={to} className={cn('text-sm font-medium text-slate-600 hover:text-ink hover:underline', className)}>
-      {children}
+      {children ?? t('dashboard.viewAll')}
     </Link>
   )
 }
@@ -92,14 +91,15 @@ function KpiCards({ items }: { items: Kpi[] }) {
 }
 
 function PendingRequests({ requests, onChanged }: { requests: Reservation[]; onChanged: () => void }) {
+  const { t } = useTranslation()
   const confirm = useMutation((reservation: Reservation) => reservationService.confirm(reservation.id), {
-    successMessage: (reservation) => `Reserva confirmada: ${reservation.equipmentName}`,
-    errorTitle: 'No pudimos confirmar la reserva',
+    successMessage: (reservation) => t('dashboard.confirmed', { name: reservation.equipmentName }),
+    errorTitle: t('dashboard.confirmFailed'),
     onSuccess: onChanged,
   })
 
   if (requests.length === 0) {
-    return <p className="rounded-md border border-dashed border-slate-300 px-3 py-2.5 text-sm text-slate-600">Ninguna solicitud espera tu respuesta.</p>
+    return <p className="rounded-md border border-dashed border-slate-300 px-3 py-2.5 text-sm text-slate-600">{t('dashboard.noRequests')}</p>
   }
 
   return (
@@ -112,18 +112,18 @@ function PendingRequests({ requests, onChanged }: { requests: Reservation[]; onC
               <span className="num shrink-0 text-ink">{formatCurrency(request.rentalAmount, request.currency)}</span>
             </p>
             <p className="truncate text-[13px] text-slate-500">
-              {request.renterCompanyName} · {formatDateRange(request.startDate, request.endDate)} · {plural(request.totalDays, 'día', 'días')}
+              {request.renterCompanyName} · {formatDateRange(request.startDate, request.endDate)} · {t('common.day', { count: request.totalDays })}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <Button size="sm" variant="secondary" onClick={() => void confirm.mutate(request)} isLoading={confirm.isLoading}>
-              Confirmar
+              {t('dashboard.confirm')}
             </Button>
             <Link
               to={`${PATHS.reservations}?role=OWNER&status=PENDING`}
               className="flex h-8 items-center rounded-md px-2 text-sm text-slate-600 hover:bg-raised hover:text-ink"
             >
-              Rechazar…
+              {t('dashboard.reject')}
             </Link>
           </div>
         </li>
@@ -133,8 +133,9 @@ function PendingRequests({ requests, onChanged }: { requests: Reservation[]; onC
 }
 
 function UpcomingHandovers({ handovers, today }: { handovers: Reservation[]; today: Date }) {
+  const { t } = useTranslation()
   if (handovers.length === 0) {
-    return <p className="rounded-md border border-dashed border-slate-300 px-3 py-2.5 text-sm text-slate-600">No tienes entregas confirmadas en las próximas 4 semanas.</p>
+    return <p className="rounded-md border border-dashed border-slate-300 px-3 py-2.5 text-sm text-slate-600">{t('dashboard.noHandovers')}</p>
   }
   return (
     <ul>
@@ -143,13 +144,13 @@ function UpcomingHandovers({ handovers, today }: { handovers: Reservation[]; tod
         return (
           <li key={handover.id} className="flex min-h-16 items-center gap-4 border-t border-rule py-2.5 first:border-t-0">
             <div className="w-16 shrink-0">
-              <p className="num text-sm font-medium text-ink">{parseIsoDate(handover.startDate).toLocaleDateString('es-PE', { day: 'numeric', month: 'short' })}</p>
-              <p className="text-xs text-slate-500">{inDays === 0 ? 'hoy' : inDays === 1 ? 'mañana' : `en ${inDays} días`}</p>
+              <p className="num text-sm font-medium text-ink">{parseIsoDate(handover.startDate).toLocaleDateString(currentLocale(), { day: 'numeric', month: 'short' })}</p>
+              <p className="text-xs text-slate-500">{inDays === 0 ? t('dashboard.today') : inDays === 1 ? t('dashboard.tomorrow') : t('dashboard.inDays', { count: inDays })}</p>
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-ink">{handover.equipmentName}</p>
               <p className="truncate text-[13px] text-slate-500">
-                {handover.renterCompanyName} · {plural(handover.totalDays, 'día', 'días')}
+                {handover.renterCompanyName} · {t('common.day', { count: handover.totalDays })}
               </p>
             </div>
             <StatusBadge kind="payment" status={handover.paymentStatus} />
@@ -161,6 +162,7 @@ function UpcomingHandovers({ handovers, today }: { handovers: Reservation[]; tod
 }
 
 export default function DashboardPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const today = startOfToday()
   const windowEnd = addDays(today, TIMELINE_DAYS - 1)
@@ -193,13 +195,14 @@ export default function DashboardPage() {
   ).size
 
   const nextRequest = requests[0]
+  const longDate = (iso: string) => parseIsoDate(iso).toLocaleDateString(currentLocale(), { day: 'numeric', month: 'long' })
   const finding = !owned.data
-    ? 'Cargando tus reservas…'
+    ? t('dashboard.loadingReservations')
     : nextRequest
-      ? `${plural(requests.length, 'solicitud espera', 'solicitudes esperan')} tu respuesta; la más próxima empieza el ${parseIsoDate(nextRequest.startDate).toLocaleDateString('es-PE', { day: 'numeric', month: 'long' })}.`
+      ? t('dashboard.requestsWaiting', { count: requests.length, formatted: formatNumber(requests.length), date: longDate(nextRequest.startDate) })
       : handovers[0]
-        ? `Sin solicitudes pendientes. Próxima entrega: ${handovers[0].equipmentName}, el ${parseIsoDate(handovers[0].startDate).toLocaleDateString('es-PE', { day: 'numeric', month: 'long' })}.`
-        : 'Sin solicitudes pendientes ni entregas en las próximas 4 semanas.'
+        ? t('dashboard.nextHandover', { name: handovers[0].equipmentName, date: longDate(handovers[0].startDate) })
+        : t('dashboard.nothingAhead')
 
   const data = metrics.data
   const monthly = revenueByMonth(ownerReservations, today)
@@ -208,27 +211,27 @@ export default function DashboardPage() {
   const kpis: Kpi[] = data
     ? [
         {
-          label: `Ingresos de ${today.toLocaleDateString('es-PE', { month: 'long' })}`,
+          label: t('dashboard.revenueOf', { month: today.toLocaleDateString(currentLocale(), { month: 'long' }) }),
           value: formatCurrency(currentMonthRevenue, data.currency),
-          caption: `Total estimado: ${formatCurrency(data.estimatedRevenue, data.currency)}`,
+          caption: t('dashboard.estimatedTotal', { amount: formatCurrency(data.estimatedRevenue, data.currency) }),
         },
         {
-          label: 'Tasa de ocupación',
+          label: t('dashboard.occupancy'),
           value: `${Math.round(occupancy * 100)}%`,
           ring: occupancy,
-          caption: `${formatNumber(bookedMachines)} de ${formatNumber(data.publishedEquipment)} equipos con reservas · 30 días`,
+          caption: t('dashboard.occupancyCaption', { booked: formatNumber(bookedMachines), total: formatNumber(data.publishedEquipment) }),
         },
         {
-          label: 'Solicitudes por aprobar',
+          label: t('dashboard.toApprove'),
           value: formatNumber(data.pendingRequestsAsOwner),
           tone: data.pendingRequestsAsOwner > 0 ? 'action' : 'default',
           caption:
             data.pendingRequestsAsOwner > 0 ? (
               <ViewAll className="text-xs font-semibold text-action underline" to={`${PATHS.reservations}?role=OWNER&status=PENDING`}>
-                Revisar solicitudes
+                {t('dashboard.reviewRequests')}
               </ViewAll>
             ) : (
-              'Nada por revisar'
+              t('dashboard.nothingToReview')
             ),
         },
       ]
@@ -238,7 +241,7 @@ export default function DashboardPage() {
     <div className="mx-auto max-w-[1200px] space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">Panel del arrendador</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-ink">{t('dashboard.title')}</h1>
           <p className="mt-1 text-sm text-slate-600">{finding}</p>
         </div>
         {publisher && (
@@ -246,30 +249,30 @@ export default function DashboardPage() {
             to={PATHS.publishEquipment}
             className="inline-flex h-10 shrink-0 items-center gap-2 self-start rounded-md bg-action px-4 text-sm font-semibold text-white transition-all duration-200 hover:bg-action-hover hover:shadow-md active:scale-[0.98]"
           >
-            <Plus className="size-4" aria-hidden="true" /> Publicar maquinaria
+            <Plus className="size-4" aria-hidden="true" /> {t('dashboard.publish')}
           </Link>
         )}
       </header>
 
       {metrics.error ? (
-        <ErrorState error={metrics.error} onRetry={metrics.refetch} title="No pudimos cargar tus métricas" />
+        <ErrorState error={metrics.error} onRetry={metrics.refetch} title={t('dashboard.metricsError')} />
       ) : data ? (
         <KpiCards items={kpis} />
       ) : (
-        <div className="grid h-[132px] gap-4 sm:grid-cols-3" aria-busy="true" aria-label="Cargando métricas">{[0, 1, 2].map((key) => <div key={key} className="rounded-xl border border-slate-200 bg-white" />)}</div>
+        <div className="grid h-[132px] gap-4 sm:grid-cols-3" aria-busy="true" aria-label={t('dashboard.loadingMetrics')}>{[0, 1, 2].map((key) => <div key={key} className="rounded-xl border border-slate-200 bg-white" />)}</div>
       )}
 
       {data && owned.data && (
         <Card
-          title="Ingresos por mes"
-          aside={<span className="text-xs font-medium text-slate-500">Días alquilados × tarifa diaria</span>}
+          title={t('dashboard.revenueByMonth')}
+          aside={<span className="text-xs font-medium text-slate-500">{t('dashboard.revenueFormula')}</span>}
         >
           <RevenueChart months={monthly} currency={data.currency} />
         </Card>
       )}
 
       <div className="grid gap-6 xl:grid-cols-[3fr_2fr]">
-        <Card title="Solicitudes por revisar" aside={requests.length > LIST_LIMIT && <ViewAll to={`${PATHS.reservations}?role=OWNER&status=PENDING`} />}>
+        <Card title={t('dashboard.pendingRequests')} aside={requests.length > LIST_LIMIT && <ViewAll to={`${PATHS.reservations}?role=OWNER&status=PENDING`} />}>
           {owned.error ? (
             <ErrorState error={owned.error} onRetry={owned.refetch} />
           ) : (
@@ -282,26 +285,26 @@ export default function DashboardPage() {
             />
           )}
         </Card>
-        <Card title="Próximas entregas" aside={<ViewAll to={`${PATHS.reservations}?role=OWNER&status=CONFIRMED`} />}>
+        <Card title={t('dashboard.upcomingHandovers')} aside={<ViewAll to={`${PATHS.reservations}?role=OWNER&status=CONFIRMED`} />}>
           {owned.error ? <ErrorState error={owned.error} onRetry={owned.refetch} /> : <UpcomingHandovers handovers={handovers} today={today} />}
         </Card>
       </div>
 
-      <Card title={`Ocupación de mi flota · próximas ${timelineDays / 7} semanas`} aside={<TimelineLegend />}>
+      <Card title={t('dashboard.fleetOccupancy', { weeks: timelineDays / 7 })} aside={<TimelineLegend />}>
         {fleet.error && <ErrorState error={fleet.error} onRetry={fleet.refetch} />}
         {!fleet.error && fleet.data && fleet.data.totalElements === 0 && (
           <div className="flex flex-col items-start gap-3 rounded-md border border-dashed border-slate-300 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-slate-600">
               {publisher
-                ? 'Aún no publicas maquinaria. Cuando lo hagas, aquí verás qué días está reservada cada máquina.'
-                : 'Tu empresa aún no publica maquinaria. Mientras tanto, explora lo que ofrecen otras empresas.'}
+                ? t('dashboard.noFleetPublisher')
+                : t('dashboard.noFleet')}
             </p>
             <Link
               to={publisher ? PATHS.publishEquipment : PATHS.catalog}
               className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-slate-300 px-3 text-sm font-medium text-ink hover:bg-raised"
             >
               {publisher ? <Plus className="size-4" aria-hidden="true" /> : <Search className="size-4" aria-hidden="true" />}
-              {publisher ? 'Publicar maquinaria' : 'Explorar catálogo'}
+              {publisher ? t('dashboard.publish') : t('dashboard.exploreCatalog')}
             </Link>
           </div>
         )}
@@ -315,7 +318,7 @@ export default function DashboardPage() {
             )}
           </>
         )}
-        {!fleet.error && !fleet.data && <div className="h-56 rounded-md bg-raised" aria-busy="true" aria-label="Cargando tu flota" />}
+        {!fleet.error && !fleet.data && <div className="h-56 rounded-md bg-raised" aria-busy="true" aria-label={t('dashboard.loadingFleet')} />}
       </Card>
     </div>
   )

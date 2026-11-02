@@ -1,6 +1,8 @@
 import { ArrowUpRight, MessageSquareText } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
+import { currentLocale } from '../../i18n'
 import { buildPath } from '../../routes/paths'
 import type { Reservation, ReservationStatus } from '../../types'
 import { cn } from '../../utils/cn'
@@ -31,6 +33,7 @@ interface ReservationTimelineProps {
  * node in the colour of its status on the rail, and the reservation with its actions on the right.
  */
 export function ReservationTimeline({ reservations, renderActions }: ReservationTimelineProps) {
+  const { t } = useTranslation()
   const ordered = [...reservations].sort((a, b) => a.startDate.localeCompare(b.startDate))
 
   return (
@@ -43,7 +46,7 @@ export function ReservationTimeline({ reservations, renderActions }: Reservation
             <div className="pt-4 text-right">
               <p className="num text-xl leading-6 font-bold text-ink">{start.getDate()}</p>
               <p className="text-xs font-medium text-slate-500 uppercase">
-                {start.toLocaleDateString('es-PE', { month: 'short' }).replace('.', '')}
+                {start.toLocaleDateString(currentLocale(), { month: 'short' }).replace('.', '')}
               </p>
             </div>
 
@@ -64,14 +67,14 @@ export function ReservationTimeline({ reservations, renderActions }: Reservation
                   </Link>
                   <p className="mt-0.5 text-sm text-slate-600">
                     <span className="num">{formatDateRange(reservation.startDate, reservation.endDate)}</span> ·{' '}
-                    {reservation.totalDays} {reservation.totalDays === 1 ? 'día' : 'días'} ·{' '}
+                    {t('common.day', { count: reservation.totalDays })} ·{' '}
                     <span className="whitespace-nowrap text-slate-500">{reservationCode(reservation.id)}</span>
                   </p>
                 </div>
                 <p className="sm:text-right">
                   <span className="num block text-lg font-bold text-ink">{formatCurrency(reservation.totalAmount, reservation.currency)}</span>
                   <span className="num text-xs text-slate-500">
-                    incl. {formatCurrency(reservation.securityDeposit, reservation.currency)} de garantía
+                    {t('reservation.inclDeposit', { price: formatCurrency(reservation.securityDeposit, reservation.currency) })}
                   </span>
                 </p>
               </div>

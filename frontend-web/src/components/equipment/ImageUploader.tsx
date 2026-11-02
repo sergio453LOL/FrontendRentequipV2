@@ -1,5 +1,6 @@
 import { ImagePlus, RotateCcw, Star, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useId, useRef, useState, type DragEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { equipmentService } from '../../services/equipmentService'
 import { getErrorMessage } from '../../utils/apiError'
 import { cn } from '../../utils/cn'
@@ -30,6 +31,7 @@ interface ImageUploaderProps {
 }
 
 export function ImageUploader({ onChange, onBusyChange, error }: ImageUploaderProps) {
+  const { t } = useTranslation()
   const inputId = useId()
   const [items, setItems] = useState<UploadItem[]>([])
   const [isDragging, setIsDragging] = useState(false)
@@ -68,11 +70,11 @@ export function ImageUploader({ onChange, onBusyChange, error }: ImageUploaderPr
     const accepted: UploadItem[] = []
     for (const file of Array.from(fileList)) {
       if (!ACCEPTED_TYPES.includes(file.type)) {
-        setRejection(`"${file.name}" no es una imagen JPG, PNG o WEBP.`)
+        setRejection(t('publish.uploader.notImage', { name: file.name }))
       } else if (file.size > MAX_FILE_BYTES) {
-        setRejection(`"${file.name}" pesa más de 5 MB.`)
+        setRejection(t('publish.uploader.tooBig', { name: file.name }))
       } else if (accepted.length >= room) {
-        setRejection(`Puedes subir como máximo ${MAX_IMAGES} fotos.`)
+        setRejection(t('publish.uploader.tooMany', { max: MAX_IMAGES }))
         break
       } else {
         accepted.push({
@@ -128,8 +130,8 @@ export function ImageUploader({ onChange, onBusyChange, error }: ImageUploaderPr
         )}
       >
         <ImagePlus className="size-9 text-brand-strong" aria-hidden="true" />
-        <span className="text-sm font-medium text-slate-700">Arrastra tus fotos aquí o haz clic para elegirlas</span>
-        <span className="text-xs text-slate-500">JPG, PNG o WEBP · máximo 5 MB cada una · hasta {MAX_IMAGES} fotos</span>
+        <span className="text-sm font-medium text-slate-700">{t('publish.uploader.drop')}</span>
+        <span className="text-xs text-slate-500">{t('publish.uploader.rules', { max: MAX_IMAGES })}</span>
         <input
           id={inputId}
           type="file"
@@ -151,24 +153,24 @@ export function ImageUploader({ onChange, onBusyChange, error }: ImageUploaderPr
       )}
 
       {items.length > 0 && (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" aria-label="Fotos seleccionadas">
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" aria-label={t('publish.uploader.selected')}>
           {items.map((item, index) => (
             <li key={item.id} className="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
-              <img src={item.previewUrl} alt={`Foto ${index + 1}`} className="aspect-square w-full object-cover" />
+              <img src={item.previewUrl} alt={t('publish.uploader.photoN', { n: index + 1 })} className="aspect-square w-full object-cover" />
 
               {index === 0 && item.state === 'done' && (
                 <span className="absolute top-2 left-2 rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold text-white">
-                  PORTADA
+                  {t('publish.uploader.cover')}
                 </span>
               )}
 
               {item.state === 'uploading' && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-900/55 px-3 text-white">
-                  <Spinner size="sm" label="Subiendo foto" />
+                  <Spinner size="sm" label={t('publish.uploader.uploading')} />
                   <span className="num text-xs font-semibold">{item.progress}%</span>
                   <div
                     role="progressbar"
-                    aria-label={`Subiendo foto ${index + 1}`}
+                    aria-label={t('publish.uploader.uploadingN', { n: index + 1 })}
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-valuenow={item.progress}
@@ -187,7 +189,7 @@ export function ImageUploader({ onChange, onBusyChange, error }: ImageUploaderPr
                     onClick={() => void upload(item)}
                     className="flex items-center gap-1 rounded bg-white/20 px-2 py-1 text-xs hover:bg-white/30"
                   >
-                    <RotateCcw className="size-3" aria-hidden="true" /> Reintentar
+                    <RotateCcw className="size-3" aria-hidden="true" /> {t('publish.uploader.retry')}
                   </button>
                 </div>
               )}
@@ -197,8 +199,8 @@ export function ImageUploader({ onChange, onBusyChange, error }: ImageUploaderPr
                   <button
                     type="button"
                     onClick={() => makeCover(item.id)}
-                    aria-label={`Usar la foto ${index + 1} como portada`}
-                    title="Usar como portada"
+                    aria-label={t('publish.uploader.makeCoverN', { n: index + 1 })}
+                    title={t('publish.uploader.makeCover')}
                     className="rounded-full bg-white/90 p-1.5 text-slate-700 shadow hover:bg-white"
                   >
                     <Star className="size-3.5" />
@@ -207,8 +209,8 @@ export function ImageUploader({ onChange, onBusyChange, error }: ImageUploaderPr
                 <button
                   type="button"
                   onClick={() => removeItem(item.id)}
-                  aria-label={`Quitar la foto ${index + 1}`}
-                  title="Quitar"
+                  aria-label={t('publish.uploader.removeN', { n: index + 1 })}
+                  title={t('publish.uploader.remove')}
                   className="rounded-full bg-white/90 p-1.5 text-red-600 shadow hover:bg-white"
                 >
                   <Trash2 className="size-3.5" />

@@ -15,6 +15,7 @@ export const ENDPOINTS = {
   reservationCancellation: (id: number) => `/reservations/${id}/cancellation`,
   reservationStatus: (id: number) => `/reservations/${id}/status`,
   reservationPayments: (id: number) => `/reservations/${id}/payments`,
+  reservationReceiptDeliveries: (id: number) => `/reservations/${id}/receipt-deliveries`,
   availability: '/reservations/availability',
   equipmentCollection: '/equipment',
   imageUploads: '/uploads/images',

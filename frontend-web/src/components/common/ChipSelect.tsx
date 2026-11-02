@@ -1,5 +1,7 @@
 import { Check } from 'lucide-react'
 import { useId } from 'react'
+import { useTranslation } from 'react-i18next'
+import { translateMessage } from '../../i18n/translateMessage'
 import { cn } from '../../utils/cn'
 
 export interface ChipOption {
@@ -20,7 +22,8 @@ interface ChipSelectProps {
 /** Multi-select rendered as toggle chips, for short option lists such as categories. */
 export function ChipSelect({ label, options, value, onChange, error, hint, required }: ChipSelectProps) {
   const groupId = useId()
-  const message = error ?? hint
+  useTranslation() // re-render on language change
+  const message = translateMessage(error ?? hint)
 
   function toggle(option: number) {
     onChange(value.includes(option) ? value.filter((item) => item !== option) : [...value, option])

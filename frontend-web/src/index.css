@@ -41,6 +41,133 @@
   --color-status-red: #ef4444;
   --color-positive: #047857;
   --color-negative: #b91c1c;
+
+  /* Text on amber fills (the active mode pill). Fixed: it does not flip in dark mode. */
+  --color-on-brand: #0f172a;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Dark mode flips the tokens instead of adding dark: variants to every component: white becomes the dark
+ * card surface, the slate ramp is mirrored (slate-900 text turns light, slate-50 ground turns dark) and
+ * ink turns light, so `bg-ink text-white` buttons invert. The orange action brightens so its label, now
+ * dark, keeps contrast. Tints of the status families become dark tints with light text.
+ */
+.dark {
+  color-scheme: dark;
+  --color-white: #131c2e;
+  --color-slate-50: #0b1220;
+  --color-slate-100: #1a2436;
+  --color-slate-200: #263247;
+  --color-slate-300: #354359;
+  --color-slate-400: #64748b;
+  --color-slate-500: #94a3b8;
+  --color-slate-600: #aab5c5;
+  --color-slate-700: #cbd5e1;
+  --color-slate-800: #e2e8f0;
+  --color-slate-900: #f1f5f9;
+  --color-slate-950: #f8fafc;
+
+  --color-ink: #f1f5f9;
+  --color-ink-hover: #cbd5e1;
+  --color-frame: #0b1220;
+  --color-sheet: #131c2e;
+  --color-raised: #182235;
+  --color-active: #1a2436;
+  --color-line: #263247;
+  --color-rule: #1a2436;
+
+  --color-accent-ink: #fbbf24;
+  --color-accent-tint: #3a2a0a;
+  --color-action: #f97316;
+  --color-action-hover: #fb923c;
+  --color-positive: #34d399;
+  --color-negative: #f87171;
+
+  --color-red-50: #2a1215;
+  --color-red-100: #3b1519;
+  --color-red-200: #5b1d22;
+  --color-red-700: #fca5a5;
+  --color-red-800: #fecaca;
+  --color-red-900: #fee2e2;
+  --color-amber-50: #2a1f0a;
+  --color-amber-100: #3a2a0a;
+  --color-amber-200: #5c430f;
+  --color-amber-700: #fcd34d;
+  --color-amber-800: #fde68a;
+  --color-amber-900: #fef3c7;
+  --color-emerald-50: #0b2a20;
+  --color-emerald-100: #0f3a2b;
+  --color-emerald-200: #14533d;
+  --color-emerald-700: #6ee7b7;
+  --color-emerald-800: #a7f3d0;
+  --color-orange-50: #2b170a;
+  --color-orange-100: #3d1f0c;
+  --color-orange-200: #5e2f12;
+  --color-blue-50: #0e1d36;
+  --color-blue-200: #1e3a66;
+  --color-blue-800: #bfdbfe;
+}
+
+/*
+ * Surfaces designed for one look keep the light tokens in dark mode: the asphalt sidebar (already dark),
+ * the landing page and the login/registration screens.
+ */
+.dark .theme-light {
+  color-scheme: light;
+  --color-white: #ffffff;
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
+
+  --color-ink: #0f172a;
+  --color-ink-hover: #1e293b;
+  --color-frame: #f1f5f9;
+  --color-sheet: #ffffff;
+  --color-raised: #f8fafc;
+  --color-active: #f1f5f9;
+  --color-line: #e2e8f0;
+  --color-rule: #f1f5f9;
+
+  --color-accent-ink: #b45309;
+  --color-accent-tint: #fef3c7;
+  --color-action: #c2410c;
+  --color-action-hover: #9a3412;
+  --color-positive: #047857;
+  --color-negative: #b91c1c;
+
+  --color-red-50: #fef2f2;
+  --color-red-100: #fee2e2;
+  --color-red-200: #fecaca;
+  --color-red-700: #b91c1c;
+  --color-red-800: #991b1b;
+  --color-red-900: #7f1d1d;
+  --color-amber-50: #fffbeb;
+  --color-amber-100: #fef3c7;
+  --color-amber-200: #fde68a;
+  --color-amber-700: #b45309;
+  --color-amber-800: #92400e;
+  --color-amber-900: #78350f;
+  --color-emerald-50: #ecfdf5;
+  --color-emerald-100: #d1fae5;
+  --color-emerald-200: #a7f3d0;
+  --color-emerald-700: #047857;
+  --color-emerald-800: #065f46;
+  --color-orange-50: #fff7ed;
+  --color-orange-100: #ffedd5;
+  --color-orange-200: #fed7aa;
+  --color-blue-50: #eff6ff;
+  --color-blue-200: #bfdbfe;
+  --color-blue-800: #1e40af;
 }
 
 @layer base {
@@ -66,6 +193,23 @@
 @keyframes slide-in {
   from { opacity: 0; transform: translateX(1rem); }
   to { opacity: 1; transform: translateX(0); }
+}
+
+/*
+ * Main call to action: bright orange flowing into deep rust and back, slowly. The centre, under the label, is
+ * always dark enough for white text. In the components layer so utilities such as motion-reduce:animate-none win.
+ */
+@layer components {
+  .btn-gradient {
+    background-image: linear-gradient(110deg, #f97316, #c2410c, #7c2d12, #c2410c, #f97316);
+    background-size: 200% 100%;
+    animation: gradient-flow 6s ease-in-out infinite;
+  }
+}
+
+@keyframes gradient-flow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

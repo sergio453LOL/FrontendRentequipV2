@@ -1,5 +1,6 @@
 import { AlertOctagon } from 'lucide-react'
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import i18n from '../../i18n'
 import { Button } from './Button'
 
 interface ErrorBoundaryProps {
@@ -33,6 +34,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   render(): ReactNode {
     if (!this.state.hasError) return this.props.children
+    const t = i18n.t
 
     return (
       <div
@@ -45,16 +47,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       >
         <AlertOctagon className="size-12 text-red-500" aria-hidden="true" />
         <div className="space-y-1">
-          <h1 className="text-xl font-semibold text-slate-900">Algo salió mal</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{t('errors.boundaryTitle')}</h1>
           <p className="max-w-md text-sm text-slate-600">
-            Ocurrió un error inesperado al mostrar esta pantalla. Puedes reintentar o volver a cargar la página.
+            {t('errors.boundaryText')}
           </p>
         </div>
         <div className="flex gap-3">
           <Button variant="secondary" onClick={this.handleRetry}>
-            Reintentar
+            {t('common.retry')}
           </Button>
-          <Button onClick={() => window.location.reload()}>Recargar página</Button>
+          <Button onClick={() => window.location.reload()}>{t('errors.reload')}</Button>
         </div>
       </div>
     )

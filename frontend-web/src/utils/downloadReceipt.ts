@@ -1,3 +1,4 @@
+import i18n from '../i18n'
 import type { Payment, Reservation } from '../types'
 import { reservationCode } from './format'
 
@@ -11,7 +12,7 @@ export async function downloadReceipt(reservation: Reservation, payments: Paymen
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `comprobante-${reservationCode(reservation.id)}.pdf`
+  link.download = `${i18n.t('receipt.fileName')}-${reservationCode(reservation.id)}.pdf`
   document.body.appendChild(link)
   link.click()
   link.remove()

@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Eye, ImagePlus, MapPin } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { formatCurrency } from '../../utils/format'
 import { StatusBadge } from '../common/StatusBadge'
 
@@ -21,15 +22,16 @@ const money = (value: string) => (value && Number(value) > 0 ? formatCurrency(Nu
 
 /** The listing as renters will see it in the catalogue, updated as the form is filled in. */
 export function AdPreview(props: AdPreviewProps) {
+  const { t } = useTranslation()
   const daily = money(props.dailyRate)
   const weekly = money(props.weeklyRate)
   const deposit = money(props.securityDeposit)
   const subtitle = [props.brand, props.model, props.year].filter(Boolean).join(' · ')
 
   return (
-    <aside aria-label="Vista previa del anuncio" className="xl:sticky xl:top-24">
+    <aside aria-label={t('publish.preview.label')} className="xl:sticky xl:top-24">
       <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-600">
-        <Eye className="size-4 text-brand-strong" aria-hidden="true" /> Vista previa del anuncio
+        <Eye className="size-4 text-brand-strong" aria-hidden="true" /> {t('publish.preview.label')}
       </p>
       <motion.article layout className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl shadow-slate-900/5">
         <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
@@ -48,7 +50,7 @@ export function AdPreview(props: AdPreviewProps) {
             ) : (
               <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex size-full flex-col items-center justify-center gap-2 text-slate-400">
                 <ImagePlus className="size-8" aria-hidden="true" />
-                <span className="text-sm font-medium">Tu foto de portada</span>
+                <span className="text-sm font-medium">{t('publish.preview.cover')}</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -58,12 +60,12 @@ export function AdPreview(props: AdPreviewProps) {
         </div>
         <div className="space-y-3 p-5">
           <div>
-            <h3 className={props.name ? 'text-lg font-bold text-ink' : 'text-lg font-bold text-slate-300'}>{props.name || 'Nombre del equipo'}</h3>
-            <p className="text-sm text-slate-500">{subtitle || 'Marca · Modelo · Año'}</p>
+            <h3 className={props.name ? 'text-lg font-bold text-ink' : 'text-lg font-bold text-slate-300'}>{props.name || t('publish.preview.name')}</h3>
+            <p className="text-sm text-slate-500">{subtitle || t('publish.preview.subtitle')}</p>
           </div>
           <p className="flex items-center gap-1.5 text-sm text-slate-600">
             <MapPin className="size-4 text-slate-400" aria-hidden="true" />
-            {props.city || 'Ciudad'} · {props.companyName}
+            {props.city || t('publish.preview.city')} · {props.companyName}
           </p>
           {props.categories.length > 0 && (
             <ul className="flex flex-wrap gap-1.5">
@@ -83,11 +85,11 @@ export function AdPreview(props: AdPreviewProps) {
           <div className="flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
             <p className="num text-2xl font-bold text-ink">
               {daily ?? 'S/ —'}
-              <span className="text-sm font-medium text-slate-500"> / día</span>
+              <span className="text-sm font-medium text-slate-500"> {t('common.perDay')}</span>
             </p>
             <div className="num text-right text-xs text-slate-500">
-              {weekly && <p>{weekly} / semana</p>}
-              {deposit && <p>Garantía {deposit}</p>}
+              {weekly && <p>{t('publish.preview.perWeek', { price: weekly })}</p>}
+              {deposit && <p>{t('publish.preview.deposit', { price: deposit })}</p>}
             </div>
           </div>
         </div>

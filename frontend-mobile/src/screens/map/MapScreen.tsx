@@ -136,7 +136,7 @@ export default function MapScreen() {
           <Text style={styles.pillText}>
             {isLoading
               ? 'Buscando…'
-              : `${data?.totalElements ?? 0} ${data?.totalElements === 1 ? 'máquina' : 'máquinas'} en ${area.radiusKm} km`}
+              : `${data?.totalElements ?? 0} ${data?.totalElements === 1 ? 'equipo' : 'equipos'} en ${area.radiusKm} km`}
           </Text>
         </View>
         {movedAway && !isLoading && (

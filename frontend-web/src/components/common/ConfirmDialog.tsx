@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from './Button'
 import { Modal } from './Modal'
 import { Textarea } from './Textarea'
@@ -30,6 +31,7 @@ export function ConfirmDialog({
   onConfirm,
   onClose,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation()
   const [reason, setReason] = useState('')
 
   function handleClose() {
@@ -47,7 +49,7 @@ export function ConfirmDialog({
       footer={
         <>
           <Button variant="secondary" onClick={handleClose} disabled={isLoading}>
-            Volver
+            {t('common.back')}
           </Button>
           <Button variant={variant} isLoading={isLoading} onClick={() => onConfirm(reason.trim())}>
             {confirmLabel}
@@ -59,8 +61,8 @@ export function ConfirmDialog({
       {askForReason && (
         <Textarea
           className="mt-4"
-          label="Motivo (opcional)"
-          placeholder="Cuéntale a la otra empresa por qué"
+          label={t('dialog.reasonLabel')}
+          placeholder={t('dialog.reasonPlaceholder')}
           maxLength={MAX_REASON_LENGTH}
           hint={`${reason.length}/${MAX_REASON_LENGTH}`}
           value={reason}
