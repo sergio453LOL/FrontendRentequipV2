@@ -8,6 +8,7 @@ export const PATHS = {
   publishEquipment: '/equipment/new',
   equipmentDetail: '/equipment/:id',
   reservations: '/reservations',
+  categories: '/categories',
 } as const
 
 export const buildPath = {

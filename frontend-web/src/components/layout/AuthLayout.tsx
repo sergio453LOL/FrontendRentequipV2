@@ -29,8 +29,8 @@ export function AuthLayout({ title, description, width = 'narrow', children }: A
     <main className="theme-light min-h-screen bg-sheet lg:grid lg:grid-cols-2">
       <figure className="relative hidden overflow-hidden bg-gradient-to-b from-[#eef8fa] to-[#d2eaee] lg:block">
         <video
-          src="/videos/login.mp4"
-          poster="/videos/login.jpg"
+          src={`${import.meta.env.BASE_URL}videos/login.mp4`}
+          poster={`${import.meta.env.BASE_URL}videos/login.jpg`}
           autoPlay
           muted
           loop
@@ -38,7 +38,7 @@ export function AuthLayout({ title, description, width = 'narrow', children }: A
           aria-hidden="true"
           className={`${CLIP_CLASSES} motion-reduce:hidden`}
         />
-        <img src="/videos/login.jpg" alt={t('photo.authAlt')} className={`${CLIP_CLASSES} hidden motion-reduce:block`} />
+        <img src={`${import.meta.env.BASE_URL}videos/login.jpg`} alt={t('photo.authAlt')} className={`${CLIP_CLASSES} hidden motion-reduce:block`} />
       </figure>
 
       <div className="flex min-h-screen flex-col px-4 py-6 sm:px-10 lg:px-16">

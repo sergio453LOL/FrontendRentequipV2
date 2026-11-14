@@ -7,6 +7,7 @@ import { ErrorState } from '../components/common/ErrorState'
 import { Pagination } from '../components/common/Pagination'
 import { StatusBadge } from '../components/common/StatusBadge'
 import { fleetOccupancy, revenueByMonth } from '../components/dashboard/ownerMetrics'
+import { PotentialIncome } from '../components/dashboard/PotentialIncome'
 import { OccupancyRing, RevenueChart } from '../components/dashboard/RevenueChart'
 import { COMPACT_TIMELINE_DAYS, FleetTimeline, TIMELINE_DAYS, TimelineLegend } from '../components/equipment/FleetTimeline'
 import { useAuth } from '../hooks/useAuth'
@@ -208,6 +209,8 @@ export default function DashboardPage() {
   const monthly = revenueByMonth(ownerReservations, today)
   const currentMonthRevenue = monthly.find((item) => item.isCurrent)?.amount ?? 0
   const occupancy = fleetOccupancy(ownerReservations, data?.publishedEquipment ?? 0, today)
+  const fleetRates = fleet.data?.content.map((machine) => machine.dailyRate) ?? []
+  const averageRate = fleetRates.length > 0 ? fleetRates.reduce((sum, rate) => sum + rate, 0) / fleetRates.length : 0
   const kpis: Kpi[] = data
     ? [
         {
@@ -227,7 +230,7 @@ export default function DashboardPage() {
           tone: data.pendingRequestsAsOwner > 0 ? 'action' : 'default',
           caption:
             data.pendingRequestsAsOwner > 0 ? (
-              <ViewAll className="text-xs font-semibold text-action underline" to={`${PATHS.reservations}?role=OWNER&status=PENDING`}>
+              <ViewAll className="text-xs font-semibold text-action-ink underline" to={`${PATHS.reservations}?role=OWNER&status=PENDING`}>
                 {t('dashboard.reviewRequests')}
               </ViewAll>
             ) : (
@@ -263,12 +266,22 @@ export default function DashboardPage() {
       )}
 
       {data && owned.data && (
-        <Card
-          title={t('dashboard.revenueByMonth')}
-          aside={<span className="text-xs font-medium text-slate-500">{t('dashboard.revenueFormula')}</span>}
-        >
-          <RevenueChart months={monthly} currency={data.currency} />
-        </Card>
+        <div className="grid gap-6 xl:grid-cols-[3fr_2fr]">
+          <Card
+            title={t('dashboard.revenueByMonth')}
+            aside={<span className="text-xs font-medium text-slate-500">{t('dashboard.revenueFormula')}</span>}
+          >
+            <RevenueChart months={monthly} currency={data.currency} />
+          </Card>
+          <PotentialIncome
+            // Starts again from the fleet's average once the fleet has loaded.
+            key={Math.round(averageRate)}
+            suggestedRate={averageRate}
+            currentOccupancy={occupancy}
+            currency={data.currency}
+            canPublish={publisher}
+          />
+        </div>
       )}
 
       <div className="grid gap-6 xl:grid-cols-[3fr_2fr]">

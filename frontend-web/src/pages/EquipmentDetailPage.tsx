@@ -15,6 +15,7 @@ import { SpecificationList } from '../components/equipment/SpecificationList'
 import { ReservationRequestModal } from '../components/reservations/ReservationRequestModal'
 import { useAuth } from '../hooks/useAuth'
 import { useFetch } from '../hooks/useFetch'
+import { useQueryParam } from '../hooks/useQueryParam'
 import { PATHS } from '../routes/paths'
 import { ENDPOINTS } from '../services/endpoints'
 import type { Equipment, EquipmentRating, WithLinks } from '../types'
@@ -63,6 +64,7 @@ export default function EquipmentDetailPage() {
   const { user } = useAuth()
   const equipmentId = parseId(useParams<{ id: string }>().id)
   const [isReserving, setIsReserving] = useState(false)
+  const [reserveParam, setReserveParam] = useQueryParam('reservar')
   const [dates, setDates] = useState<DateSelection>(EMPTY_SELECTION)
 
   const { data: equipment, error, isLoading, refetch } = useFetch<WithLinks<Equipment>>(
@@ -199,8 +201,12 @@ export default function EquipmentDetailPage() {
 
       <ReservationRequestModal
         equipment={equipment}
-        isOpen={isReserving}
-        onClose={() => setIsReserving(false)}
+        isOpen={isReserving || (reserveParam === '1' && reserveBlockedReason === null)}
+        onClose={() => {
+          setIsReserving(false)
+          // "Book now" from the assistant opens the request once; closing it leaves a plain detail URL.
+          if (reserveParam) setReserveParam('')
+        }}
         initialDates={dates}
       />
     </div>

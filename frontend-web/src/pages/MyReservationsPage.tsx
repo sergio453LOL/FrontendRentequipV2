@@ -1,5 +1,5 @@
 import { CalendarX2, Check, CreditCard, FileDown, FilterX, Flag, Play, Search, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Button } from '../components/common/Button'
@@ -10,7 +10,6 @@ import { ErrorState } from '../components/common/ErrorState'
 import { PageHeader } from '../components/common/PageHeader'
 import { Pagination } from '../components/common/Pagination'
 import { SkeletonLoader } from '../components/common/SkeletonLoader'
-import { PaymentModal } from '../components/payments/PaymentModal'
 import { ReservationCard } from '../components/reservations/ReservationCard'
 import { ReservationTimeline } from '../components/reservations/ReservationTimeline'
 import { useAuth } from '../hooks/useAuth'
@@ -29,6 +28,11 @@ import { cn } from '../utils/cn'
 import { downloadReceipt } from '../utils/downloadReceipt'
 import { formatNumber } from '../utils/format'
 import { RESERVATION_STATUSES } from '../utils/labels'
+
+/** The checkout (and Stripe.js with it) loads only when someone pays a reservation. */
+const PaymentModal = lazy(() =>
+  import('../components/payments/PaymentModal').then((module) => ({ default: module.PaymentModal })),
+)
 
 type ReservationAction = 'confirm' | 'reject' | 'cancel' | 'start' | 'complete'
 
@@ -290,11 +294,13 @@ export default function MyReservationsPage() {
       )}
 
       {payingReservation && (
-        <PaymentModal
-          reservation={payingReservation}
-          onClose={() => setPayingReservation(null)}
-          onPaid={refetch}
-        />
+        <Suspense fallback={null}>
+          <PaymentModal
+            reservation={payingReservation}
+            onClose={() => setPayingReservation(null)}
+            onPaid={refetch}
+          />
+        </Suspense>
       )}
 
       {pending && pendingConfig && pendingText && (

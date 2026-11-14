@@ -1,4 +1,4 @@
-import { LocateFixed, Send } from 'lucide-react'
+import { HardHat, LocateFixed, Send } from 'lucide-react'
 import { useCallback, useState, type ReactNode } from 'react'
 import { Controller, useWatch, type Path } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -56,6 +56,7 @@ const publishSchema = z
     address: optionalText(255),
     latitude: z.string(),
     longitude: z.string(),
+    operatorIncluded: z.boolean(),
   })
   .refine((values) => values.weeklyRate === '' || Number(values.weeklyRate) <= Number(values.dailyRate) * 7, {
     path: ['weeklyRate'],
@@ -115,6 +116,7 @@ export default function PublishEquipmentPage() {
       address: '',
       latitude: '',
       longitude: '',
+      operatorIncluded: false,
     },
   })
 
@@ -178,6 +180,7 @@ export default function PublishEquipmentPage() {
       longitude,
       imageUrls,
       ownerCompanyId: user.companyId,
+      operatorIncluded: values.operatorIncluded,
     })
   }
 
@@ -229,6 +232,15 @@ export default function PublishEquipmentPage() {
           <Input label={t('publish.dailyRate')} required inputMode="decimal" placeholder="850.00" error={errors.dailyRate?.message} {...register('dailyRate')} />
           <Input label={t('publish.weeklyRate')} inputMode="decimal" placeholder="5000.00" hint={t('publish.optional')} error={errors.weeklyRate?.message} {...register('weeklyRate')} />
           <Input label={t('publish.deposit')} required inputMode="decimal" placeholder="2000.00" error={errors.securityDeposit?.message} {...register('securityDeposit')} />
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg bg-accent-tint p-3 sm:col-span-2">
+            <input type="checkbox" className="mt-0.5 size-4 accent-[#f59e0b]" {...register('operatorIncluded')} />
+            <span>
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                <HardHat className="size-4 text-accent-ink" aria-hidden="true" /> {t('publish.operator')}
+              </span>
+              <span className="block text-sm text-slate-600">{t('publish.operatorHint')}</span>
+            </span>
+          </label>
         </Section>
 
         <Section title={t('publish.specsTitle')} description={t('publish.specsText')}>

@@ -1,0 +1,56 @@
+# Builds frontend-web and publishes it to GitHub Pages on every push to main.
+# One-time setup: Settings > Pages > Source: "GitHub Actions".
+# Optional repository variables (Settings > Secrets and variables > Actions > Variables):
+#   VITE_API_URL                 HTTPS URL of the backend (default: the EC2 backend below)
+#   VITE_STRIPE_PUBLISHABLE_KEY  Stripe publishable key (pk_test_...); without it card payments are disabled
+name: Deploy web to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ['frontend-web/**', '.github/workflows/deploy-pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend-web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_API_URL: ${{ vars.VITE_API_URL || 'https://3-237-198-235.sslip.io/api/v1' }}
+          VITE_STRIPE_PUBLISHABLE_KEY: ${{ vars.VITE_STRIPE_PUBLISHABLE_KEY }}
+      # Pages has no SPA rewrites: serving index.html as 404.html lets deep links like /catalogo load the app.
+      - run: cp dist/index.html dist/404.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend-web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

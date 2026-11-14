@@ -5,6 +5,7 @@ export const ENDPOINTS = {
     register: '/auth/register',
   },
   categories: '/equipment-categories',
+  category: (id: number) => `/equipment-categories/${id}`,
   equipmentSearch: '/equipment/search',
   equipment: (id: number | string) => `/equipment/${id}`,
   companyEquipment: (companyId: number) => `/companies/${companyId}/equipment`,

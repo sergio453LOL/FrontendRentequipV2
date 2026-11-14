@@ -17,7 +17,9 @@ export const MODE_HOME: Record<WorkspaceMode, string> = {
  */
 export function modeForLocation(pathname: string, search: string): WorkspaceMode | null {
   if (pathname === PATHS.catalog) return 'renter'
-  if (pathname === PATHS.home || pathname === PATHS.fleet || pathname === PATHS.publishEquipment) return 'owner'
+  if (pathname === PATHS.home || pathname === PATHS.fleet || pathname === PATHS.publishEquipment || pathname === PATHS.categories) {
+    return 'owner'
+  }
   if (pathname === PATHS.reservations) return new URLSearchParams(search).get('role') === 'OWNER' ? 'owner' : 'renter'
   return null
 }

@@ -1,18 +1,21 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { CalendarRange, ClipboardList, LayoutDashboard, PlusCircle, Search, Sparkles, Truck } from 'lucide-react'
-import { Suspense, useCallback, useEffect, useState } from 'react'
+import { CalendarRange, ClipboardList, LayoutDashboard, PlusCircle, Search, Sparkles, Tags, Truck } from 'lucide-react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useSidebarCollapsed } from '../../hooks/useSidebarCollapsed'
 import { PATHS } from '../../routes/paths'
-import { PUBLISHER_ROLES } from '../../routes/roles'
+import { ADMIN_ROLES, PUBLISHER_ROLES } from '../../routes/roles'
+import { ASSISTANT_PARAM } from '../../utils/assistantLink'
 import { MODE_HOME, modeForLocation, readStoredMode, storeMode, type WorkspaceMode } from '../../utils/workspaceMode'
-import { AIChatWidget } from '../common/AIChatWidget'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { OfflineBanner } from '../common/OfflineBanner'
 import { Sidebar, type SidebarItem } from '../common/Sidebar'
 import { FullPageSpinner } from '../common/Spinner'
 import { TopBar } from '../common/TopBar'
+
+/** The assistant's code loads the first time someone opens it, not with every screen. */
+const AIChatWidget = lazy(() => import('../common/AIChatWidget').then((module) => ({ default: module.AIChatWidget })))
 
 /** Screens of each mode; `label` is an i18n key under `nav`. */
 const NAVIGATION: Record<WorkspaceMode, (Omit<SidebarItem, 'label'> & { label: NavKey })[]> = {
@@ -25,10 +28,11 @@ const NAVIGATION: Record<WorkspaceMode, (Omit<SidebarItem, 'label'> & { label: N
     { label: 'fleet', to: PATHS.fleet, icon: Truck },
     { label: 'ownerReservations', to: `${PATHS.reservations}?role=OWNER`, icon: ClipboardList },
     { label: 'publish', to: PATHS.publishEquipment, icon: PlusCircle, allowedRoles: PUBLISHER_ROLES },
+    { label: 'categories', to: PATHS.categories, icon: Tags, allowedRoles: ADMIN_ROLES },
   ],
 }
 
-type NavKey = 'catalog' | 'myReservations' | 'dashboard' | 'fleet' | 'ownerReservations' | 'publish'
+type NavKey = 'catalog' | 'myReservations' | 'dashboard' | 'fleet' | 'ownerReservations' | 'publish' | 'categories'
 
 /**
  * Asphalt sidebar, white header and the screen on a light slate ground. The navigation follows the
@@ -42,6 +46,9 @@ export function AppLayout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSidebarCollapsed, toggleSidebar] = useSidebarCollapsed()
   const [isAssistantOpen, setIsAssistantOpen] = useState(false)
+  // Stays mounted after the first opening so the conversation survives closing the panel.
+  const [hasOpenedAssistant, setHasOpenedAssistant] = useState(false)
+  if (isAssistantOpen && !hasOpenedAssistant) setHasOpenedAssistant(true)
   const [storedMode, setStoredMode] = useState<WorkspaceMode>(readStoredMode)
 
   // The screen decides the mode when it belongs to one side; neutral screens keep the last one.
@@ -62,6 +69,26 @@ export function AppLayout() {
   const closeMenu = useCallback(() => setIsMenuOpen(false), [])
   const toggleAssistant = useCallback(() => setIsAssistantOpen((open) => !open), [])
   const closeAssistant = useCallback(() => setIsAssistantOpen(false), [])
+
+  // A question sent from the landing's AI search (`?asistente=...`): open the advisor, ask it once, clean the URL.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const questionFromUrl = searchParams.get(ASSISTANT_PARAM)
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
+  if (questionFromUrl && pendingQuestion !== questionFromUrl) {
+    setPendingQuestion(questionFromUrl)
+    setIsAssistantOpen(true)
+  }
+  useEffect(() => {
+    if (!questionFromUrl) return
+    setSearchParams(
+      (params) => {
+        params.delete(ASSISTANT_PARAM)
+        return params
+      },
+      { replace: true },
+    )
+  }, [questionFromUrl, setSearchParams])
+  const clearPendingQuestion = useCallback(() => setPendingQuestion(null), [])
 
   return (
     <div className="min-h-screen bg-slate-50 lg:flex">
@@ -91,7 +118,17 @@ export function AppLayout() {
           </ErrorBoundary>
         </main>
       </div>
-      <AIChatWidget isOpen={isAssistantOpen} onClose={closeAssistant} />
+      {hasOpenedAssistant && (
+        <Suspense fallback={null}>
+          <AIChatWidget
+            isOpen={isAssistantOpen}
+            onClose={closeAssistant}
+            mode={mode}
+            initialQuestion={pendingQuestion}
+            onInitialQuestionAsked={clearPendingQuestion}
+          />
+        </Suspense>
+      )}
 
       {/* While exploring, the assistant also floats at hand. */}
       <AnimatePresence>

@@ -4,7 +4,7 @@ import { FullPageSpinner } from '../components/common/Spinner'
 import { AppLayout } from '../components/layout/AppLayout'
 import { PATHS } from './paths'
 import { GuestRoute, PrivateRoute } from './PrivateRoute'
-import { PUBLISHER_ROLES } from './roles'
+import { ADMIN_ROLES, PUBLISHER_ROLES } from './roles'
 
 const LandingPage = lazy(() => import('../pages/LandingPage'))
 const LoginPage = lazy(() => import('../pages/LoginPage'))
@@ -15,6 +15,7 @@ const FleetPage = lazy(() => import('../pages/FleetPage'))
 const EquipmentDetailPage = lazy(() => import('../pages/EquipmentDetailPage'))
 const MyReservationsPage = lazy(() => import('../pages/MyReservationsPage'))
 const PublishEquipmentPage = lazy(() => import('../pages/PublishEquipmentPage'))
+const CategoriesPage = lazy(() => import('../pages/CategoriesPage'))
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'))
 
 export function AppRoutes() {
@@ -36,6 +37,9 @@ export function AppRoutes() {
             <Route path={PATHS.reservations} element={<MyReservationsPage />} />
             <Route element={<PrivateRoute allowedRoles={PUBLISHER_ROLES} />}>
               <Route path={PATHS.publishEquipment} element={<PublishEquipmentPage />} />
+            </Route>
+            <Route element={<PrivateRoute allowedRoles={ADMIN_ROLES} />}>
+              <Route path={PATHS.categories} element={<CategoriesPage />} />
             </Route>
           </Route>
         </Route>

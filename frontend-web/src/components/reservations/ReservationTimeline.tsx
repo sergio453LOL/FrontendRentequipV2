@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import { ArrowUpRight, MessageSquareText } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -18,6 +19,8 @@ const NODE_CLASSES: Record<ReservationStatus, string> = {
   CANCELLED: 'bg-status-red',
   REJECTED: 'bg-status-red',
 }
+
+const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
 function isClosed(status: ReservationStatus): boolean {
   return status === 'CANCELLED' || status === 'REJECTED'
@@ -42,7 +45,14 @@ export function ReservationTimeline({ reservations, renderActions }: Reservation
         const start = parseIsoDate(reservation.startDate)
         const isLast = index === ordered.length - 1
         return (
-          <li key={reservation.id} className="grid grid-cols-[52px_28px_minmax(0,1fr)] gap-x-1 sm:grid-cols-[64px_32px_minmax(0,1fr)]">
+          <motion.li
+            key={reservation.id}
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.5, delay: Math.min(index, 4) * 0.07, ease: EASE_OUT }}
+            className="grid grid-cols-[52px_28px_minmax(0,1fr)] gap-x-1 sm:grid-cols-[64px_32px_minmax(0,1fr)]"
+          >
             <div className="pt-4 text-right">
               <p className="num text-xl leading-6 font-bold text-ink">{start.getDate()}</p>
               <p className="text-xs font-medium text-slate-500 uppercase">
@@ -51,8 +61,24 @@ export function ReservationTimeline({ reservations, renderActions }: Reservation
             </div>
 
             <div className="relative flex justify-center" aria-hidden="true">
-              <span className={cn('absolute top-0 w-px bg-slate-200', isLast ? 'h-6' : 'bottom-0')} />
-              <span className={cn('relative mt-5 size-3 rounded-full ring-4 ring-slate-50', NODE_CLASSES[reservation.status])} />
+              {/* The rail draws itself downwards (scaleY) as each reservation enters. */}
+              <motion.span
+                className={cn('absolute top-0 w-0.5 origin-top bg-slate-200', isLast ? 'h-6' : 'bottom-0')}
+                initial={{ scaleY: 0 }}
+                whileInView={{ scaleY: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, ease: EASE_OUT }}
+              />
+              <motion.span
+                className={cn('relative mt-5 size-3 rounded-full ring-4 ring-slate-50', NODE_CLASSES[reservation.status])}
+                initial={{ scale: 0 }}
+                whileInView={{ scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ type: 'spring', stiffness: 500, damping: 20, delay: 0.2 }}
+              />
+              {reservation.status === 'IN_PROGRESS' && (
+                <span className="absolute mt-5 size-3 animate-ping rounded-full bg-status-blue opacity-60 motion-reduce:hidden" />
+              )}
             </div>
 
             <article className="mb-4 rounded-2xl border border-slate-200/80 bg-white p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl sm:p-5">
@@ -98,7 +124,7 @@ export function ReservationTimeline({ reservations, renderActions }: Reservation
 
               <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">{renderActions(reservation)}</div>
             </article>
-          </li>
+          </motion.li>
         )
       })}
     </ol>

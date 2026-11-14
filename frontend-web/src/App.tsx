@@ -12,7 +12,8 @@ export default function App() {
       {/* Every animation follows the system "reduce motion" setting. */}
       <MotionConfig reducedMotion="user">
       <ThemeProvider>
-      <BrowserRouter>
+      {/* basename follows Vite's base, so routes also work under GitHub Pages' /FrontendRentequipV2/ path. */}
+      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
         <ToastProvider>
           <AuthProvider>
             <AppRoutes />

@@ -19,12 +19,16 @@ import { useQueryParam } from '../hooks/useQueryParam'
 import { api } from '../services/api'
 import { ENDPOINTS } from '../services/endpoints'
 import type { EquipmentCategory, EquipmentSummary, PageResponse } from '../types'
+import { useAiSuggested } from '../utils/aiSuggestions'
 import { PERU_CITIES } from '../utils/cities'
 import { categoryName } from '../utils/categoryName'
 import { cn } from '../utils/cn'
-import { formatNumber } from '../utils/format'
+import { formatNumber, todayIso } from '../utils/format'
+import { categoryIdsFor, isWorkType, WORK_TYPES, type WorkType } from '../utils/workTypes'
 
 const ALL = 'all'
+/** Marks no category card while a type of work is the active filter. */
+const WORK_TYPE_ACTIVE = 'work-type'
 
 // Leaflet only downloads when someone opens the map.
 const EquipmentMap = lazy(() => import('../components/equipment/EquipmentMap'))
@@ -138,28 +142,112 @@ function CategoryCards({
   )
 }
 
+/** "What are you going to do?": four jobs, each one searching every machine family that does it. */
+function WorkTypeFilter({ selected, onSelect }: { selected: WorkType | null; onSelect: (value: WorkType | null) => void }) {
+  const { t } = useTranslation()
+  return (
+    <section aria-labelledby="work-type-title">
+      <h2 id="work-type-title" className="mb-3 text-base font-bold text-ink">
+        {t('workTypes.title')}
+      </h2>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {WORK_TYPES.map(({ id, icon: Icon }, index) => {
+          const isSelected = selected === id
+          return (
+            <motion.button
+              key={id}
+              type="button"
+              aria-pressed={isSelected}
+              onClick={() => onSelect(isSelected ? null : id)}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: index * 0.06, ease: [0.16, 1, 0.3, 1] }}
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              className={cn(
+                'flex min-h-[84px] items-center gap-3 rounded-xl p-4 text-left transition-colors',
+                isSelected ? 'border border-brand bg-accent-tint text-ink shadow-sm ring-1 ring-brand' : 'border border-slate-200/80 bg-white text-ink shadow-sm hover:border-slate-300',
+              )}
+            >
+              <span
+                className={cn(
+                  'flex size-11 shrink-0 items-center justify-center rounded-lg transition-colors',
+                  isSelected ? 'bg-brand text-[#0f172a]' : 'bg-accent-tint text-accent-ink',
+                )}
+              >
+                <Icon className="size-6" aria-hidden="true" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-bold">{t(`workTypes.${id}.title`)}</span>
+                <span className={cn('block text-xs leading-snug', 'text-slate-500')}>
+                  {t(`workTypes.${id}.hint`)}
+                </span>
+              </span>
+            </motion.button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 export default function CatalogPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const [, setSearchParams] = useSearchParams()
   const [query] = useQueryParam('q')
-  const [categoryId, setCategoryId] = useQueryParam('categoryId')
+  const [categoryId, setCategoryIdParam] = useQueryParam('categoryId')
+  const [workParam, setWorkParam] = useQueryParam('obra')
+  const workType = isWorkType(workParam) ? workParam : null
   const [city, setCity] = useQueryParam('city')
   const [viewParam, setViewParam] = useQueryParam('view')
+  // Dates picked in the landing search: only machines free for the whole range.
+  const [startDate] = useQueryParam('startDate')
+  const [endDate] = useQueryParam('endDate')
   const view: CatalogView = viewParam === 'map' ? 'map' : 'grid'
   const { page, size, setPage, setSize } = usePagination()
 
   const categories = useFetch<EquipmentCategory[]>(ENDPOINTS.categories)
   const filters: CountFilters = { q: query || undefined, city: city || undefined, excludeOwnerId: user?.companyId }
   const counts = useCategoryCounts(categories.data ?? [], filters)
+  // A type of work searches all its categories at once; a single category wins when both are set.
+  const workCategoryIds = workType && !categoryId ? categoryIdsFor(workType, categories.data ?? []) : []
+  const categoryFilter = {
+    categoryId: categoryId || undefined,
+    categoryIds: workCategoryIds.length > 0 ? workCategoryIds.join(',') : undefined,
+  }
   const results = useFetch<PageResponse<EquipmentSummary>>(ENDPOINTS.equipmentSearch, {
     ...filters,
-    categoryId: categoryId || undefined,
+    ...categoryFilter,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
     page,
     size,
   })
+  // Same search limited to machines free today: those get the "immediate delivery" tag.
+  const today = todayIso()
+  const freeToday = useFetch<PageResponse<EquipmentSummary>>(ENDPOINTS.equipmentSearch, {
+    ...filters,
+    ...categoryFilter,
+    startDate: today,
+    endDate: today,
+    page: 0,
+    size: 100,
+  })
+  const freeTodayIds = new Set(freeToday.data?.content.map((machine) => machine.id) ?? [])
+  const aiSuggested = useAiSuggested()
 
-  const hasFilters = Boolean(query || categoryId || city)
+  function setCategoryId(value: string) {
+    setCategoryIdParam(value)
+    if (value) setWorkParam('')
+  }
+
+  function setWorkType(value: WorkType | null) {
+    setWorkParam(value ?? '')
+    if (value) setCategoryIdParam('')
+  }
+
+  const hasFilters = Boolean(query || categoryId || city || workType)
   const total = results.data?.totalElements
 
   function clearFilters() {
@@ -180,10 +268,12 @@ export default function CatalogPage() {
 
       <CatalogSearch id="catalog-page-search" className="sm:hidden" />
 
+      <WorkTypeFilter selected={workType} onSelect={setWorkType} />
+
       {categories.error ? (
         <p className="text-sm text-slate-600">{t('catalog.categoriesError')}</p>
       ) : (
-        <CategoryCards categories={categories.data ?? []} counts={counts} selected={categoryId} onSelect={setCategoryId} />
+        <CategoryCards categories={categories.data ?? []} counts={counts} selected={workType && !categoryId ? WORK_TYPE_ACTIVE : categoryId} onSelect={setCategoryId} />
       )}
 
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -249,7 +339,11 @@ export default function CatalogPage() {
           >
             {results.data.content.map((equipment) => (
               <li key={equipment.id}>
-                <EquipmentCard equipment={equipment} />
+                <EquipmentCard
+                  equipment={equipment}
+                  suggestedByAi={aiSuggested.has(equipment.id)}
+                  availableToday={freeTodayIds.has(equipment.id)}
+                />
               </li>
             ))}
           </ul>

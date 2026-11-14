@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import { Menu, Search, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -107,19 +108,30 @@ export function TopBar({ mode, onModeChange, onOpenMenu, onToggleAssistant, isAs
       <ModeSwitch mode={mode} onChange={onModeChange} className="hidden w-[280px] shrink-0 lg:grid" />
       <CatalogSearch id="topbar-search" className="mx-auto hidden w-full max-w-[480px] sm:block" />
 
-      <button
+      {/* The advisor is the product's signature: an amber border that breathes (opacity only, so it stays at 60fps). */}
+      <motion.button
         type="button"
         onClick={onToggleAssistant}
         aria-expanded={isAssistantOpen}
-        className={cn(
-          'ml-auto flex h-9 shrink-0 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-semibold text-slate-700 transition-all duration-200 hover:border-slate-300 hover:shadow-sm sm:ml-0',
-          isAssistantOpen && 'border-brand bg-accent-tint text-ink',
-        )}
+        whileHover={{ y: -1 }}
+        whileTap={{ scale: 0.96 }}
+        className="group relative ml-auto flex h-10 shrink-0 items-center rounded-lg p-[2px] sm:ml-0"
       >
-        <Sparkles className="size-4 text-accent" aria-hidden="true" />
-        <span className="hidden sm:inline">{t('nav.assistant')}</span>
-        <span className="sr-only sm:hidden">{t('nav.assistantLong')}</span>
-      </button>
+        <span
+          aria-hidden="true"
+          className="ai-glow absolute inset-0 rounded-lg bg-[linear-gradient(110deg,#f59e0b,#ea580c,#f59e0b)] motion-reduce:animate-none"
+        />
+        <span
+          className={cn(
+            'relative flex h-full items-center gap-2 rounded-[6px] bg-[#0f172a] px-3 text-sm font-semibold text-[#f8fafc] transition-colors group-hover:bg-[#1e293b]',
+            isAssistantOpen && 'bg-[#1e293b]',
+          )}
+        >
+          <Sparkles className="size-4 text-brand" aria-hidden="true" />
+          <span className="hidden sm:inline">{t('nav.assistant')}</span>
+          <span className="sr-only sm:hidden">{t('nav.assistantLong')}</span>
+        </span>
+      </motion.button>
       <LanguageMenu />
       <FullscreenToggle />
       <ThemeToggle />

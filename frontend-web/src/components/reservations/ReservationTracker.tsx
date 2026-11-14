@@ -38,10 +38,11 @@ export function ReservationTracker({ reservation }: { reservation: Reservation }
     <div className="mt-4" aria-label={t('reservation.tracker.label')}>
       <div className="relative mx-9">
         <div className="absolute top-3 right-0 left-0 h-0.5 rounded-full bg-slate-200" aria-hidden="true" />
+        {/* The fill grows with scaleX (a transform), so it animates on the compositor at 60fps. */}
         <motion.div
-          className={cn('absolute top-3 left-0 h-0.5 rounded-full', stopped ? 'bg-slate-400' : 'bg-status-green')}
-          initial={{ width: 0 }}
-          whileInView={{ width: `${progress * 100}%` }}
+          className={cn('absolute top-3 right-0 left-0 h-0.5 origin-left rounded-full', stopped ? 'bg-slate-400' : 'bg-status-green')}
+          initial={{ scaleX: 0 }}
+          whileInView={{ scaleX: progress }}
           viewport={{ once: true }}
           transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
           aria-hidden="true"
@@ -51,7 +52,11 @@ export function ReservationTracker({ reservation }: { reservation: Reservation }
             const state = states[index]
             return (
               <li key={label} className="flex w-0 flex-col items-center" aria-current={state === 'current' ? 'step' : undefined}>
-                <span
+                <motion.span
+                  initial={{ scale: 0.4, opacity: 0 }}
+                  whileInView={{ scale: 1, opacity: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 22, delay: 0.15 + index * 0.18 }}
                   className={cn(
                     'flex size-6 items-center justify-center rounded-full ring-4 ring-white transition-colors',
                     state === 'done' && 'bg-status-green text-white',
@@ -63,7 +68,7 @@ export function ReservationTracker({ reservation }: { reservation: Reservation }
                   {state === 'done' && <Check className="size-3.5" strokeWidth={3} aria-hidden="true" />}
                   {state === 'current' && <span className="size-2 animate-pulse rounded-full bg-ink motion-reduce:animate-none" aria-hidden="true" />}
                   {state === 'stopped' && <X className="size-3.5" strokeWidth={3} aria-hidden="true" />}
-                </span>
+                </motion.span>
                 <span
                   className={cn(
                     'mt-1.5 text-center text-xs font-semibold whitespace-nowrap',

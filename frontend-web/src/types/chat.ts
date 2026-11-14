@@ -24,6 +24,9 @@ export interface AssistantChatRequest {
 export interface AssistantChatResponse {
   reply: string
   recommendations: EquipmentSummary[]
-  /** `claude` when the language model answered, `catalog-search` for the offline recommender. */
-  source: 'claude' | 'catalog-search'
+  /**
+   * `gemini` or `claude` when a language model answered, `catalog-search` for the offline recommender,
+   * `guardrail` when the backend answered locally (greeting, off-topic or spam) without calling a model.
+   */
+  source: 'gemini' | 'claude' | 'catalog-search' | 'guardrail'
 }

@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 
 .env
+
+# Working files of the design-taste skill
+.taste-skill/

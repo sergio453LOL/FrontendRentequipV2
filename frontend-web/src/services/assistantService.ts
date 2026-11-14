@@ -2,7 +2,8 @@ import type { AssistantChatRequest, AssistantChatResponse, ChatTurn } from '../t
 import { api } from './api'
 import { ENDPOINTS } from './endpoints'
 
-const MAX_HISTORY_TURNS = 12
+/** The backend only passes the last 6 turns to the model; sending more just makes the request bigger. */
+const MAX_HISTORY_TURNS = 6
 /** The language model can take a while on the first question; give it more room than a normal request. */
 const ASSISTANT_TIMEOUT_MS = 60_000
 

@@ -17,10 +17,10 @@
   --color-accent-ink: #b45309; /* 5.0:1 on white */
   --color-accent-tint: #fef3c7;
 
-  /* Industrial orange for critical actions. #C2410C keeps white labels at 5.2:1 (#EA580C would be 3.6:1). */
-  --color-action: #c2410c;
-  --color-action-hover: #9a3412;
-  --color-action-bright: #ea580c;
+  /* Safety orange (#EA580C) for critical actions, orange-700 on hover. Small orange text uses action-ink (5.2:1). */
+  --color-action: #ea580c;
+  --color-action-hover: #c2410c;
+  --color-action-ink: #c2410c;
 
   /* Asphalt neutrals. */
   --color-ink: #0f172a;
@@ -44,6 +44,16 @@
 
   /* Text on amber fills (the active mode pill). Fixed: it does not flip in dark mode. */
   --color-on-brand: #0f172a;
+
+  /*
+   * Landing palette: the colours of the machines themselves. Machine yellow (the paint of an excavator boom)
+   * is the one accent and always carries asphalt text (11.6:1); asphalt is the dark field and the ink on yellow.
+   * Yellow is never used as text or icon colour on white (1.6:1): there the ink takes over.
+   */
+  --color-machine: #ffc400;
+  --color-machine-hover: #f0b400;
+  --color-asphalt: #0d1424;
+  --color-asphalt-raised: #172036;
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -82,6 +92,7 @@
   --color-accent-tint: #3a2a0a;
   --color-action: #f97316;
   --color-action-hover: #fb923c;
+  --color-action-ink: #fb923c;
   --color-positive: #34d399;
   --color-negative: #f87171;
 
@@ -140,8 +151,9 @@
 
   --color-accent-ink: #b45309;
   --color-accent-tint: #fef3c7;
-  --color-action: #c2410c;
-  --color-action-hover: #9a3412;
+  --color-action: #ea580c;
+  --color-action-hover: #c2410c;
+  --color-action-ink: #c2410c;
   --color-positive: #047857;
   --color-negative: #b91c1c;
 
@@ -207,6 +219,59 @@
   }
 }
 
+/*
+ * The AI advisor button: an amber/orange border with a soft halo that breathes. Only opacity animates, so the
+ * browser composites it without repainting (60fps); reduced motion keeps the border and drops the pulse.
+ */
+@layer components {
+  .ai-glow {
+    animation: ai-glow 2.4s ease-in-out infinite;
+  }
+  .ai-glow::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: inherit;
+    background: inherit;
+    filter: blur(8px);
+    opacity: 0.7;
+    z-index: -1;
+  }
+}
+
+/*
+ * Landing AI band: a site-plan grid of faint 1px lines on the night ground, hard edges top and bottom.
+ * Two single-colour line layers (no fade): each gradient switches colour at one pixel.
+ */
+@layer components {
+  .plan-grid {
+    background-color: var(--color-asphalt);
+    background-image:
+      linear-gradient(to right, rgb(255 255 255 / 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+    background-size: 56px 56px;
+    background-position: -1px -1px;
+  }
+}
+
+/* Landing hero: the technical mesh drifts down by one cell and loops (transform only). */
+@layer components {
+  .hero-mesh {
+    top: -48px;
+    animation: mesh-drift 12s linear infinite;
+  }
+}
+
+@keyframes mesh-drift {
+  from { transform: translateY(0); }
+  to { transform: translateY(48px); }
+}
+
+@keyframes ai-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
 @keyframes gradient-flow {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -216,6 +281,10 @@
   *, *::before, *::after {
     animation-duration: 1ms !important;
     transition-duration: 1ms !important;
+  }
+  /* Endless loops would flicker at 1ms: stop them instead. */
+  .hero-mesh, .ai-glow {
+    animation: none !important;
   }
 }
 

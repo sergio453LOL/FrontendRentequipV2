@@ -25,6 +25,8 @@ export interface Equipment {
   ownerCompanyId: number
   ownerCompanyName: string
   createdAt: IsoDateTime
+  /** The rate includes a qualified operator. */
+  operatorIncluded: boolean
 }
 
 /** Lightweight projection used by search results and map pins. */
@@ -42,6 +44,7 @@ export interface EquipmentSummary {
   primaryImageUrl: string | null
   ownerCompanyId: number
   ownerCompanyName: string
+  operatorIncluded: boolean
 }
 
 export interface EquipmentCreateRequest {
@@ -63,6 +66,7 @@ export interface EquipmentCreateRequest {
   imageUrls?: string[]
   categoryIds: number[]
   ownerCompanyId: number
+  operatorIncluded?: boolean
 }
 
 export type EquipmentUpdateRequest = Partial<
@@ -74,6 +78,8 @@ export interface EquipmentSearchParams extends PageParams {
   longitude?: number
   radiusKm?: number
   categoryId?: number
+  /** Matches any of these categories (the type-of-work filter). */
+  categoryIds?: number[]
   city?: string
   maxDailyRate?: number
   startDate?: IsoDate

@@ -10,6 +10,11 @@ export const equipmentService = {
     return data
   },
 
+  /** The backend refuses it while the machine has pending or active reservations. */
+  async remove(id: number): Promise<void> {
+    await api.delete(ENDPOINTS.equipment(id))
+  },
+
   /** Uploads one photo and reports progress from 0 to 100. Resolves with the public URL of the image. */
   async uploadImage(file: File, onProgress?: (percent: number) => void, signal?: AbortSignal): Promise<string> {
     const form = new FormData()

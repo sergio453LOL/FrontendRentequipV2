@@ -1,19 +1,24 @@
-import { CalendarClock, PackageOpen, Plus } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { CalendarClock, CircleCheck, CirclePause, HardHat, PackageOpen, Plus, Trash2, Wrench, type LucideIcon } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
+import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { EmptyState } from '../components/common/EmptyState'
 import { ErrorState } from '../components/common/ErrorState'
 import { PageHeader } from '../components/common/PageHeader'
 import { Pagination } from '../components/common/Pagination'
 import { SkeletonLoader } from '../components/common/SkeletonLoader'
-import { StatusBadge } from '../components/common/StatusBadge'
 import { EquipmentImage } from '../components/equipment/EquipmentImage'
 import { useAuth } from '../hooks/useAuth'
 import { useFetch } from '../hooks/useFetch'
+import { useMutation } from '../hooks/useMutation'
 import { usePagination } from '../hooks/usePagination'
+import { useQueryParam } from '../hooks/useQueryParam'
 import { buildPath, PATHS } from '../routes/paths'
 import { canPublish } from '../routes/roles'
 import { ENDPOINTS } from '../services/endpoints'
+import { equipmentService } from '../services/equipmentService'
 import type { EquipmentSummary, PageResponse, Reservation } from '../types'
 import { daysBetween, formatCurrency, formatDateRange, formatNumber, parseIsoDate, todayIso } from '../utils/format'
 
@@ -55,15 +60,50 @@ function PublishButton() {
   )
 }
 
-function MachineCard({ machine, outlook }: { machine: EquipmentSummary; outlook: MachineOutlook }) {
+interface MachineCardProps {
+  machine: EquipmentSummary
+  outlook: MachineOutlook
+  /** Only for roles that can publish; the backend refuses machines with pending or active reservations. */
+  onDelete?: () => void
+}
+
+/** Where the machine is right now, as the owner thinks of it. */
+type FleetState = 'onSite' | 'available' | 'maintenance' | 'inactive'
+
+const FLEET_STATES: Record<FleetState, { icon: LucideIcon; chip: string; bar: string }> = {
+  onSite: { icon: HardHat, chip: 'bg-[#2563eb] text-[#f8fafc]', bar: 'bg-[#2563eb]' },
+  available: { icon: CircleCheck, chip: 'bg-[#059669] text-[#f8fafc]', bar: 'bg-[#10b981]' },
+  maintenance: { icon: Wrench, chip: 'bg-brand text-[#0f172a]', bar: 'bg-brand' },
+  inactive: { icon: CirclePause, chip: 'bg-[#475569] text-[#f8fafc]', bar: 'bg-[#94a3b8]' },
+}
+
+/** On site while a rental is in progress (or the backend marks it rented); otherwise its own status. */
+function fleetStateOf(machine: EquipmentSummary, reservations: Reservation[]): FleetState {
+  const inProgress = reservations.some((reservation) => reservation.equipmentId === machine.id && reservation.status === 'IN_PROGRESS')
+  if (inProgress || machine.status === 'RENTED') return 'onSite'
+  if (machine.status === 'MAINTENANCE') return 'maintenance'
+  if (machine.status === 'INACTIVE') return 'inactive'
+  return 'available'
+}
+
+function MachineCard({ machine, outlook, onDelete, state }: MachineCardProps & { state: FleetState }) {
   const { t } = useTranslation()
   const occupancy = outlook.bookedDays / OCCUPANCY_WINDOW_DAYS
+  const { icon: StateIcon, chip, bar } = FLEET_STATES[state]
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl">
+    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl">
+      <span className={`absolute inset-x-0 top-0 z-10 h-1 ${bar}`} aria-hidden="true" />
       <Link to={buildPath.equipmentDetail(machine.id)} className="relative block overflow-hidden" tabIndex={-1} aria-hidden="true">
         <EquipmentImage src={machine.primaryImageUrl} alt="" className="aspect-[16/10] w-full transition-transform duration-500 ease-out group-hover:scale-110" />
-        <span className="absolute top-3 left-3">
-          <StatusBadge kind="equipment" status={machine.status} />
+        <span className={`absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-bold ${chip}`}>
+          <StateIcon className="size-3.5" aria-hidden="true" />
+          {t(`fleet.states.${state}`)}
+          {state === 'onSite' && (
+            <span className="relative ml-0.5 flex size-2" aria-hidden="true">
+              <span className="absolute inset-0 animate-ping rounded-full bg-white opacity-70 motion-reduce:hidden" />
+              <span className="relative size-2 rounded-full bg-white" />
+            </span>
+          )}
         </span>
       </Link>
       <div className="flex flex-1 flex-col gap-4 p-4">
@@ -100,10 +140,20 @@ function MachineCard({ machine, outlook }: { machine: EquipmentSummary; outlook:
           {outlook.pendingRequests > 0 && (
             <Link
               to={`${PATHS.reservations}?role=OWNER&status=PENDING`}
-              className="rounded-full bg-orange-50 px-2.5 py-0.5 text-xs font-semibold text-action ring-1 ring-orange-200 ring-inset hover:bg-orange-100"
+              className="rounded-full bg-orange-50 px-2.5 py-0.5 text-xs font-semibold text-action-ink ring-1 ring-orange-200 ring-inset hover:bg-orange-100"
             >
               {t('fleet.requests', { count: outlook.pendingRequests })}
             </Link>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50"
+              aria-label={t('fleet.deleteOf', { name: machine.name })}
+            >
+              <Trash2 className="size-3.5" aria-hidden="true" /> {t('fleet.delete')}
+            </button>
           )}
         </div>
       </div>
@@ -118,11 +168,24 @@ export default function FleetPage() {
   const today = parseIsoDate(todayIso())
   const fleet = useFetch<PageResponse<EquipmentSummary>>(user ? ENDPOINTS.companyEquipment(user.companyId) : null, { page, size })
   const owned = useFetch<PageResponse<Reservation>>(ENDPOINTS.reservations, { role: 'OWNER', size: 100 })
+  const [deleting, setDeleting] = useState<EquipmentSummary | null>(null)
+  // In the URL, so a filtered fleet survives a reload and can be shared.
+  const [stateParam, setStateParam] = useQueryParam('estado')
+  const stateFilter: FleetState | 'all' = Object.hasOwn(FLEET_STATES, stateParam) ? (stateParam as FleetState) : 'all'
+  const removeMachine = useMutation((machine: EquipmentSummary) => equipmentService.remove(machine.id), {
+    successMessage: t('fleet.deleted'),
+    errorTitle: t('fleet.deleteFailed'),
+    onSuccess: () => {
+      setDeleting(null)
+      fleet.refetch()
+    },
+  })
 
   if (!user) return null
   const publisher = canPublish(user.role)
   const reservations = owned.data?.content ?? []
   const total = fleet.data?.totalElements
+  const machines = (fleet.data?.content ?? []).map((machine) => ({ machine, state: fleetStateOf(machine, reservations) }))
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6">
@@ -149,16 +212,62 @@ export default function FleetPage() {
       )}
       {!fleet.error && fleet.data && fleet.data.totalElements > 0 && (
         <>
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t('fleet.stateFilter')}>
+            {(['all', 'onSite', 'available', 'maintenance'] as const).map((option) => {
+              const count = option === 'all' ? machines.length : machines.filter((item) => item.state === option).length
+              const isSelected = stateFilter === option
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => setStateParam(option === 'all' ? '' : option)}
+                  className={
+                    isSelected
+                      ? 'inline-flex h-9 items-center gap-2 rounded-lg border border-brand bg-accent-tint px-3.5 text-sm font-semibold text-ink ring-1 ring-brand'
+                      : 'inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3.5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:border-slate-300'
+                  }
+                >
+                  {option !== 'all' && <span className={`size-2 rounded-full ${FLEET_STATES[option].bar}`} aria-hidden="true" />}
+                  {option === 'all' ? t('fleet.states.all') : t(`fleet.states.${option}`)}
+                  <span className="num text-xs opacity-70">{count}</span>
+                </button>
+              )
+            })}
+          </div>
           <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {fleet.data.content.map((machine) => (
-              <li key={machine.id}>
-                <MachineCard machine={machine} outlook={outlookFor(machine.id, reservations, today)} />
-              </li>
-            ))}
+            {machines
+              .filter((item) => stateFilter === 'all' || item.state === stateFilter)
+              .map(({ machine, state }, index) => (
+                <motion.li
+                  key={machine.id}
+                  layout
+                  initial={{ opacity: 0, y: 18 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: Math.min(index, 6) * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <MachineCard
+                    machine={machine}
+                    state={state}
+                    outlook={outlookFor(machine.id, reservations, today)}
+                    onDelete={publisher ? () => setDeleting(machine) : undefined}
+                  />
+                </motion.li>
+              ))}
           </ul>
           <Pagination pageData={fleet.data} onPageChange={setPage} onSizeChange={setSize} isDisabled={fleet.isLoading} />
         </>
       )}
+
+      <ConfirmDialog
+        isOpen={deleting !== null}
+        title={t('fleet.deleteTitle')}
+        message={t('fleet.deleteMessage', { name: deleting?.name ?? '' })}
+        confirmLabel={t('fleet.delete')}
+        isLoading={removeMachine.isLoading}
+        onConfirm={() => deleting && void removeMachine.mutate(deleting)}
+        onClose={() => setDeleting(null)}
+      />
     </div>
   )
 }
