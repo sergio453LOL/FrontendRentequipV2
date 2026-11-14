@@ -1,7 +1,10 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useState } from 'react'
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
-import { colors, radius, spacing } from '../theme'
+import { useTranslation } from 'react-i18next'
+import { Image, Pressable, Text, View } from 'react-native'
+import { useTheme } from '../hooks/useTheme'
+import { radius, spacing } from '../theme'
+import { makeStyles } from '../theme/makeStyles'
 import type { EquipmentSummary } from '../types/api'
 import { formatCurrency, formatDistance } from '../utils/format'
 import { EquipmentStatusBadge } from './Badge'
@@ -13,10 +16,13 @@ interface EquipmentCardProps {
 }
 
 export function EquipmentImage({ uri, height }: { uri: string | null | undefined; height: number }) {
+  const { t } = useTranslation()
+  const { colors } = useTheme()
+  const styles = useStyles()
   const [failed, setFailed] = useState(false)
   if (!uri || failed) {
     return (
-      <View style={[styles.placeholder, { height }]} accessibilityLabel="Sin foto">
+      <View style={[styles.placeholder, { height }]} accessibilityLabel={t('equipment.noPhoto')}>
         <Ionicons name="construct-outline" size={height / 3} color={colors.muted} />
       </View>
     )
@@ -25,11 +31,17 @@ export function EquipmentImage({ uri, height }: { uri: string | null | undefined
 }
 
 export function EquipmentCard({ equipment, distanceKm, onPress }: EquipmentCardProps) {
+  const { t } = useTranslation()
+  const { colors } = useTheme()
+  const styles = useStyles()
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${equipment.name}, ${formatCurrency(equipment.dailyRate, equipment.currency)} por día`}
+      accessibilityLabel={t('equipment.cardLabel', {
+        name: equipment.name,
+        price: formatCurrency(equipment.dailyRate, equipment.currency),
+      })}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       <EquipmentImage uri={equipment.primaryImageUrl} height={150} />
@@ -48,12 +60,12 @@ export function EquipmentCard({ equipment, distanceKm, onPress }: EquipmentCardP
             <Ionicons name="location-outline" size={14} color={colors.muted} />
             <Text style={styles.metaText}>
               {equipment.city}
-              {distanceKm !== undefined ? ` · a ${formatDistance(distanceKm)}` : ''}
+              {distanceKm !== undefined ? ` · ${t('equipment.away', { distance: formatDistance(distanceKm) })}` : ''}
             </Text>
           </View>
           <Text style={styles.price}>
             {formatCurrency(equipment.dailyRate, equipment.currency)}
-            <Text style={styles.perDay}> /día</Text>
+            <Text style={styles.perDay}> {t('common.perDay')}</Text>
           </Text>
         </View>
         <Text style={styles.owner} numberOfLines={1}>
@@ -64,7 +76,7 @@ export function EquipmentCard({ equipment, distanceKm, onPress }: EquipmentCardP
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -73,7 +85,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   pressed: { opacity: 0.9 },
-  placeholder: { width: '100%', backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center' },
+  placeholder: { width: '100%', backgroundColor: colors.raised, alignItems: 'center', justifyContent: 'center' },
   body: { padding: spacing.lg, gap: spacing.xs },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   name: { flex: 1, fontSize: 17, fontWeight: '700', color: colors.ink },
@@ -83,4 +95,4 @@ const styles = StyleSheet.create({
   price: { fontSize: 17, fontWeight: '800', color: colors.ink },
   perDay: { fontSize: 13, fontWeight: '400', color: colors.muted },
   owner: { fontSize: 12, color: colors.muted },
-})
+}))

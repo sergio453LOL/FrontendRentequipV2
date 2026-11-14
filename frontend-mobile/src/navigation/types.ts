@@ -10,6 +10,8 @@ export type AuthStackParamList = {
 export type MainTabParamList = {
   Catalog: undefined
   Map: undefined
+  /** Only for roles that can publish (ADMIN, MANAGER). */
+  Fleet: undefined
   Reservations: { role?: ReservationRole } | undefined
   Profile: undefined
 }
@@ -20,6 +22,11 @@ export type RootStackParamList = {
   EquipmentDetail: { equipmentId: number; name?: string }
   ReservationDetail: { reservationId: number }
   HandoverCamera: { reservationId: number; stage: HandoverStage }
+  Payment: { reservationId: number }
+  Assistant: undefined
+  /** Without `equipmentId` it publishes a new machine; with it, edits that one. */
+  EquipmentForm: { equipmentId?: number }
+  Categories: undefined
 }
 
 export type RootScreenProps<Screen extends keyof RootStackParamList> = NativeStackScreenProps<RootStackParamList, Screen>

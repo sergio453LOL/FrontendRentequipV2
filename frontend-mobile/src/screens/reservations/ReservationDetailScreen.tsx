@@ -1,76 +1,64 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useFocusEffect } from '@react-navigation/native'
-import { useCallback, useRef, useState } from 'react'
-import { Alert, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Alert, Image, Modal, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { AppButton } from '../../components/AppButton'
 import { PaymentStatusBadge, ReservationStatusBadge } from '../../components/Badge'
+import { ReceiptShareButtons } from '../../components/ReceiptShareButtons'
 import { ErrorView, LoadingView } from '../../components/StateViews'
 import { useAction } from '../../hooks/useAction'
 import { useAsync } from '../../hooks/useAsync'
 import { useAuth } from '../../hooks/useAuth'
+import { useTheme } from '../../hooks/useTheme'
 import type { RootScreenProps } from '../../navigation/types'
 import { handoverService, reservationService } from '../../services/rentequipApi'
-import { colors, radius, spacing, typography } from '../../theme'
+import { radius, spacing } from '../../theme'
+import { makeStyles } from '../../theme/makeStyles'
 import type { HandoverPhoto, Reservation, ReservationStatus } from '../../types/api'
-import { formatCurrency, formatDate } from '../../utils/format'
-import { HANDOVER_STAGE_LABELS } from '../../utils/labels'
+import { formatCurrency, formatDate, formatDays } from '../../utils/format'
 
 const PHOTO_STATUSES: ReservationStatus[] = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED']
 
+/** Texts live in i18n `reservationDetail.actions.<key>`: label, confirmTitle, confirmMessage, success. */
+type ActionKey = 'confirm' | 'reject' | 'start' | 'complete' | 'cancel'
+
 interface StatusAction {
-  label: string
+  key: ActionKey
   icon: keyof typeof Ionicons.glyphMap
-  confirmTitle: string
-  confirmMessage: string
-  success: string
   destructive?: boolean
   run: (reservation: Reservation) => Promise<Reservation>
 }
 
 const ACTIONS = {
   confirm: {
-    label: 'Confirmar',
+    key: 'confirm',
     icon: 'checkmark-circle-outline',
-    confirmTitle: 'Confirmar reserva',
-    confirmMessage: 'El equipo quedará reservado para esta empresa en esas fechas.',
-    success: 'Reserva confirmada',
     run: (reservation) => reservationService.confirm(reservation.id),
   },
   reject: {
-    label: 'Rechazar',
+    key: 'reject',
     icon: 'close-circle-outline',
-    confirmTitle: 'Rechazar solicitud',
-    confirmMessage: 'La otra empresa será notificada y las fechas quedarán libres.',
-    success: 'Solicitud rechazada',
     destructive: true,
     run: (reservation) => reservationService.updateStatus(reservation.id, 'REJECTED'),
   },
   start: {
-    label: 'Iniciar alquiler',
+    key: 'start',
     icon: 'play-circle-outline',
-    confirmTitle: 'Iniciar alquiler',
-    confirmMessage: '¿El equipo ya fue entregado? Te recomendamos tomar fotos de la entrega.',
-    success: 'Alquiler en curso',
     run: (reservation) => reservationService.updateStatus(reservation.id, 'IN_PROGRESS'),
   },
   complete: {
-    label: 'Finalizar alquiler',
+    key: 'complete',
     icon: 'flag-outline',
-    confirmTitle: 'Finalizar alquiler',
-    confirmMessage: '¿El equipo ya fue devuelto? Documenta su estado con fotos de devolución.',
-    success: 'Alquiler finalizado',
     run: (reservation) => reservationService.updateStatus(reservation.id, 'COMPLETED'),
   },
   cancel: {
-    label: 'Cancelar reserva',
+    key: 'cancel',
     icon: 'trash-outline',
-    confirmTitle: 'Cancelar reserva',
-    confirmMessage: 'Esta acción no se puede deshacer. Si ya pagaste, se reembolsará el monto.',
-    success: 'Reserva cancelada',
     destructive: true,
     run: (reservation) => reservationService.cancel(reservation.id),
   },
-} satisfies Record<string, StatusAction>
+} satisfies Record<ActionKey, StatusAction>
 
 /** Mirrors the backend's ReservationStatusPolicy so only possible transitions are offered. */
 function availableActions(reservation: Reservation, isOwner: boolean, canManage: boolean): StatusAction[] {
@@ -85,6 +73,9 @@ function availableActions(reservation: Reservation, isOwner: boolean, canManage:
 }
 
 export default function ReservationDetailScreen({ route, navigation }: RootScreenProps<'ReservationDetail'>) {
+  const { t } = useTranslation()
+  const { colors } = useTheme()
+  const styles = useStyles()
   const { reservationId } = route.params
   const { user } = useAuth()
   const { run, isRunning } = useAction()
@@ -95,9 +86,14 @@ export default function ReservationDetailScreen({ route, navigation }: RootScree
   const reservation = useAsync(fetchReservation)
   const photos = useAsync(fetchPhotos)
 
-  // New photos are taken in the camera screen; reload them when coming back.
+  // New photos are taken in the camera screen and payments in the checkout; reload when coming back.
   const isFirstFocus = useRef(true)
   const reloadPhotos = photos.reload
+  // `refresh` changes identity on every run; a ref keeps the focus effect from firing in a loop.
+  const refreshReservation = useRef(reservation.refresh)
+  useEffect(() => {
+    refreshReservation.current = reservation.refresh
+  })
   useFocusEffect(
     useCallback(() => {
       if (isFirstFocus.current) {
@@ -105,10 +101,11 @@ export default function ReservationDetailScreen({ route, navigation }: RootScree
         return
       }
       reloadPhotos()
+      refreshReservation.current()
     }, [reloadPhotos]),
   )
 
-  if (reservation.isLoading) return <LoadingView label="Cargando reserva…" />
+  if (reservation.isLoading) return <LoadingView label={t('reservationDetail.loading')} />
   if (reservation.error || !reservation.data) {
     return reservation.error ? <ErrorView error={reservation.error} onRetry={reservation.reload} /> : null
   }
@@ -118,14 +115,19 @@ export default function ReservationDetailScreen({ route, navigation }: RootScree
   const canManage = user?.role !== 'OPERATOR'
   const actions = availableActions(data, isOwner, canManage)
   const canTakePhotos = PHOTO_STATUSES.includes(data.status)
+  // Same rule as the web: the renter pays while the request is pending or confirmed and still unpaid.
+  const canPay = !isOwner && data.paymentStatus === 'UNPAID' && (data.status === 'PENDING' || data.status === 'CONFIRMED')
+  const money = (amount: number) => formatCurrency(amount, data.currency)
 
   function askAndRun(action: StatusAction) {
-    Alert.alert(action.confirmTitle, action.confirmMessage, [
-      { text: 'Volver', style: 'cancel' },
+    const texts = `reservationDetail.actions.${action.key}` as const
+    Alert.alert(t(`${texts}.confirmTitle`), t(`${texts}.confirmMessage`), [
+      { text: t('common.back'), style: 'cancel' },
       {
-        text: action.label,
+        text: t(`${texts}.label`),
         style: action.destructive ? 'destructive' : 'default',
-        onPress: () => void run(() => action.run(data), { successMessage: action.success, onSuccess: reservation.reload }),
+        onPress: () =>
+          void run(() => action.run(data), { successMessage: t(`${texts}.success`), onSuccess: reservation.reload }),
       },
     ])
   }
@@ -137,6 +139,7 @@ export default function ReservationDetailScreen({ route, navigation }: RootScree
       refreshControl={
         <RefreshControl
           refreshing={reservation.isRefreshing}
+          tintColor={colors.brand}
           onRefresh={() => {
             reservation.refresh()
             photos.reload()
@@ -145,7 +148,7 @@ export default function ReservationDetailScreen({ route, navigation }: RootScree
       }
     >
       <View style={styles.card}>
-        <Text style={styles.code}>Reserva #{data.id}</Text>
+        <Text style={styles.code}>{t('reservationDetail.code', { id: data.id })}</Text>
         <Pressable onPress={() => navigation.navigate('EquipmentDetail', { equipmentId: data.equipmentId, name: data.equipmentName })}>
           <Text style={styles.title}>{data.equipmentName} ›</Text>
         </Pressable>
@@ -153,23 +156,41 @@ export default function ReservationDetailScreen({ route, navigation }: RootScree
           <ReservationStatusBadge status={data.status} />
           <PaymentStatusBadge status={data.paymentStatus} />
         </View>
-        <Line icon="calendar-outline" text={`${formatDate(data.startDate)} – ${formatDate(data.endDate)} (${data.totalDays} ${data.totalDays === 1 ? 'día' : 'días'})`} />
-        <Line icon="business-outline" text={`Arrendatario: ${data.renterCompanyName}`} />
+        <Line icon="calendar-outline" text={`${formatDate(data.startDate)} – ${formatDate(data.endDate)} (${formatDays(data.totalDays)})`} />
+        <Line icon="business-outline" text={t('reservationDetail.renter', { company: data.renterCompanyName })} />
         {data.notes && <Line icon="chatbubble-ellipses-outline" text={data.notes} />}
       </View>
 
       <View style={styles.card}>
-        <Amount label={`Alquiler (${formatCurrency(data.dailyRate, data.currency)} × ${data.totalDays})`} value={formatCurrency(data.rentalAmount, data.currency)} />
-        <Amount label="Garantía reembolsable" value={formatCurrency(data.securityDeposit, data.currency)} />
-        <Amount label="Total" value={formatCurrency(data.totalAmount, data.currency)} bold />
+        <Amount
+          label={t('reservationDetail.rental', { rate: money(data.dailyRate), days: data.totalDays })}
+          value={money(data.rentalAmount)}
+        />
+        <Amount label={t('reservationDetail.deposit')} value={money(data.securityDeposit)} />
+        <Amount label={t('reservationDetail.total')} value={money(data.totalAmount)} bold />
+        {canPay && (
+          <AppButton
+            title={t('reservationDetail.pay')}
+            icon="card-outline"
+            onPress={() => navigation.navigate('Payment', { reservationId: data.id })}
+          />
+        )}
       </View>
+
+      {!isOwner && data.paymentStatus === 'PAID' && (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>{t('reservationDetail.receipt')}</Text>
+          <Text style={styles.caption}>{t('reservationDetail.receiptHint')}</Text>
+          <ReceiptShareButtons reservationId={data.id} />
+        </View>
+      )}
 
       {actions.length > 0 && (
         <View style={styles.actions}>
           {actions.map((action) => (
             <AppButton
-              key={action.label}
-              title={action.label}
+              key={action.key}
+              title={t(`reservationDetail.actions.${action.key}.label`)}
               icon={action.icon}
               variant={action.destructive ? 'secondary' : 'primary'}
               onPress={() => askAndRun(action)}
@@ -180,21 +201,19 @@ export default function ReservationDetailScreen({ route, navigation }: RootScree
       )}
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Fotos de entrega y devolución</Text>
-        <Text style={styles.caption}>
-          Documenta el estado del equipo con la cámara. Las fotos guardan fecha y ubicación, y las ven ambas empresas.
-        </Text>
+        <Text style={styles.sectionTitle}>{t('reservationDetail.photos')}</Text>
+        <Text style={styles.caption}>{t('reservationDetail.photosHint')}</Text>
         {canTakePhotos ? (
           <View style={styles.photoButtons}>
             <AppButton
-              title="Foto de entrega"
+              title={t('reservationDetail.deliveryPhoto')}
               icon="camera-outline"
               variant="secondary"
               style={styles.flex}
               onPress={() => navigation.navigate('HandoverCamera', { reservationId: data.id, stage: 'DELIVERY' })}
             />
             <AppButton
-              title="Foto de devolución"
+              title={t('reservationDetail.returnPhoto')}
               icon="camera-reverse-outline"
               variant="secondary"
               style={styles.flex}
@@ -202,21 +221,26 @@ export default function ReservationDetailScreen({ route, navigation }: RootScree
             />
           </View>
         ) : (
-          <Text style={styles.caption}>Podrás agregar fotos cuando la reserva esté confirmada.</Text>
+          <Text style={styles.caption}>{t('reservationDetail.photosLater')}</Text>
         )}
 
         {photos.isLoading ? (
-          <LoadingView label="Cargando fotos…" />
+          <LoadingView label={t('reservationDetail.loadingPhotos')} />
         ) : photos.error ? (
           <ErrorView error={photos.error} onRetry={photos.reload} />
         ) : (photos.data ?? []).length === 0 ? (
-          <Text style={styles.caption}>Todavía no hay fotos.</Text>
+          <Text style={styles.caption}>{t('reservationDetail.noPhotos')}</Text>
         ) : (
           <View style={styles.grid}>
             {(photos.data ?? []).map((photo) => (
-              <Pressable key={photo.id} style={styles.thumb} onPress={() => setViewing(photo)} accessibilityLabel={`Foto de ${HANDOVER_STAGE_LABELS[photo.stage]}`}>
+              <Pressable
+                key={photo.id}
+                style={styles.thumb}
+                onPress={() => setViewing(photo)}
+                accessibilityLabel={t('reservationDetail.photoOf', { stage: t(`handoverStage.${photo.stage}`) })}
+              >
                 <Image source={{ uri: photo.imageUrl }} style={styles.thumbImage} />
-                <Text style={styles.thumbLabel}>{HANDOVER_STAGE_LABELS[photo.stage]}</Text>
+                <Text style={styles.thumbLabel}>{t(`handoverStage.${photo.stage}`)}</Text>
               </Pressable>
             ))}
           </View>
@@ -224,13 +248,13 @@ export default function ReservationDetailScreen({ route, navigation }: RootScree
       </View>
 
       <Modal visible={viewing !== null} transparent animationType="fade" onRequestClose={() => setViewing(null)}>
-        <Pressable style={styles.viewer} onPress={() => setViewing(null)} accessibilityLabel="Cerrar foto">
+        <Pressable style={styles.viewer} onPress={() => setViewing(null)} accessibilityLabel={t('reservationDetail.closePhoto')}>
           {viewing && (
             <>
               <Image source={{ uri: viewing.imageUrl }} style={styles.viewerImage} resizeMode="contain" />
               <View style={styles.viewerInfo}>
                 <Text style={styles.viewerTitle}>
-                  {HANDOVER_STAGE_LABELS[viewing.stage]} · {viewing.uploadedByCompanyName}
+                  {t(`handoverStage.${viewing.stage}`)} · {viewing.uploadedByCompanyName}
                 </Text>
                 <Text style={styles.viewerText}>{viewing.createdAt.replace('T', ' ').slice(0, 16)}</Text>
                 {viewing.latitude !== null && viewing.longitude !== null && (
@@ -249,6 +273,8 @@ export default function ReservationDetailScreen({ route, navigation }: RootScree
 }
 
 function Line({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) {
+  const { colors } = useTheme()
+  const styles = useStyles()
   return (
     <View style={styles.line}>
       <Ionicons name={icon} size={16} color={colors.muted} />
@@ -258,6 +284,7 @@ function Line({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: stri
 }
 
 function Amount({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+  const styles = useStyles()
   return (
     <View style={styles.amount}>
       <Text style={[styles.amountLabel, bold && styles.bold]}>{label}</Text>
@@ -266,7 +293,7 @@ function Amount({ label, value, bold }: { label: string; value: string; bold?: b
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, typography) => ({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: 48 },
   flex: { flex: 1 },
@@ -293,4 +320,4 @@ const styles = StyleSheet.create({
   viewerInfo: { gap: 4 },
   viewerTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
   viewerText: { color: '#CBD5E1', fontSize: 14 },
-})
+}))

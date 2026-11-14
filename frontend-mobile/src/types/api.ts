@@ -159,3 +159,93 @@ export interface HandoverPhoto {
   uploadedByCompanyName: string
   createdAt: IsoDateTime
 }
+
+export interface EquipmentCategory {
+  id: number
+  name: string
+  description: string | null
+}
+
+export interface EquipmentCategoryRequest {
+  name: string
+  description?: string
+}
+
+export interface EquipmentCreateRequest {
+  name: string
+  description?: string
+  brand: string
+  model: string
+  manufactureYear?: number
+  serialNumber?: string
+  specifications?: string
+  dailyRate: number
+  weeklyRate?: number
+  securityDeposit: number
+  currency?: string
+  address?: string
+  city: string
+  latitude: number
+  longitude: number
+  imageUrls?: string[]
+  categoryIds: number[]
+  ownerCompanyId: number
+}
+
+/** PATCH body: only the fields that change. The serial number and the owner cannot change. */
+export type EquipmentUpdateRequest = Partial<
+  Omit<EquipmentCreateRequest, 'serialNumber' | 'ownerCompanyId'> & { status: EquipmentStatus }
+>
+
+export interface UploadedImage {
+  url: string
+}
+
+export interface CompanyDashboard {
+  companyId: number
+  publishedEquipment: number
+  activeReservationsAsOwner: number
+  pendingRequestsAsOwner: number
+  activeReservationsAsRenter: number
+  estimatedRevenue: number
+  currency: string
+}
+
+export type PaymentStatus = 'PENDING' | 'AUTHORIZED' | 'COMPLETED' | 'FAILED' | 'REFUNDED'
+export type PaymentType = 'RENTAL' | 'SECURITY_DEPOSIT' | 'REFUND'
+
+export interface Payment {
+  id: number
+  reservationId: number
+  amount: number
+  currency: string
+  type: PaymentType
+  status: PaymentStatus
+  providerReference: string | null
+  paidAt: IsoDateTime | null
+  failureReason: string | null
+  createdAt: IsoDateTime
+}
+
+export type ReceiptChannel = 'EMAIL' | 'WHATSAPP'
+
+export interface ReceiptDelivery {
+  channel: ReceiptChannel
+  /** Partially masked, e.g. s***@gmail.com or +51 9•• ••• 321. */
+  destination: string
+}
+
+export interface ChatTurn {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface AssistantChatResponse {
+  reply: string
+  recommendations: EquipmentSummary[]
+  /**
+   * `gemini` or `claude` when a language model answered, `catalog-search` for the offline recommender,
+   * `guardrail` when the backend answered locally (greeting, off-topic or spam) without calling a model.
+   */
+  source: 'gemini' | 'claude' | 'catalog-search' | 'guardrail'
+}

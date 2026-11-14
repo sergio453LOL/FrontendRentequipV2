@@ -1,5 +1,6 @@
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useToast } from '../hooks/useToast'
+import i18n from '../i18n'
 import { setSessionExpiredHandler } from '../services/api'
 import { authStorage } from '../services/authStorage'
 import { authService } from '../services/rentequipApi'
@@ -37,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSessionExpiredHandler(() => {
       setUser(null)
       setStatus('signedOut')
-      toast.info('Tu sesión expiró', 'Vuelve a iniciar sesión para continuar.')
+      toast.info(i18n.t('auth.sessionExpired'), i18n.t('auth.sessionExpiredHint'))
     })
     return () => setSessionExpiredHandler(null)
   }, [toast])

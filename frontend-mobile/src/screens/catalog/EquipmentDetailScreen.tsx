@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useState } from 'react'
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { useTranslation } from 'react-i18next'
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View, useWindowDimensions } from 'react-native'
 import { AppButton } from '../../components/AppButton'
 import { EquipmentStatusBadge } from '../../components/Badge'
 import { DateField } from '../../components/DateField'
@@ -11,11 +12,13 @@ import { useAction } from '../../hooks/useAction'
 import { useAsync } from '../../hooks/useAsync'
 import { useAuth } from '../../hooks/useAuth'
 import { useDebounce } from '../../hooks/useDebounce'
+import { useTheme } from '../../hooks/useTheme'
 import type { RootScreenProps } from '../../navigation/types'
 import { equipmentService, reservationService } from '../../services/rentequipApi'
-import { colors, radius, spacing, typography } from '../../theme'
+import { radius, spacing } from '../../theme'
+import { makeStyles } from '../../theme/makeStyles'
 import type { Equipment, IsoDate } from '../../types/api'
-import { formatCurrency, rentalDays, todayIso } from '../../utils/format'
+import { formatCurrency, formatDays, rentalDays, todayIso } from '../../utils/format'
 import { photoCredit } from '../../utils/photoCredits'
 
 const MAX_RENTAL_DAYS = 365
@@ -31,6 +34,8 @@ function parseSpecifications(text: string | null): { label: string; value: strin
 }
 
 function Gallery({ images, width }: { images: string[]; width: number }) {
+  const { t } = useTranslation()
+  const styles = useStyles()
   const [index, setIndex] = useState(0)
   if (images.length === 0) return <EquipmentImage uri={null} height={240} />
   const credit = photoCredit(images[index])
@@ -41,7 +46,7 @@ function Gallery({ images, width }: { images: string[]; width: number }) {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={(event) => setIndex(Math.round(event.nativeEvent.contentOffset.x / width))}
-        accessibilityLabel={`Galería de ${images.length} fotos`}
+        accessibilityLabel={t('equipmentDetail.gallery', { n: images.length })}
       >
         {images.map((uri) => (
           <View key={uri} style={{ width }}>
@@ -62,6 +67,8 @@ function Gallery({ images, width }: { images: string[]; width: number }) {
 }
 
 function ReservationForm({ equipment, onBooked }: { equipment: Equipment; onBooked: () => void }) {
+  const { t } = useTranslation()
+  const styles = useStyles()
   const [startDate, setStartDate] = useState<IsoDate | null>(null)
   const [endDate, setEndDate] = useState<IsoDate | null>(null)
   const [notes, setNotes] = useState('')
@@ -69,14 +76,16 @@ function ReservationForm({ equipment, onBooked }: { equipment: Equipment; onBook
   const { run, isRunning } = useAction()
 
   const today = todayIso()
-  const startError = submitted && !startDate ? 'Elige la fecha de inicio.' : startDate && startDate < today ? 'No puede ser una fecha pasada.' : undefined
+  // i18n keys, translated by DateField.
+  const startError =
+    submitted && !startDate ? 'validation.startDateRequired' : startDate && startDate < today ? 'validation.startDatePast' : undefined
   const endError =
     submitted && !endDate
-      ? 'Elige la fecha de fin.'
+      ? 'validation.endDateRequired'
       : startDate && endDate && endDate < startDate
-        ? 'Debe ser igual o posterior al inicio.'
+        ? 'validation.endBeforeStart'
         : startDate && endDate && rentalDays(startDate, endDate) > MAX_RENTAL_DAYS
-          ? `Máximo ${MAX_RENTAL_DAYS} días.`
+          ? 'validation.maxRentalDays'
           : undefined
   const datesValid = Boolean(startDate && endDate && !startError && !endError)
   const days = datesValid && startDate && endDate ? rentalDays(startDate, endDate) : 0
@@ -98,49 +107,52 @@ function ReservationForm({ equipment, onBooked }: { equipment: Equipment; onBook
     if (!datesValid || !startDate || !endDate || isTaken) return
     await run(
       () => reservationService.create({ equipmentId: equipment.id, startDate, endDate, notes: notes.trim() || undefined }),
-      { successMessage: 'Solicitud enviada. El propietario la revisará pronto.', errorTitle: 'No se pudo reservar', onSuccess: onBooked },
+      { successMessage: t('equipmentDetail.requestSent'), errorTitle: t('equipmentDetail.requestFailed'), onSuccess: onBooked },
     )
   }
 
+  const money = (amount: number) => formatCurrency(amount, equipment.currency)
+
   return (
     <View style={styles.card}>
-      <Text style={styles.sectionTitle}>Solicitar reserva</Text>
+      <Text style={styles.sectionTitle}>{t('equipmentDetail.requestTitle')}</Text>
       <View style={styles.dates}>
-        <DateField label="Desde" value={startDate} onChange={setStartDate} minimumDate={new Date()} error={startError} />
-        <DateField label="Hasta" value={endDate} onChange={setEndDate} minimumDate={new Date()} error={endError} />
+        <DateField label={t('equipmentDetail.from')} value={startDate} onChange={setStartDate} minimumDate={new Date()} error={startError} />
+        <DateField label={t('equipmentDetail.to')} value={endDate} onChange={setEndDate} minimumDate={new Date()} error={endError} />
       </View>
       {datesValid && (
         <View style={styles.availability} accessibilityLiveRegion="polite">
           {isChecking ? (
-            <Text style={styles.muted}>Verificando disponibilidad…</Text>
+            <Text style={styles.muted}>{t('equipmentDetail.checking')}</Text>
           ) : isTaken ? (
-            <Text style={styles.taken}>Ya está reservada en esas fechas. Prueba otro rango.</Text>
+            <Text style={styles.taken}>{t('equipmentDetail.taken')}</Text>
           ) : availability.data?.available ? (
-            <Text style={styles.free}>✓ Disponible en esas fechas</Text>
+            <Text style={styles.free}>✓ {t('equipmentDetail.available')}</Text>
           ) : null}
         </View>
       )}
       <TextField
-        label="Notas para el propietario"
+        label={t('equipmentDetail.notes')}
         value={notes}
         onChangeText={setNotes}
-        placeholder="Dirección de la obra, horario de entrega…"
+        placeholder={t('equipmentDetail.notesPlaceholder')}
         multiline
         maxLength={MAX_NOTES}
         hint={`${notes.length}/${MAX_NOTES}`}
         style={styles.notes}
       />
       <View style={styles.summary}>
-        <Row label={`${formatCurrency(equipment.dailyRate, equipment.currency)} × ${days} ${days === 1 ? 'día' : 'días'}`} value={formatCurrency(days * equipment.dailyRate, equipment.currency)} />
-        <Row label="Garantía (reembolsable)" value={formatCurrency(equipment.securityDeposit, equipment.currency)} />
-        <Row label="Total estimado" value={formatCurrency(days * equipment.dailyRate + equipment.securityDeposit, equipment.currency)} bold />
+        <Row label={`${money(equipment.dailyRate)} × ${formatDays(days)}`} value={money(days * equipment.dailyRate)} />
+        <Row label={t('equipmentDetail.deposit')} value={money(equipment.securityDeposit)} />
+        <Row label={t('equipmentDetail.estimatedTotal')} value={money(days * equipment.dailyRate + equipment.securityDeposit)} bold />
       </View>
-      <AppButton title="Enviar solicitud" icon="send" onPress={submit} isLoading={isRunning} disabled={isChecking || isTaken} />
+      <AppButton title={t('equipmentDetail.send')} icon="send" onPress={submit} isLoading={isRunning} disabled={isChecking || isTaken} />
     </View>
   )
 }
 
 function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+  const styles = useStyles()
   return (
     <View style={styles.row}>
       <Text style={[styles.rowLabel, bold && styles.bold]}>{label}</Text>
@@ -150,6 +162,9 @@ function Row({ label, value, bold }: { label: string; value: string; bold?: bool
 }
 
 export default function EquipmentDetailScreen({ route, navigation }: RootScreenProps<'EquipmentDetail'>) {
+  const { t } = useTranslation()
+  const { colors } = useTheme()
+  const styles = useStyles()
   const { equipmentId } = route.params
   const { user } = useAuth()
   const { width } = useWindowDimensions()
@@ -159,7 +174,7 @@ export default function EquipmentDetailScreen({ route, navigation }: RootScreenP
   const { data: equipment, error, isLoading, reload } = useAsync(fetchEquipment)
   const rating = useAsync(fetchRating)
 
-  if (isLoading) return <LoadingView label="Cargando ficha…" />
+  if (isLoading) return <LoadingView label={t('equipmentDetail.loading')} />
   if (error || !equipment) return error ? <ErrorView error={error} onRetry={reload} /> : null
 
   const specs = parseSpecifications(equipment.specifications)
@@ -186,11 +201,14 @@ export default function EquipmentDetailScreen({ route, navigation }: RootScreenP
           </Text>
           <Text style={styles.price}>
             {formatCurrency(equipment.dailyRate, equipment.currency)}
-            <Text style={styles.muted}> /día</Text>
+            <Text style={styles.muted}> {t('common.perDay')}</Text>
           </Text>
 
           <View style={styles.card}>
-            <Info icon="shield-checkmark-outline" text={`Garantía reembolsable de ${formatCurrency(equipment.securityDeposit, equipment.currency)}`} />
+            <Info
+              icon="shield-checkmark-outline"
+              text={t('equipmentDetail.depositInfo', { amount: formatCurrency(equipment.securityDeposit, equipment.currency) })}
+            />
             <Info icon="location-outline" text={[equipment.address, equipment.city].filter(Boolean).join(', ')} />
             <Info icon="business-outline" text={equipment.ownerCompanyName} />
             {equipment.categories.length > 0 && <Info icon="pricetags-outline" text={equipment.categories.join(' · ')} />}
@@ -198,14 +216,14 @@ export default function EquipmentDetailScreen({ route, navigation }: RootScreenP
 
           {equipment.description && (
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Descripción</Text>
+              <Text style={styles.sectionTitle}>{t('equipmentDetail.description')}</Text>
               <Text style={styles.text}>{equipment.description}</Text>
             </View>
           )}
 
           {specs.length > 0 && (
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Especificaciones técnicas</Text>
+              <Text style={styles.sectionTitle}>{t('equipmentDetail.specifications')}</Text>
               {specs.map((spec) => (
                 <Row key={spec.label} label={spec.label} value={spec.value} />
               ))}
@@ -213,9 +231,9 @@ export default function EquipmentDetailScreen({ route, navigation }: RootScreenP
           )}
 
           {isOwn ? (
-            <Text style={styles.notice}>Este equipo es de tu empresa.</Text>
+            <Text style={styles.notice}>{t('equipmentDetail.own')}</Text>
           ) : equipment.status !== 'AVAILABLE' ? (
-            <Text style={styles.notice}>Este equipo no está disponible para nuevas reservas.</Text>
+            <Text style={styles.notice}>{t('equipmentDetail.unavailable')}</Text>
           ) : (
             <ReservationForm
               equipment={equipment}
@@ -229,6 +247,8 @@ export default function EquipmentDetailScreen({ route, navigation }: RootScreenP
 }
 
 function Info({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) {
+  const { colors } = useTheme()
+  const styles = useStyles()
   return (
     <View style={styles.info}>
       <Ionicons name={icon} size={18} color={colors.muted} />
@@ -237,7 +257,7 @@ function Info({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: stri
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, typography) => ({
   flex: { flex: 1, backgroundColor: colors.background },
   content: { paddingBottom: 48 },
   body: { padding: spacing.lg, gap: spacing.md },
@@ -266,4 +286,4 @@ const styles = StyleSheet.create({
   rowValue: { fontSize: 14, color: colors.ink, fontWeight: '600', textAlign: 'right' },
   bold: { fontWeight: '800', color: colors.ink, fontSize: 15 },
   notice: { ...typography.body, textAlign: 'center', color: colors.muted, padding: spacing.lg },
-})
+}))

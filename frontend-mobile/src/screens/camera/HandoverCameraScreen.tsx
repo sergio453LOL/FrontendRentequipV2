@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera'
 import * as ImagePicker from 'expo-image-picker'
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, Image, KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { AppButton } from '../../components/AppButton'
@@ -10,8 +11,10 @@ import { useCurrentLocation } from '../../hooks/useCurrentLocation'
 import { useToast } from '../../hooks/useToast'
 import type { RootScreenProps } from '../../navigation/types'
 import { handoverService, type PhotoUpload } from '../../services/rentequipApi'
-import { colors, radius, spacing, typography } from '../../theme'
-import { HANDOVER_STAGE_LABELS } from '../../utils/labels'
+import { lightColors as colors, radius, spacing, typographyFor } from '../../theme'
+
+/** The camera is a dark, full-screen view in both themes, so it uses fixed colours. */
+const typography = typographyFor(colors)
 
 const PHOTO_QUALITY = 0.6
 const MAX_NOTE = 255
@@ -22,6 +25,7 @@ const MAX_NOTE = 255
  * (e.g. emulator), the user can still attach a photo from the gallery.
  */
 export default function HandoverCameraScreen({ route, navigation }: RootScreenProps<'HandoverCamera'>) {
+  const { t } = useTranslation()
   const { reservationId, stage } = route.params
   const toast = useToast()
   const location = useCurrentLocation()
@@ -36,7 +40,7 @@ export default function HandoverCameraScreen({ route, navigation }: RootScreenPr
   const [note, setNote] = useState('')
   const [progress, setProgress] = useState(0)
   const { run, isRunning } = useAction()
-  const stageLabel = HANDOVER_STAGE_LABELS[stage]
+  const stageTitle = t(`camera.title.${stage}`)
 
   async function takePicture() {
     if (!cameraRef.current || !isReady || isCapturing) return
@@ -45,7 +49,7 @@ export default function HandoverCameraScreen({ route, navigation }: RootScreenPr
       const picture = await cameraRef.current.takePictureAsync({ quality: PHOTO_QUALITY })
       setPhoto({ uri: picture.uri, mimeType: 'image/jpeg' })
     } catch {
-      toast.error('No se pudo tomar la foto', 'Inténtalo otra vez o elige una de la galería.')
+      toast.error(t('camera.captureFailed'), t('camera.captureFailedHint'))
     } finally {
       setIsCapturing(false)
     }
@@ -71,16 +75,16 @@ export default function HandoverCameraScreen({ route, navigation }: RootScreenPr
           { stage, latitude: coords?.latitude, longitude: coords?.longitude, note: note.trim() || undefined },
           setProgress,
         ),
-      { successMessage: `Foto de ${stageLabel.toLowerCase()} guardada`, errorTitle: 'No se pudo subir la foto', onSuccess: () => navigation.goBack() },
+      { successMessage: t(`camera.saved.${stage}`), errorTitle: t('camera.uploadFailed'), onSuccess: () => navigation.goBack() },
     )
   }
 
   const header = (
     <View style={styles.header}>
-      <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Cerrar cámara" hitSlop={12}>
+      <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel={t('camera.close')} hitSlop={12}>
         <Ionicons name="close" size={28} color="#FFFFFF" />
       </Pressable>
-      <Text style={styles.headerTitle}>Foto de {stageLabel.toLowerCase()}</Text>
+      <Text style={styles.headerTitle}>{stageTitle}</Text>
       <View style={{ width: 28 }} />
     </View>
   )
@@ -96,20 +100,20 @@ export default function HandoverCameraScreen({ route, navigation }: RootScreenPr
             <TextInput
               value={note}
               onChangeText={setNote}
-              placeholder="Nota opcional: rayones, nivel de combustible, horómetro…"
+              placeholder={t('camera.notePlaceholder')}
               placeholderTextColor="#94A3B8"
               maxLength={MAX_NOTE}
               multiline
               style={styles.noteInput}
-              accessibilityLabel="Nota de la foto"
+              accessibilityLabel={t('camera.noteLabel')}
             />
             <Text style={styles.gpsInfo}>
-              {location.isFallback ? '📍 Sin GPS: la foto se guardará sin ubicación.' : '📍 Se guardará la ubicación actual del equipo.'}
+              📍 {location.isFallback ? t('camera.noGps') : t('camera.withGps')}
             </Text>
-            {isRunning && <Text style={styles.gpsInfo}>Subiendo… {progress}%</Text>}
+            {isRunning && <Text style={styles.gpsInfo}>{t('camera.uploading', { progress })}</Text>}
             <View style={styles.row}>
-              <AppButton title="Repetir" icon="refresh" variant="secondary" style={styles.flex} onPress={() => setPhoto(null)} disabled={isRunning} />
-              <AppButton title="Guardar foto" icon="cloud-upload-outline" style={styles.flex} onPress={upload} isLoading={isRunning} />
+              <AppButton title={t('camera.retake')} icon="refresh" variant="secondary" style={styles.flex} onPress={() => setPhoto(null)} disabled={isRunning} />
+              <AppButton title={t('camera.save')} icon="cloud-upload-outline" style={styles.flex} onPress={upload} isLoading={isRunning} />
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -134,19 +138,19 @@ export default function HandoverCameraScreen({ route, navigation }: RootScreenPr
         {header}
         <View style={[styles.flex, styles.center, styles.fallback]}>
           <Ionicons name="camera-outline" size={56} color={colors.brand} />
-          <Text style={styles.fallbackTitle}>{cameraFailed ? 'La cámara no está disponible' : 'Necesitamos acceso a la cámara'}</Text>
+          <Text style={styles.fallbackTitle}>{cameraFailed ? t('camera.unavailable') : t('camera.needAccess')}</Text>
           <Text style={styles.fallbackText}>
             {cameraFailed
-              ? 'Este dispositivo no pudo abrir la cámara. Puedes adjuntar una foto de la galería.'
-              : 'Úsala para fotografiar el estado del equipo al entregarlo y al devolverlo. Así se evitan disputas por daños.'}
+              ? t('camera.unavailableHint')
+              : t('camera.needAccessHint')}
           </Text>
           {!cameraFailed &&
             (deniedForever ? (
-              <AppButton title="Abrir ajustes" icon="settings-outline" onPress={() => void Linking.openSettings()} />
+              <AppButton title={t('common.openSettings')} icon="settings-outline" onPress={() => void Linking.openSettings()} />
             ) : (
-              <AppButton title="Permitir cámara" icon="camera" onPress={() => void requestPermission()} />
+              <AppButton title={t('camera.allow')} icon="camera" onPress={() => void requestPermission()} />
             ))}
-          <AppButton title="Elegir de la galería" icon="images-outline" variant="secondary" onPress={pickFromGallery} />
+          <AppButton title={t('camera.fromGallery')} icon="images-outline" variant="secondary" onPress={pickFromGallery} />
         </View>
       </SafeAreaView>
     )
@@ -166,10 +170,10 @@ export default function HandoverCameraScreen({ route, navigation }: RootScreenPr
       <SafeAreaView style={styles.overlay} pointerEvents="box-none">
         {header}
         <View style={styles.guide} pointerEvents="none">
-          <Text style={styles.guideText}>Encuadra la máquina completa y los daños visibles</Text>
+          <Text style={styles.guideText}>{t('camera.guide')}</Text>
         </View>
         <View style={styles.controls}>
-          <Pressable onPress={pickFromGallery} style={styles.sideButton} accessibilityRole="button" accessibilityLabel="Elegir de la galería">
+          <Pressable onPress={pickFromGallery} style={styles.sideButton} accessibilityRole="button" accessibilityLabel={t('camera.fromGallery')}>
             <Ionicons name="images-outline" size={26} color="#FFFFFF" />
           </Pressable>
           <Pressable
@@ -177,19 +181,19 @@ export default function HandoverCameraScreen({ route, navigation }: RootScreenPr
             disabled={!isReady || isCapturing}
             style={[styles.shutter, (!isReady || isCapturing) && styles.shutterDisabled]}
             accessibilityRole="button"
-            accessibilityLabel="Tomar foto"
+            accessibilityLabel={t('camera.take')}
           >
             {isCapturing ? <ActivityIndicator color={colors.ink} /> : <View style={styles.shutterInner} />}
           </Pressable>
           <View style={styles.sideColumn}>
-            <Pressable onPress={() => setTorchOn((value) => !value)} style={styles.sideButton} accessibilityRole="button" accessibilityLabel={torchOn ? 'Apagar linterna' : 'Encender linterna'}>
+            <Pressable onPress={() => setTorchOn((value) => !value)} style={styles.sideButton} accessibilityRole="button" accessibilityLabel={torchOn ? t('camera.torchOff') : t('camera.torchOn')}>
               <Ionicons name={torchOn ? 'flash' : 'flash-off'} size={24} color="#FFFFFF" />
             </Pressable>
             <Pressable
               onPress={() => setFacing((current) => (current === 'back' ? 'front' : 'back'))}
               style={styles.sideButton}
               accessibilityRole="button"
-              accessibilityLabel="Cambiar de cámara"
+              accessibilityLabel={t('camera.flip')}
             >
               <Ionicons name="camera-reverse-outline" size={24} color="#FFFFFF" />
             </Pressable>

@@ -1,35 +1,37 @@
 import { AxiosError } from 'axios'
+import i18n from '../i18n'
 import type { ErrorResponse, FieldValidationError } from '../types/api'
 
-const STATUS_MESSAGES: Record<number, string> = {
-  400: 'Revisa los datos ingresados e inténtalo nuevamente.',
-  401: 'Tu sesión no es válida. Inicia sesión nuevamente.',
-  403: 'No tienes permisos para realizar esta acción.',
-  404: 'No encontramos lo que buscabas.',
-  409: 'La operación entra en conflicto con el estado actual. Actualiza e inténtalo otra vez.',
-  413: 'El archivo es demasiado grande (máximo 5 MB).',
-  429: 'Demasiadas solicitudes. Espera un momento.',
+/** HTTP statuses and backend codes with their own message under `errors.status` and `errors.code`. */
+const STATUS_KEYS = [400, 401, 403, 404, 409, 413, 429] as const
+const MESSAGE_CODES = [
+  'DUPLICATE_RESOURCE',
+  'EQUIPMENT_NOT_AVAILABLE',
+  'EQUIPMENT_UNAVAILABLE',
+  'INVALID_RESERVATION_DATES',
+  'INVALID_STATUS_TRANSITION',
+  'FORBIDDEN_OPERATION',
+  'FILE_TOO_LARGE',
+  'INVALID_OPERATION',
+  'DATA_INTEGRITY_VIOLATION',
+  'PAYMENT_PROVIDER_ERROR',
+] as const
+
+type MessageCode = (typeof MESSAGE_CODES)[number]
+type MessageStatus = (typeof STATUS_KEYS)[number]
+
+function isMessageCode(code: string | undefined): code is MessageCode {
+  return (MESSAGE_CODES as readonly string[]).includes(code ?? '')
 }
 
-const CODE_MESSAGES: Record<string, string> = {
-  DUPLICATE_RESOURCE: 'Ya existe una empresa o usuario con esos datos (RUC o correo).',
-  EQUIPMENT_NOT_AVAILABLE: 'La máquina ya está reservada en esas fechas. Prueba otro rango.',
-  EQUIPMENT_UNAVAILABLE: 'Esta máquina no está disponible para alquiler en este momento.',
-  INVALID_RESERVATION_DATES: 'Las fechas de la reserva no son válidas.',
-  INVALID_STATUS_TRANSITION: 'La reserva ya cambió de estado. Actualiza la lista.',
-  FORBIDDEN_OPERATION: 'No tienes permisos para realizar esta acción.',
-  FILE_TOO_LARGE: 'La foto supera el máximo de 5 MB.',
+function isMessageStatus(status: number): status is MessageStatus {
+  return (STATUS_KEYS as readonly number[]).includes(status)
 }
 
-/** Backend messages that are already written for the end user. */
-const USER_FACING_CODES = new Set(['PAYMENT_DECLINED'])
+/** Backend messages that are already written for the end user (payments and receipt delivery). */
+const USER_FACING_CODES = new Set(['PAYMENT_DECLINED', 'DELIVERY_FAILED', 'CHANNEL_NOT_CONFIGURED'])
 
-const NETWORK_MESSAGE = 'No pudimos conectarnos con el servidor. Revisa tu conexión a internet.'
-const TIMEOUT_MESSAGE = 'El servidor tardó demasiado en responder. Inténtalo nuevamente.'
-const SERVER_MESSAGE = 'Tuvimos un problema en el servidor. Inténtalo en unos minutos.'
-const UNKNOWN_MESSAGE = 'Ocurrió un error inesperado.'
-
-/** Normalized API error; `message` is always friendly and safe to show to the user. */
+/** Normalized API error; `message` is always friendly, in the app's language, and safe to show to the user. */
 export class ApiError extends Error {
   readonly status: number
   readonly code: string | undefined
@@ -56,21 +58,23 @@ export class ApiError extends Error {
     const response = error.response
     if (!response) {
       const isTimeout = error.code === AxiosError.ECONNABORTED || error.code === AxiosError.ETIMEDOUT
-      return new ApiError(isTimeout ? TIMEOUT_MESSAGE : NETWORK_MESSAGE, 0, error.code)
+      return new ApiError(i18n.t(isTimeout ? 'errors.timeout' : 'errors.network'), 0, error.code)
     }
     const { status, data } = response
     const code = data?.code
     let message: string
-    if (status >= 500) message = SERVER_MESSAGE
+    if (status >= 500) message = i18n.t('errors.server')
     else if (code && USER_FACING_CODES.has(code) && data?.message) message = data.message
-    else message = (code && CODE_MESSAGES[code]) || STATUS_MESSAGES[status] || UNKNOWN_MESSAGE
+    else if (isMessageCode(code)) message = i18n.t(`errors.code.${code}`)
+    else if (isMessageStatus(status)) message = i18n.t(`errors.status.${status}`)
+    else message = i18n.t('errors.unknown')
     return new ApiError(message, status, code, data?.details ?? [])
   }
 
   static from(error: unknown): ApiError {
     if (error instanceof ApiError) return error
     if (error instanceof AxiosError) return ApiError.fromAxios(error)
-    return new ApiError(UNKNOWN_MESSAGE, -1)
+    return new ApiError(i18n.t('errors.unknown'), -1)
   }
 }
 

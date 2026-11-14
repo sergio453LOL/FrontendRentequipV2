@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text } from 'react-native'
-import { colors, radius, spacing } from '../theme'
+import { Pressable, Text } from 'react-native'
+import { radius, spacing } from '../theme'
+import { makeStyles } from '../theme/makeStyles'
 
 interface ChipProps {
   label: string
@@ -8,6 +9,7 @@ interface ChipProps {
 }
 
 export function Chip({ label, selected, onPress }: ChipProps) {
+  const styles = useStyles()
   return (
     <Pressable
       onPress={onPress}
@@ -20,7 +22,7 @@ export function Chip({ label, selected, onPress }: ChipProps) {
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   chip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -32,4 +34,4 @@ const styles = StyleSheet.create({
   selected: { backgroundColor: colors.brandSoft, borderColor: colors.brand },
   text: { fontSize: 14, fontWeight: '600', color: colors.text },
   selectedText: { color: colors.brandDark },
-})
+}))

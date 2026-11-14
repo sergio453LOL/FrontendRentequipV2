@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import i18n from '../i18n'
 import { ApiError } from '../utils/apiError'
 import { useToast } from './useToast'
 
@@ -28,7 +29,7 @@ export function useAction() {
         options.onSuccess?.(result)
         return result
       } catch (caught) {
-        toast.error(options.errorTitle ?? 'No se pudo completar la acción', ApiError.from(caught).message)
+        toast.error(options.errorTitle ?? i18n.t('common.actionFailed'), ApiError.from(caught).message)
         return undefined
       } finally {
         inFlight.current = false

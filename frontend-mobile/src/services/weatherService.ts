@@ -20,29 +20,30 @@ interface OpenMeteoResponse {
 export interface SiteWeather {
   temperature: number
   windSpeedKmh: number
-  description: string
+  /** i18n keys, translated where the card shows them so a language switch applies at once. */
+  descriptionKey: ReturnType<typeof describe>
   rainProbabilityToday: number
   rainProbabilityTomorrow: number
-  advice: string
+  adviceKey: ReturnType<typeof adviceFor>
 }
 
-/** WMO weather interpretation codes, grouped. */
-function describe(code: number): string {
-  if (code === 0) return 'Despejado'
-  if (code <= 3) return 'Parcialmente nublado'
-  if (code <= 48) return 'Neblina'
-  if (code <= 57) return 'Llovizna'
-  if (code <= 67) return 'Lluvia'
-  if (code <= 77) return 'Nieve'
-  if (code <= 82) return 'Chubascos'
-  return 'Tormenta'
+/** WMO weather interpretation codes, grouped. Returns the i18n key of the description. */
+function describe(code: number) {
+  if (code === 0) return 'weather.clear' as const
+  if (code <= 3) return 'weather.partlyCloudy' as const
+  if (code <= 48) return 'weather.fog' as const
+  if (code <= 57) return 'weather.drizzle' as const
+  if (code <= 67) return 'weather.rain' as const
+  if (code <= 77) return 'weather.snow' as const
+  if (code <= 82) return 'weather.showers' as const
+  return 'weather.storm' as const
 }
 
-function adviceFor(rainToday: number, rainTomorrow: number, wind: number): string {
-  if (wind >= 40) return 'Viento fuerte: evita izajes con grúa y trabajos en altura.'
-  if (rainToday >= 60) return 'Alta probabilidad de lluvia hoy: reprograma vaciados de concreto y movimiento de tierras.'
-  if (rainTomorrow >= 60) return 'Mañana podría llover: si vas a excavar, mejor hoy.'
-  return 'Buen clima para trabajar en obra.'
+function adviceFor(rainToday: number, rainTomorrow: number, wind: number) {
+  if (wind >= 40) return 'weather.adviceWind' as const
+  if (rainToday >= 60) return 'weather.adviceRainToday' as const
+  if (rainTomorrow >= 60) return 'weather.adviceRainTomorrow' as const
+  return 'weather.adviceGood' as const
 }
 
 export const weatherService = {
@@ -63,10 +64,10 @@ export const weatherService = {
     return {
       temperature: Math.round(data.current.temperature_2m),
       windSpeedKmh: Math.round(data.current.wind_speed_10m),
-      description: describe(data.current.weather_code),
+      descriptionKey: describe(data.current.weather_code),
       rainProbabilityToday: rainToday,
       rainProbabilityTomorrow: rainTomorrow,
-      advice: adviceFor(rainToday, rainTomorrow, data.current.wind_speed_10m),
+      adviceKey: adviceFor(rainToday, rainTomorrow, data.current.wind_speed_10m),
     }
   },
 }

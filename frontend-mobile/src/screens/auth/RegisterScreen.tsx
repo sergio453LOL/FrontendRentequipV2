@@ -1,38 +1,42 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { Controller, useForm, type Path } from 'react-hook-form'
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useTranslation } from 'react-i18next'
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native'
 import { z } from 'zod'
 import { AppButton } from '../../components/AppButton'
 import { Chip } from '../../components/Chip'
 import { TextField } from '../../components/TextField'
 import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../../hooks/useToast'
-import { colors, radius, spacing, typography } from '../../theme'
+import { translateMessage } from '../../i18n'
+import { radius, spacing } from '../../theme'
+import { makeStyles } from '../../theme/makeStyles'
 import { ApiError } from '../../utils/apiError'
 import { PERU_CITIES } from '../../utils/cities'
 
+/** Messages are i18n keys, translated where the field shows them. */
 const registerSchema = z
   .object({
-    companyName: z.string().trim().min(2, 'Mínimo 2 caracteres.').max(150, 'Máximo 150 caracteres.'),
-    taxId: z.string().trim().regex(/^\d{11}$/, 'El RUC tiene exactamente 11 dígitos.'),
-    companyEmail: z.string().trim().pipe(z.email('Ingresa un correo válido.')),
-    city: z.string().min(1, 'Elige la ciudad de tu empresa.'),
-    firstName: z.string().trim().min(1, 'Ingresa tu nombre.').max(80),
-    lastName: z.string().trim().min(1, 'Ingresa tu apellido.').max(80),
-    email: z.string().trim().pipe(z.email('Ingresa un correo válido.')),
+    companyName: z.string().trim().min(2, 'validation.min2').max(150, 'validation.max150'),
+    taxId: z.string().trim().regex(/^\d{11}$/, 'validation.taxId'),
+    companyEmail: z.string().trim().pipe(z.email('validation.emailInvalid')),
+    city: z.string().min(1, 'validation.cityRequired'),
+    firstName: z.string().trim().min(1, 'validation.firstNameRequired').max(80, 'validation.max80'),
+    lastName: z.string().trim().min(1, 'validation.lastNameRequired').max(80, 'validation.max80'),
+    email: z.string().trim().pipe(z.email('validation.emailInvalid')),
     password: z
       .string()
-      .min(8, 'Mínimo 8 caracteres.')
-      .max(64, 'Máximo 64 caracteres.')
-      .regex(/[a-z]/, 'Incluye una letra minúscula.')
-      .regex(/[A-Z]/, 'Incluye una letra mayúscula.')
-      .regex(/\d/, 'Incluye un número.'),
+      .min(8, 'validation.passwordMin')
+      .max(64, 'validation.passwordMax')
+      .regex(/[a-z]/, 'validation.passwordLower')
+      .regex(/[A-Z]/, 'validation.passwordUpper')
+      .regex(/\d/, 'validation.passwordDigit'),
     confirmPassword: z.string(),
   })
   .refine((values) => values.password === values.confirmPassword, {
     path: ['confirmPassword'],
-    message: 'Las contraseñas no coinciden.',
+    message: 'validation.passwordMismatch',
   })
 
 type RegisterValues = z.infer<typeof registerSchema>
@@ -48,30 +52,34 @@ const SERVER_FIELDS: Record<string, Path<RegisterValues>> = {
   password: 'password',
 }
 
+type FieldName = Exclude<Path<RegisterValues>, 'city'>
+
 interface FieldConfig {
-  name: Exclude<Path<RegisterValues>, 'city'>
-  label: string
-  placeholder?: string
+  name: FieldName
   keyboard?: 'default' | 'email-address' | 'number-pad'
   secure?: boolean
   maxLength?: number
+  /** Placeholders that are examples, not words: the same in every language. */
+  placeholder?: string
 }
 
 const COMPANY_FIELDS: FieldConfig[] = [
-  { name: 'companyName', label: 'Razón social', placeholder: 'Constructora Andina S.A.C.' },
-  { name: 'taxId', label: 'RUC', placeholder: '20123456789', keyboard: 'number-pad', maxLength: 11 },
-  { name: 'companyEmail', label: 'Correo de la empresa', placeholder: 'contacto@empresa.com', keyboard: 'email-address' },
+  { name: 'companyName' },
+  { name: 'taxId', placeholder: '20123456789', keyboard: 'number-pad', maxLength: 11 },
+  { name: 'companyEmail', placeholder: 'contacto@empresa.com', keyboard: 'email-address' },
 ]
 
 const ADMIN_FIELDS: FieldConfig[] = [
-  { name: 'firstName', label: 'Nombres' },
-  { name: 'lastName', label: 'Apellidos' },
-  { name: 'email', label: 'Tu correo (para iniciar sesión)', placeholder: 'tu@empresa.com', keyboard: 'email-address' },
-  { name: 'password', label: 'Contraseña', secure: true },
-  { name: 'confirmPassword', label: 'Repite la contraseña', secure: true },
+  { name: 'firstName' },
+  { name: 'lastName' },
+  { name: 'email', placeholder: 'tu@empresa.com', keyboard: 'email-address' },
+  { name: 'password', secure: true },
+  { name: 'confirmPassword', secure: true },
 ]
 
 export default function RegisterScreen() {
+  const { t } = useTranslation()
+  const styles = useStyles()
   const { register } = useAuth()
   const toast = useToast()
   const [formError, setFormError] = useState<string | null>(null)
@@ -114,14 +122,14 @@ export default function RegisterScreen() {
         email: values.email,
         password: values.password,
       })
-      toast.success('¡Cuenta creada!', `Bienvenido a RentEquip, ${values.companyName}.`)
+      toast.success(t('register.created'), t('register.welcome', { company: values.companyName }))
     } catch (error) {
       const apiError = ApiError.from(error)
       apiError.details.forEach((detail) => {
         const field = SERVER_FIELDS[detail.field]
         if (field) setError(field, { message: detail.message })
       })
-      setFormError(apiError.details.length > 0 ? 'Revisa los campos marcados.' : apiError.message)
+      setFormError(apiError.details.length > 0 ? t('common.checkFields') : apiError.message)
     }
   }
 
@@ -132,16 +140,17 @@ export default function RegisterScreen() {
       name={config.name}
       render={({ field }) => (
         <TextField
-          label={config.label}
+          label={t(`register.fields.${config.name}`)}
           required
           value={field.value}
           onChangeText={field.onChange}
           onBlur={field.onBlur}
           error={errors[config.name]?.message}
-          placeholder={config.placeholder}
+          placeholder={config.name === 'companyName' ? t('register.companyNamePlaceholder') : config.placeholder}
           keyboardType={config.keyboard ?? 'default'}
           autoCapitalize={config.keyboard === 'email-address' || config.secure ? 'none' : 'words'}
           secureTextEntry={config.secure}
+          revealable={config.secure}
           maxLength={config.maxLength}
         />
       )}
@@ -157,35 +166,35 @@ export default function RegisterScreen() {
           </Text>
         )}
 
-        <Text style={styles.section}>1. Tu empresa</Text>
+        <Text style={styles.section}>{t('register.companySection')}</Text>
         {COMPANY_FIELDS.map(renderField)}
         <Controller
           control={control}
           name="city"
           render={({ field }) => (
             <View style={styles.cityGroup}>
-              <Text style={styles.label}>Ciudad *</Text>
+              <Text style={styles.label}>{t('register.city')} *</Text>
               <View style={styles.chips}>
                 {PERU_CITIES.map((city) => (
                   <Chip key={city.name} label={city.name} selected={field.value === city.name} onPress={() => field.onChange(city.name)} />
                 ))}
               </View>
-              {errors.city && <Text style={styles.error}>{errors.city.message}</Text>}
+              {errors.city && <Text style={styles.error}>{translateMessage(errors.city.message)}</Text>}
             </View>
           )}
         />
 
-        <Text style={styles.section}>2. Administrador de la cuenta</Text>
+        <Text style={styles.section}>{t('register.adminSection')}</Text>
         {ADMIN_FIELDS.map(renderField)}
-        <Text style={styles.hint}>La contraseña debe tener 8+ caracteres, una mayúscula, una minúscula y un número.</Text>
+        <Text style={styles.hint}>{t('register.passwordHint')}</Text>
 
-        <AppButton title="Crear cuenta" icon="checkmark-circle-outline" onPress={handleSubmit(onSubmit)} isLoading={isSubmitting} />
+        <AppButton title={t('register.submit')} icon="checkmark-circle-outline" onPress={handleSubmit(onSubmit)} isLoading={isSubmitting} />
       </ScrollView>
     </KeyboardAvoidingView>
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, typography) => ({
   flex: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.xl, gap: spacing.lg, paddingBottom: 48 },
   section: { ...typography.heading, marginTop: spacing.sm },
@@ -201,4 +210,4 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     overflow: 'hidden',
   },
-})
+}))

@@ -1,19 +1,23 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
 import { useCallback, useState } from 'react'
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { useTranslation } from 'react-i18next'
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native'
 import { AppButton } from '../../components/AppButton'
 import { Chip } from '../../components/Chip'
 import { EquipmentCard } from '../../components/EquipmentCard'
 import { EmptyState, ErrorView, LoadingView } from '../../components/StateViews'
 import { WeatherCard } from '../../components/WeatherCard'
+import { useAsync } from '../../hooks/useAsync'
 import { useAuth } from '../../hooks/useAuth'
 import { useCurrentLocation } from '../../hooks/useCurrentLocation'
 import { useDebounce } from '../../hooks/useDebounce'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
+import { useTheme } from '../../hooks/useTheme'
 import type { RootNavigation } from '../../navigation/types'
-import { equipmentService } from '../../services/rentequipApi'
-import { colors, radius, spacing } from '../../theme'
+import { categoryService, equipmentService } from '../../services/rentequipApi'
+import { radius, spacing } from '../../theme'
+import { makeStyles } from '../../theme/makeStyles'
 import type { EquipmentSummary } from '../../types/api'
 import { distanceKm } from '../../utils/format'
 
@@ -22,12 +26,18 @@ const PAGE_SIZE = 10
 const RADIUS_OPTIONS: (number | null)[] = [10, 25, 50, 100, null]
 
 export default function CatalogScreen() {
+  const { t } = useTranslation()
+  const { colors, scheme } = useTheme()
+  const styles = useStyles()
   const navigation = useNavigation<RootNavigation>()
   const { user } = useAuth()
   const location = useCurrentLocation()
   const [query, setQuery] = useState('')
   const [radiusKm, setRadiusKm] = useState<number | null>(25)
+  const [categoryId, setCategoryId] = useState<number | null>(null)
   const debouncedQuery = useDebounce(query.trim(), 400)
+  const fetchCategories = useCallback((signal: AbortSignal) => categoryService.list(signal), [])
+  const categories = useAsync(fetchCategories)
 
   // With the real GPS position we search around the phone; without it, the whole catalogue.
   const useGps = !location.isFallback && radiusKm !== null
@@ -42,28 +52,29 @@ export default function CatalogScreen() {
           longitude: useGps ? longitude : undefined,
           radiusKm: useGps ? (radiusKm ?? undefined) : undefined,
           q: debouncedQuery || undefined,
+          categoryId: categoryId ?? undefined,
           excludeOwnerId: companyId,
           page,
           size: PAGE_SIZE,
         },
         signal,
       ),
-    [useGps, latitude, longitude, radiusKm, debouncedQuery, companyId],
+    [useGps, latitude, longitude, radiusKm, debouncedQuery, categoryId, companyId],
   )
   const list = usePaginatedList(fetchPage)
 
-  if (location.status === 'locating') return <LoadingView label="Buscando tu ubicación…" />
+  if (location.status === 'locating') return <LoadingView label={t('catalog.locating')} />
 
   const header = (
     <View style={styles.header}>
-      <WeatherCard coords={location.coords} place={location.isFallback ? 'Lima' : 'Tu ubicación'} />
+      <WeatherCard coords={location.coords} place={location.isFallback ? 'Lima' : t('catalog.yourLocation')} />
 
       {location.message && (
         <View style={styles.locationBanner} accessibilityRole="alert">
           <Ionicons name="navigate-circle-outline" size={20} color={colors.brandDark} />
           <Text style={styles.locationText}>{location.message}</Text>
           <Pressable onPress={location.requestAccess} accessibilityRole="button" hitSlop={8}>
-            <Text style={styles.locationAction}>Activar</Text>
+            <Text style={styles.locationAction}>{t('catalog.enableLocation')}</Text>
           </Pressable>
         </View>
       )}
@@ -73,15 +84,16 @@ export default function CatalogScreen() {
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Excavadora, Caterpillar, rodillo…"
+          placeholder={t('catalog.searchPlaceholder')}
           placeholderTextColor={colors.muted}
+          keyboardAppearance={scheme}
           style={styles.searchInput}
-          accessibilityLabel="Buscar maquinaria"
+          accessibilityLabel={t('catalog.searchLabel')}
           returnKeyType="search"
           autoCorrect={false}
         />
         {query.length > 0 && (
-          <Pressable onPress={() => setQuery('')} accessibilityLabel="Limpiar búsqueda" hitSlop={8}>
+          <Pressable onPress={() => setQuery('')} accessibilityLabel={t('catalog.clearSearch')} hitSlop={8}>
             <Ionicons name="close-circle" size={18} color={colors.muted} />
           </Pressable>
         )}
@@ -92,7 +104,7 @@ export default function CatalogScreen() {
           {RADIUS_OPTIONS.map((option) => (
             <Chip
               key={option ?? 'all'}
-              label={option === null ? 'Todo el Perú' : `${option} km`}
+              label={option === null ? t('catalog.wholeCountry') : `${option} km`}
               selected={radiusKm === option}
               onPress={() => setRadiusKm(option)}
             />
@@ -100,9 +112,23 @@ export default function CatalogScreen() {
         </ScrollView>
       )}
 
+      {(categories.data ?? []).length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          <Chip label={t('catalog.allCategories')} selected={categoryId === null} onPress={() => setCategoryId(null)} />
+          {(categories.data ?? []).map((category) => (
+            <Chip
+              key={category.id}
+              label={category.name}
+              selected={categoryId === category.id}
+              onPress={() => setCategoryId(categoryId === category.id ? null : category.id)}
+            />
+          ))}
+        </ScrollView>
+      )}
+
       {!list.isLoading && !list.error && list.totalElements > 0 && (
         <Text style={styles.count}>
-          {list.totalElements} {list.totalElements === 1 ? 'equipo encontrado' : 'equipos encontrados'}
+          {t(list.totalElements === 1 ? 'catalog.resultOne' : 'catalog.resultMany', { n: list.totalElements })}
         </Text>
       )}
     </View>
@@ -123,29 +149,34 @@ export default function CatalogScreen() {
       renderItem={renderItem}
       ListHeaderComponent={header}
       contentContainerStyle={styles.content}
+      style={styles.list}
       ItemSeparatorComponent={() => <View style={{ height: spacing.lg }} />}
       onEndReached={list.loadMore}
       onEndReachedThreshold={0.4}
       refreshControl={<RefreshControl refreshing={list.isRefreshing} onRefresh={list.refresh} tintColor={colors.brand} />}
       ListEmptyComponent={
         list.isLoading ? (
-          <LoadingView label="Buscando maquinaria…" />
+          <LoadingView label={t('catalog.searching')} />
         ) : list.error ? (
           <ErrorView error={list.error} onRetry={list.retry} />
         ) : (
           <EmptyState
             icon="search-outline"
-            title={debouncedQuery ? 'Sin resultados' : 'No hay maquinaria cerca'}
+            title={debouncedQuery || categoryId !== null ? t('catalog.noResults') : t('catalog.nothingNearby')}
             description={
               debouncedQuery
-                ? `No encontramos equipos para "${debouncedQuery}". Prueba con otra palabra.`
-                : 'Amplía el radio de búsqueda para ver equipos de otras zonas.'
+                ? t('catalog.noResultsFor', { query: debouncedQuery })
+                : categoryId !== null
+                  ? t('catalog.noResultsCategory')
+                  : t('catalog.widenRadius')
             }
             action={
               debouncedQuery ? (
-                <AppButton title="Limpiar búsqueda" variant="secondary" onPress={() => setQuery('')} />
+                <AppButton title={t('catalog.clearSearch')} variant="secondary" onPress={() => setQuery('')} />
+              ) : categoryId !== null ? (
+                <AppButton title={t('catalog.allCategoriesAction')} variant="secondary" onPress={() => setCategoryId(null)} />
               ) : radiusKm !== null ? (
-                <AppButton title="Ver todo el Perú" variant="secondary" onPress={() => setRadiusKm(null)} />
+                <AppButton title={t('catalog.seeWholeCountry')} variant="secondary" onPress={() => setRadiusKm(null)} />
               ) : undefined
             }
           />
@@ -155,14 +186,15 @@ export default function CatalogScreen() {
         list.isLoadingMore ? (
           <ActivityIndicator style={styles.footer} color={colors.brand} />
         ) : list.error && list.items.length > 0 ? (
-          <AppButton title="Reintentar" variant="secondary" icon="refresh" onPress={list.retry} style={styles.footer} />
+          <AppButton title={t('common.retry')} variant="secondary" icon="refresh" onPress={list.retry} style={styles.footer} />
         ) : undefined
       }
     />
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
+  list: { backgroundColor: colors.background },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl, flexGrow: 1, backgroundColor: colors.background },
   header: { gap: spacing.md, marginBottom: spacing.lg },
   locationBanner: {
@@ -190,4 +222,4 @@ const styles = StyleSheet.create({
   chips: { gap: spacing.sm },
   count: { fontSize: 13, color: colors.muted },
   footer: { marginVertical: spacing.lg },
-})
+}))

@@ -1,7 +1,11 @@
 import { Ionicons } from '@expo/vector-icons'
 import DateTimePicker, { DateTimePickerAndroid, type DateTimePickerEvent } from '@react-native-community/datetimepicker'
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
-import { colors, radius, spacing } from '../theme'
+import { useTranslation } from 'react-i18next'
+import { Platform, Pressable, Text, View } from 'react-native'
+import { useTheme } from '../hooks/useTheme'
+import { currentLocale, translateMessage } from '../i18n'
+import { radius, spacing } from '../theme'
+import { makeStyles } from '../theme/makeStyles'
 import type { IsoDate } from '../types/api'
 import { formatDate, toIsoDate } from '../utils/format'
 
@@ -20,7 +24,11 @@ function parse(value: IsoDate): Date {
 
 /** Native date picker: Android opens the system dialog, iOS shows the compact inline control. */
 export function DateField({ label, value, onChange, minimumDate, error }: DateFieldProps) {
+  const { t } = useTranslation()
+  const { colors, scheme } = useTheme()
+  const styles = useStyles()
   const current = value ? parse(value) : (minimumDate ?? new Date())
+  const message = translateMessage(error)
 
   function handleChange(event: DateTimePickerEvent, date?: Date) {
     if (event.type === 'set' && date) onChange(toIsoDate(date))
@@ -30,24 +38,32 @@ export function DateField({ label, value, onChange, minimumDate, error }: DateFi
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
       {Platform.OS === 'ios' ? (
-        <DateTimePicker value={current} mode="date" display="compact" minimumDate={minimumDate} onChange={handleChange} locale="es-PE" />
+        <DateTimePicker
+          value={current}
+          mode="date"
+          display="compact"
+          minimumDate={minimumDate}
+          onChange={handleChange}
+          locale={currentLocale()}
+          themeVariant={scheme}
+        />
       ) : (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${label}: ${value ? formatDate(value) : 'sin elegir'}`}
+          accessibilityLabel={`${label}: ${value ? formatDate(value) : t('dateField.notChosen')}`}
           onPress={() => DateTimePickerAndroid.open({ value: current, mode: 'date', minimumDate, onChange: handleChange })}
-          style={[styles.input, error ? styles.inputError : null]}
+          style={[styles.input, message ? styles.inputError : null]}
         >
-          <Text style={value ? styles.value : styles.placeholder}>{value ? formatDate(value) : 'Elegir fecha'}</Text>
+          <Text style={value ? styles.value : styles.placeholder}>{value ? formatDate(value) : t('dateField.choose')}</Text>
           <Ionicons name="calendar-outline" size={18} color={colors.muted} />
         </Pressable>
       )}
-      {error && <Text style={styles.error}>{error}</Text>}
+      {message && <Text style={styles.error}>{message}</Text>}
     </View>
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, gap: spacing.xs },
   label: { fontSize: 14, fontWeight: '600', color: colors.text },
   input: {
@@ -65,4 +81,4 @@ const styles = StyleSheet.create({
   value: { fontSize: 16, color: colors.ink },
   placeholder: { fontSize: 16, color: colors.muted },
   error: { fontSize: 12, color: colors.danger },
-})
+}))

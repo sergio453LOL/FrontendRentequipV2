@@ -1,18 +1,22 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useEffect, useState } from 'react'
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Animated, Pressable, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { ToastMessage, ToastVariant } from '../contexts/ToastContext'
-import { colors, radius, spacing } from '../theme'
+import { useTheme } from '../hooks/useTheme'
+import { radius, spacing } from '../theme'
+import { makeStyles } from '../theme/makeStyles'
 
-const ICONS: Record<ToastVariant, { name: keyof typeof Ionicons.glyphMap; color: string }> = {
-  success: { name: 'checkmark-circle', color: colors.success },
-  error: { name: 'close-circle', color: colors.danger },
-  info: { name: 'information-circle', color: colors.info },
+const ICONS: Record<ToastVariant, { name: keyof typeof Ionicons.glyphMap; color: 'success' | 'danger' | 'info' }> = {
+  success: { name: 'checkmark-circle', color: 'success' },
+  error: { name: 'close-circle', color: 'danger' },
+  info: { name: 'information-circle', color: 'info' },
 }
 
 export function ToastViewport({ toast, onDismiss }: { toast: ToastMessage | null; onDismiss: () => void }) {
   const insets = useSafeAreaInsets()
+  const { colors } = useTheme()
+  const styles = useStyles()
   const [opacity] = useState(() => new Animated.Value(0))
 
   useEffect(() => {
@@ -38,7 +42,7 @@ export function ToastViewport({ toast, onDismiss }: { toast: ToastMessage | null
           accessibilityRole="alert"
           accessibilityLabel={`${toast.title}. ${toast.description ?? ''}`}
         >
-          <Ionicons name={icon.name} size={22} color={icon.color} />
+          <Ionicons name={icon.name} size={22} color={colors[icon.color]} />
           <View style={styles.texts}>
             <Text style={styles.title}>{toast.title}</Text>
             {toast.description && <Text style={styles.description}>{toast.description}</Text>}
@@ -49,7 +53,7 @@ export function ToastViewport({ toast, onDismiss }: { toast: ToastMessage | null
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   wrapper: { position: 'absolute', left: spacing.lg, right: spacing.lg, zIndex: 100 },
   toast: {
     backgroundColor: colors.surface,
@@ -66,4 +70,4 @@ const styles = StyleSheet.create({
   texts: { flex: 1, gap: 2 },
   title: { fontSize: 15, fontWeight: '700', color: colors.ink },
   description: { fontSize: 14, color: colors.text },
-})
+}))

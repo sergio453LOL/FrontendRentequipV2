@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import { ActivityIndicator, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native'
-import { colors, radius, spacing } from '../theme'
+import { useTheme } from '../hooks/useTheme'
+import { radius, spacing, type Palette } from '../theme'
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost'
 
@@ -15,11 +16,13 @@ interface AppButtonProps {
   accessibilityHint?: string
 }
 
-const VARIANTS: Record<Variant, { background: string; text: string; border: string }> = {
-  primary: { background: colors.brand, text: colors.ink, border: colors.brand },
-  secondary: { background: colors.surface, text: colors.ink, border: colors.border },
-  danger: { background: colors.danger, text: '#FFFFFF', border: colors.danger },
-  ghost: { background: 'transparent', text: colors.text, border: 'transparent' },
+function variants(colors: Palette): Record<Variant, { background: string; text: string; border: string }> {
+  return {
+    primary: { background: colors.brand, text: colors.onBrand, border: colors.brand },
+    secondary: { background: colors.surface, text: colors.ink, border: colors.border },
+    danger: { background: colors.danger, text: '#FFFFFF', border: colors.danger },
+    ghost: { background: 'transparent', text: colors.text, border: 'transparent' },
+  }
 }
 
 /** Button that blocks repeated taps while `isLoading`, so a slow request cannot be sent twice. */
@@ -33,7 +36,8 @@ export function AppButton({
   style,
   accessibilityHint,
 }: AppButtonProps) {
-  const palette = VARIANTS[variant]
+  const { colors } = useTheme()
+  const palette = variants(colors)[variant]
   const isDisabled = disabled || isLoading
 
   return (

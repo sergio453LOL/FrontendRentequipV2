@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
 import { useCallback, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import MapView, { Callout, Marker, type Region } from 'react-native-maps'
 import { AppButton } from '../../components/AppButton'
@@ -8,9 +9,11 @@ import { LoadingView } from '../../components/StateViews'
 import { useAsync } from '../../hooks/useAsync'
 import { useAuth } from '../../hooks/useAuth'
 import { useCurrentLocation } from '../../hooks/useCurrentLocation'
+import { useTheme } from '../../hooks/useTheme'
 import type { RootNavigation } from '../../navigation/types'
 import { equipmentService } from '../../services/rentequipApi'
-import { colors, radius, spacing } from '../../theme'
+import { radius, spacing } from '../../theme'
+import { makeStyles } from '../../theme/makeStyles'
 import type { EquipmentStatus } from '../../types/api'
 import { formatCurrency } from '../../utils/format'
 
@@ -44,6 +47,9 @@ function radiusFor(region: Region): number {
 }
 
 export default function MapScreen() {
+  const { t } = useTranslation()
+  const { colors, scheme } = useTheme()
+  const styles = useStyles()
   const navigation = useNavigation<RootNavigation>()
   const { user } = useAuth()
   const location = useCurrentLocation()
@@ -71,9 +77,10 @@ export default function MapScreen() {
   )
   const { data, error, isLoading, reload } = useAsync(area ? fetchArea : null)
 
-  if (!area) return <LoadingView label="Ubicándote en el mapa…" />
+  if (!area) return <LoadingView label={t('map.locating')} />
 
   const equipment = data?.content ?? []
+  const total = data?.totalElements ?? 0
   const movedAway =
     visibleRegion !== null &&
     (Math.abs(visibleRegion.latitude - area.latitude) > visibleRegion.latitudeDelta / 4 ||
@@ -102,7 +109,8 @@ export default function MapScreen() {
         showsUserLocation={!location.isFallback}
         showsMyLocationButton={false}
         onRegionChangeComplete={setVisibleRegion}
-        accessibilityLabel="Mapa de maquinaria disponible"
+        userInterfaceStyle={scheme}
+        accessibilityLabel={t('map.label')}
       >
         {equipment.map((item) => (
           <Marker
@@ -117,9 +125,9 @@ export default function MapScreen() {
                   {item.name}
                 </Text>
                 <Text style={styles.calloutText}>
-                  {formatCurrency(item.dailyRate, item.currency)}/día · {item.ownerCompanyName}
+                  {formatCurrency(item.dailyRate, item.currency)} {t('common.perDay')} · {item.ownerCompanyName}
                 </Text>
-                <Text style={styles.calloutLink}>Ver ficha ›</Text>
+                <Text style={styles.calloutLink}>{t('map.seeDetail')} ›</Text>
               </View>
             </Callout>
           </Marker>
@@ -135,19 +143,19 @@ export default function MapScreen() {
           )}
           <Text style={styles.pillText}>
             {isLoading
-              ? 'Buscando…'
-              : `${data?.totalElements ?? 0} ${data?.totalElements === 1 ? 'equipo' : 'equipos'} en ${area.radiusKm} km`}
+              ? t('map.searching')
+              : t(total === 1 ? 'map.resultOne' : 'map.resultMany', { n: total, radius: area.radiusKm })}
           </Text>
         </View>
         {movedAway && !isLoading && (
-          <AppButton title="Buscar en esta zona" icon="search" onPress={searchVisibleArea} style={styles.searchHere} />
+          <AppButton title={t('map.searchHere')} icon="search" onPress={searchVisibleArea} style={styles.searchHere} />
         )}
         {location.message && <Text style={styles.warning}>{location.message}</Text>}
         {error && (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{error.message}</Text>
             <Pressable onPress={reload} accessibilityRole="button">
-              <Text style={styles.retry}>Reintentar</Text>
+              <Text style={styles.retry}>{t('common.retry')}</Text>
             </Pressable>
           </View>
         )}
@@ -157,7 +165,7 @@ export default function MapScreen() {
         onPress={centerOnMe}
         style={styles.fab}
         accessibilityRole="button"
-        accessibilityLabel={location.isFallback ? 'Activar ubicación' : 'Centrar en mi ubicación'}
+        accessibilityLabel={location.isFallback ? t('map.enableLocation') : t('map.centerOnMe')}
       >
         <Ionicons name={location.isFallback ? 'navigate-outline' : 'locate'} size={24} color={colors.ink} />
       </Pressable>
@@ -165,7 +173,12 @@ export default function MapScreen() {
   )
 }
 
-const styles = StyleSheet.create({
+/** The callout bubble is drawn by the map in white on both platforms, so its text keeps dark colours. */
+const CALLOUT_INK = '#0F172A'
+const CALLOUT_MUTED = '#64748B'
+const CALLOUT_LINK = '#B45309'
+
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1 },
   topBar: { position: 'absolute', top: spacing.md, left: spacing.md, right: spacing.md, alignItems: 'center', gap: spacing.sm },
   pill: {
@@ -212,7 +225,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
   },
   callout: { width: 220, gap: 2, padding: 4 },
-  calloutTitle: { fontSize: 14, fontWeight: '700', color: colors.ink },
-  calloutText: { fontSize: 12, color: colors.muted },
-  calloutLink: { fontSize: 12, fontWeight: '700', color: colors.brandDark, marginTop: 2 },
-})
+  calloutTitle: { fontSize: 14, fontWeight: '700', color: CALLOUT_INK },
+  calloutText: { fontSize: 12, color: CALLOUT_MUTED },
+  calloutLink: { fontSize: 12, fontWeight: '700', color: CALLOUT_LINK, marginTop: 2 },
+}))

@@ -1,5 +1,6 @@
 import * as Location from 'expo-location'
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Linking } from 'react-native'
 import { DEFAULT_LOCATION } from '../config/env'
 import type { Coordinates } from '../utils/format'
@@ -17,14 +18,15 @@ export interface CurrentLocation {
   requestAccess: () => void
 }
 
-const FALLBACK_MESSAGES: Record<Exclude<LocationStatus, 'locating' | 'granted'>, string> = {
-  denied: 'Sin permiso de ubicación: mostramos maquinaria desde Lima.',
-  servicesOff: 'El GPS está apagado: mostramos maquinaria desde Lima.',
-  error: 'No pudimos obtener tu ubicación: mostramos maquinaria desde Lima.',
-}
+const FALLBACK_MESSAGES = {
+  denied: 'location.denied',
+  servicesOff: 'location.servicesOff',
+  error: 'location.error',
+} as const satisfies Record<Exclude<LocationStatus, 'locating' | 'granted'>, string>
 
 /** GPS sensor (expo-location) with permission handling and a fallback when it is not available. */
 export function useCurrentLocation(): CurrentLocation {
+  const { t } = useTranslation()
   const [coords, setCoords] = useState<Coordinates>(DEFAULT_LOCATION)
   const [status, setStatus] = useState<LocationStatus>('locating')
   const [canAskAgain, setCanAskAgain] = useState(true)
@@ -75,6 +77,6 @@ export function useCurrentLocation(): CurrentLocation {
   }, [status, canAskAgain])
 
   const isFallback = status !== 'granted'
-  const message = status === 'granted' || status === 'locating' ? null : FALLBACK_MESSAGES[status]
+  const message = status === 'granted' || status === 'locating' ? null : t(FALLBACK_MESSAGES[status])
   return { coords: isFallback ? DEFAULT_LOCATION : coords, status, isFallback, message, requestAccess }
 }

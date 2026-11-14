@@ -1,8 +1,11 @@
 import { Ionicons } from '@expo/vector-icons'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { colors, radius, spacing } from '../theme'
+import { useTranslation } from 'react-i18next'
+import { Pressable, Text, View } from 'react-native'
+import { useTheme } from '../hooks/useTheme'
+import { radius, spacing } from '../theme'
+import { makeStyles } from '../theme/makeStyles'
 import type { Reservation, ReservationRole } from '../types/api'
-import { formatCurrency, formatDate } from '../utils/format'
+import { formatCurrency, formatDate, formatDays } from '../utils/format'
 import { PaymentStatusBadge, ReservationStatusBadge } from './Badge'
 
 interface ReservationCardProps {
@@ -12,12 +15,15 @@ interface ReservationCardProps {
 }
 
 export function ReservationCard({ reservation, role, onPress }: ReservationCardProps) {
+  const { t } = useTranslation()
+  const { colors } = useTheme()
+  const styles = useStyles()
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Reserva de ${reservation.equipmentName}`}
-      style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]}
+      accessibilityLabel={t('reservations.cardLabel', { name: reservation.equipmentName })}
+      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       <View style={styles.header}>
         <Text style={styles.name} numberOfLines={1}>
@@ -32,8 +38,7 @@ export function ReservationCard({ reservation, role, onPress }: ReservationCardP
       <View style={styles.meta}>
         <Ionicons name="calendar-outline" size={14} color={colors.muted} />
         <Text style={styles.metaText}>
-          {formatDate(reservation.startDate)} – {formatDate(reservation.endDate)} · {reservation.totalDays}{' '}
-          {reservation.totalDays === 1 ? 'día' : 'días'}
+          {formatDate(reservation.startDate)} – {formatDate(reservation.endDate)} · {formatDays(reservation.totalDays)}
         </Text>
       </View>
       {role === 'OWNER' && (
@@ -47,7 +52,7 @@ export function ReservationCard({ reservation, role, onPress }: ReservationCardP
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -56,10 +61,11 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.sm,
   },
+  pressed: { opacity: 0.9 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   name: { flex: 1, fontSize: 16, fontWeight: '700', color: colors.ink },
   badges: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaText: { fontSize: 13, color: colors.muted },
   total: { fontSize: 16, fontWeight: '800', color: colors.ink, alignSelf: 'flex-end' },
-})
+}))

@@ -49,16 +49,22 @@ así que la clave nunca se guarda en el repositorio.
 
 | Criterio | Implementación |
 |---|---|
-| 2.1 Integración con el backend | `services/api.ts`: axios con `baseURL`, `Authorization: Bearer`, refresh token automático en 401 y logout si falla. `services/authStorage.ts`: JWT en **expo-secure-store** (Keychain/Keystore). Usa GET, POST, PATCH y multipart. |
+| 2.1 Integración con el backend | `services/api.ts`: axios con `baseURL`, `Authorization: Bearer`, refresh token automático en 401 y logout si falla. `services/authStorage.ts`: JWT en **expo-secure-store** (Keychain/Keystore). Usa GET, POST, PUT (renombrar categoría), PATCH (editar equipo, estado de reserva), DELETE (eliminar equipo o categoría) y multipart (fotos). |
 | 2.2 Arquitectura | `screens/`, `components/`, `services/`, `hooks/`, `contexts/`, `navigation/`, `types/`, `utils/`, `theme/`. Context API (`AuthContext`, `ToastContext`) y custom hooks (`useAsync`, `usePaginatedList`, `useCurrentLocation`, `useAction`, `useDebounce`). |
 | 2.3 Sensores y API externa | **GPS** (`expo-location`): busca maquinaria cerca y guarda dónde se tomó cada foto. **Cámara** (`expo-camera`): fotos de entrega/devolución, con linterna y cámara frontal. **Mapa** (`react-native-maps`) con pines y "Buscar en esta zona". **API externa**: clima de la obra con **Open-Meteo**. Fallbacks: sin GPS se usa Lima; sin cámara se elige de la galería (`expo-image-picker`); permisos denegados ofrecen abrir Ajustes. |
 | 2.4 Errores y carga | `ActivityIndicator` y pull-to-refresh, scroll infinito, mensajes en español por código HTTP, reintentos automáticos en errores de red/5xx, aviso de sin conexión (`@react-native-community/netinfo`), toasts de éxito/error, botones bloqueados durante las peticiones y validación con React Hook Form + Zod. |
 
+## Idiomas y tema
+
+- **Idiomas**: español, inglés y chino simplificado con `react-i18next` (`src/i18n`), las mismas librerías que la web. Arranca en el idioma del teléfono si es uno de los tres, y la elección se guarda en el dispositivo. Los mensajes de Zod son claves (`validation.x`) que `TextField` traduce al mostrarlos.
+- **Tema claro/oscuro**: `ThemeContext` con paletas `lightColors` y `darkColors` (`src/theme`), y `makeStyles` para estilos que cambian con el tema. Por defecto sigue al sistema; se puede fijar en claro u oscuro.
+- Ambos se eligen en el login y en **Perfil › Idioma y apariencia**.
+
 ## Navegación
 
 - **AuthStack**: Login, Registro.
-- **MainTabs**: Catálogo, Mapa, Mis reservas, Perfil.
-- Encima de las pestañas: ficha de maquinaria, detalle de reserva y cámara (modal a pantalla completa).
+- **MainTabs**: Catálogo (con filtro por categoría), Mapa, Mi flota (solo ADMIN y MANAGER), Mis reservas, Perfil.
+- Encima de las pestañas: ficha de maquinaria, detalle de reserva, cámara (modal a pantalla completa), pago con tarjeta (Stripe modo test) y envío de boleta por correo o WhatsApp, asistente de IA (botón "Asistente" en Catálogo y Mapa), publicar o editar maquinaria, y categorías del catálogo (solo ADMIN, desde Perfil).
 
 ## Comandos útiles
 
