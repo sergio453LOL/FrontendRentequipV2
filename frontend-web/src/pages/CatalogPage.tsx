@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
-import { FilterX, LayoutGrid, Map as MapIcon, SearchX } from 'lucide-react'
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, FilterX, LayoutGrid, Map as MapIcon, MapPin, SearchX, Sparkles } from 'lucide-react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '../components/common/Button'
@@ -8,7 +8,6 @@ import { EmptyState } from '../components/common/EmptyState'
 import { ErrorState } from '../components/common/ErrorState'
 import { PageHeader } from '../components/common/PageHeader'
 import { Pagination } from '../components/common/Pagination'
-import { Select } from '../components/common/Select'
 import { SkeletonLoader } from '../components/common/SkeletonLoader'
 import { CatalogSearch } from '../components/common/TopBar'
 import { EquipmentCard } from '../components/equipment/EquipmentCard'
@@ -20,6 +19,7 @@ import { api } from '../services/api'
 import { ENDPOINTS } from '../services/endpoints'
 import type { EquipmentCategory, EquipmentSummary, PageResponse } from '../types'
 import { useAiSuggested } from '../utils/aiSuggestions'
+import { ASSISTANT_PARAM } from '../utils/assistantLink'
 import { PERU_CITIES } from '../utils/cities'
 import { categoryName } from '../utils/categoryName'
 import { cn } from '../utils/cn'
@@ -27,8 +27,10 @@ import { formatNumber, todayIso } from '../utils/format'
 import { categoryIdsFor, isWorkType, WORK_TYPES, type WorkType } from '../utils/workTypes'
 
 const ALL = 'all'
-/** Marks no category card while a type of work is the active filter. */
+/** Marks no category as active while a type of work is the filter. */
 const WORK_TYPE_ACTIVE = 'work-type'
+/** One spring for every sliding indicator on the screen, so they move alike. */
+const PILL_SPRING = { type: 'spring', stiffness: 420, damping: 34 } as const
 
 // Leaflet only downloads when someone opens the map.
 const EquipmentMap = lazy(() => import('../components/equipment/EquipmentMap'))
@@ -38,21 +40,34 @@ type CatalogView = 'grid' | 'map'
 function ViewToggle({ view, onChange }: { view: CatalogView; onChange: (view: CatalogView) => void }) {
   const { t } = useTranslation()
   return (
-    <div role="radiogroup" aria-label={t('catalog.view')} className="relative grid h-9 grid-cols-2 rounded-lg bg-slate-100 p-1 ring-1 ring-slate-200/80 ring-inset">
-      {([
-        { value: 'grid', label: t('catalog.grid'), icon: LayoutGrid },
-        { value: 'map', label: t('catalog.map'), icon: MapIcon },
-      ] as const).map(({ value, label, icon: Icon }) => (
+    <div
+      role="radiogroup"
+      aria-label={t('catalog.view')}
+      className="relative grid h-9 grid-cols-2 rounded-lg border border-slate-200/80 bg-slate-100 p-0.5"
+    >
+      {(
+        [
+          { value: 'grid', label: t('catalog.grid'), icon: LayoutGrid },
+          { value: 'map', label: t('catalog.map'), icon: MapIcon },
+        ] as const
+      ).map(({ value, label, icon: Icon }) => (
         <button
           key={value}
           type="button"
           role="radio"
           aria-checked={view === value}
           onClick={() => onChange(value)}
-          className={cn('relative flex items-center justify-center gap-1.5 rounded-md px-3 text-sm font-semibold transition-colors', view === value ? 'text-ink' : 'text-slate-500 hover:text-ink')}
+          className={cn(
+            'relative flex items-center justify-center gap-1.5 rounded-md px-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+            view === value ? 'text-slate-900' : 'text-slate-500 hover:text-slate-900',
+          )}
         >
           {view === value && (
-            <motion.span layoutId="catalog-view" className="absolute inset-0 rounded-md bg-white shadow-sm" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />
+            <motion.span
+              layoutId="catalog-view"
+              className="absolute inset-0 rounded-md bg-white shadow-sm ring-1 ring-slate-200/80"
+              transition={PILL_SPRING}
+            />
           )}
           <Icon className="relative size-4" aria-hidden="true" />
           <span className="relative">{label}</span>
@@ -73,8 +88,14 @@ interface CountFilters {
  * what a click will return. One request per category, asking only for the total.
  */
 function useCategoryCounts(categories: EquipmentCategory[], filters: CountFilters): Record<string, number> | null {
-  const key = JSON.stringify({ ids: categories.map((category) => category.id), ...filters })
-  const [result, setResult] = useState<{ key: string; counts: Record<string, number> } | null>(null)
+  const key = JSON.stringify({
+    ids: categories.map((category) => category.id),
+    ...filters,
+  })
+  const [result, setResult] = useState<{
+    key: string
+    counts: Record<string, number>
+  } | null>(null)
 
   useEffect(() => {
     if (categories.length === 0) return
@@ -83,7 +104,12 @@ function useCategoryCounts(categories: EquipmentCategory[], filters: CountFilter
     Promise.all(
       ids.map(async (categoryId) => {
         const { data } = await api.get<PageResponse<EquipmentSummary>>(ENDPOINTS.equipmentSearch, {
-          params: { ...filters, categoryId: categoryId ?? undefined, page: 0, size: 1 },
+          params: {
+            ...filters,
+            categoryId: categoryId ?? undefined,
+            page: 0,
+            size: 1,
+          },
           signal: controller.signal,
         })
         return [categoryId === null ? ALL : String(categoryId), data.totalElements] as const
@@ -99,95 +125,249 @@ function useCategoryCounts(categories: EquipmentCategory[], filters: CountFilter
   return result?.key === key ? result.counts : null
 }
 
-function CategoryCards({
-  categories,
-  counts,
-  selected,
-  onSelect,
-}: {
-  categories: EquipmentCategory[]
-  counts: Record<string, number> | null
-  selected: string
-  onSelect: (value: string) => void
-}) {
+/** Machines a type of work holds: the sum of its categories' counts. */
+function workTypeCount(workType: WorkType, categories: EquipmentCategory[], counts: Record<string, number> | null) {
+  if (!counts) return undefined
+  return categoryIdsFor(workType, categories).reduce((sum, id) => sum + (counts[String(id)] ?? 0), 0)
+}
+
+/**
+ * The advisor, one line under the title: the renter types the job and the advisor opens already asked
+ * (`?asistente=` is read by the layout, which opens the chat and sends the question once).
+ */
+function AiAssistBand() {
   const { t } = useTranslation()
-  const items = [
-    { value: '', id: ALL, name: t('catalog.all') },
-    ...categories.map((category) => ({ value: String(category.id), id: String(category.id), name: categoryName(category.name) })),
-  ]
+  const [, setSearchParams] = useSearchParams()
+  const [text, setText] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  function submit(event: FormEvent) {
+    event.preventDefault()
+    const question = text.trim()
+    if (!question) {
+      inputRef.current?.focus()
+      return
+    }
+    setSearchParams(
+      (params) => {
+        params.set(ASSISTANT_PARAM, question)
+        return params
+      },
+      { replace: true },
+    )
+    setText('')
+  }
+
   return (
-    <div role="group" aria-label={t('catalog.type')} className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-      {items.map((item) => {
-        const isSelected = selected === item.value
-        const count = counts?.[item.id]
-        return (
-          <button
-            key={item.id}
-            type="button"
-            aria-pressed={isSelected}
-            onClick={() => onSelect(item.value)}
-            className={cn(
-              'flex h-16 min-w-0 flex-col justify-center rounded-xl border px-4 text-left transition-all duration-200',
-              isSelected ? 'border-brand bg-accent-tint ring-1 ring-brand' : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm',
-            )}
-          >
-            <span className="truncate text-[13px] text-slate-600">{item.name}</span>
-            <span className={cn('num text-lg font-bold', count === 0 ? 'text-slate-400' : 'text-ink')}>
-              {count === undefined ? '–' : formatNumber(count)}
-            </span>
-          </button>
-        )
-      })}
-    </div>
+    <form
+      onSubmit={submit}
+      className="flex items-center gap-3 rounded-xl border border-brand/40 bg-white py-1.5 pr-1.5 pl-3.5 shadow-sm transition-colors focus-within:border-brand"
+    >
+      <Sparkles className="size-4 shrink-0 text-accent-ink" aria-hidden="true" />
+      <p className="hidden shrink-0 text-sm font-semibold text-slate-900 lg:block">{t('catalog.aiQuestion')}</p>
+      <label className="min-w-0 flex-1">
+        <span className="sr-only">{t('catalog.aiLabel')}</span>
+        <input
+          ref={inputRef}
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          placeholder={t('catalog.aiPlaceholder')}
+          maxLength={300}
+          className="h-9 w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
+        />
+      </label>
+      <motion.button
+        type="submit"
+        whileTap={{ scale: 0.97 }}
+        className="group flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-ink px-3.5 text-sm font-semibold text-sheet transition-colors hover:bg-ink-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+      >
+        <span className="hidden sm:inline">{t('catalog.aiCta')}</span>
+        <span className="sm:hidden">{t('catalog.aiCtaShort')}</span>
+        <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
+      </motion.button>
+    </form>
   )
 }
 
-/** "What are you going to do?": four jobs, each one searching every machine family that does it. */
-function WorkTypeFilter({ selected, onSelect }: { selected: WorkType | null; onSelect: (value: WorkType | null) => void }) {
+/** "What are you going to do?" as one line of compact pills: each job searches every family that does it. */
+function WorkTypePills({
+  selected,
+  countFor,
+  onSelect,
+}: {
+  selected: WorkType | null
+  countFor: (workType: WorkType) => number | undefined
+  onSelect: (value: WorkType | null) => void
+}) {
   const { t } = useTranslation()
   return (
-    <section aria-labelledby="work-type-title">
-      <h2 id="work-type-title" className="mb-3 text-base font-bold text-ink">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+      <h2 id="work-type-title" className="shrink-0 text-sm font-semibold text-slate-900">
         {t('workTypes.title')}
       </h2>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {WORK_TYPES.map(({ id, icon: Icon }, index) => {
+      <div
+        role="group"
+        aria-labelledby="work-type-title"
+        className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0"
+      >
+        {WORK_TYPES.map(({ id, icon: Icon }) => {
           const isSelected = selected === id
+          const count = countFor(id)
           return (
             <motion.button
               key={id}
               type="button"
               aria-pressed={isSelected}
               onClick={() => onSelect(isSelected ? null : id)}
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: index * 0.06, ease: [0.16, 1, 0.3, 1] }}
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.98 }}
+              whileTap={{ scale: 0.97 }}
               className={cn(
-                'flex min-h-[84px] items-center gap-3 rounded-xl p-4 text-left transition-colors',
-                isSelected ? 'border border-brand bg-accent-tint text-ink shadow-sm ring-1 ring-brand' : 'border border-slate-200/80 bg-white text-ink shadow-sm hover:border-slate-300',
+                'flex h-9 shrink-0 items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+                isSelected
+                  ? 'border-ink bg-ink text-sheet'
+                  : 'border-slate-200/80 bg-white text-slate-700 hover:border-slate-300 hover:text-slate-900',
               )}
             >
-              <span
-                className={cn(
-                  'flex size-11 shrink-0 items-center justify-center rounded-lg transition-colors',
-                  isSelected ? 'bg-brand text-[#0f172a]' : 'bg-accent-tint text-accent-ink',
-                )}
-              >
-                <Icon className="size-6" aria-hidden="true" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-bold">{t(`workTypes.${id}.title`)}</span>
-                <span className={cn('block text-xs leading-snug', 'text-slate-500')}>
-                  {t(`workTypes.${id}.hint`)}
-                </span>
-              </span>
+              <Icon className={cn('size-4', isSelected ? 'text-brand' : 'text-slate-500')} aria-hidden="true" />
+              {t(`workTypes.${id}.title`)}
+              {count !== undefined && (
+                <span className={cn('num text-xs', isSelected ? 'text-sheet/70' : 'text-slate-400')}>{formatNumber(count)}</span>
+              )}
             </motion.button>
           )
         })}
       </div>
-    </section>
+    </div>
+  )
+}
+
+/**
+ * Every machine family on one scrollable bar. The active one sits on a yellow pill that slides between
+ * them; the families of the chosen type of work are tinted.
+ */
+function CategoryTabs({
+  categories,
+  counts,
+  selected,
+  included,
+  onSelect,
+}: {
+  categories: EquipmentCategory[]
+  counts: Record<string, number> | null
+  selected: string
+  included: ReadonlySet<number>
+  onSelect: (value: string) => void
+}) {
+  const { t } = useTranslation()
+  const scroller = useRef<HTMLDivElement>(null)
+  const [edges, setEdges] = useState({ start: false, end: false })
+  const items = [
+    { value: '', id: ALL, name: t('catalog.all') },
+    ...categories.map((category) => ({
+      value: String(category.id),
+      id: String(category.id),
+      name: categoryName(category.name),
+    })),
+  ]
+
+  // Which ends still hide families, so an arrow shows only where there is more to see.
+  const measure = useCallback(() => {
+    const el = scroller.current
+    if (!el) return
+    setEdges({
+      start: el.scrollLeft > 4,
+      end: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+    })
+  }, [])
+  useEffect(() => {
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [measure, items.length])
+
+  // A vertical wheel scrolls the bar sideways, so a mouse without a tilt wheel reaches every family.
+  useEffect(() => {
+    const el = scroller.current
+    if (!el) return
+    function onWheel(event: WheelEvent) {
+      if (!el || Math.abs(event.deltaY) <= Math.abs(event.deltaX) || el.scrollWidth <= el.clientWidth) return
+      event.preventDefault()
+      el.scrollLeft += event.deltaY
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
+  function page(direction: 1 | -1) {
+    const el = scroller.current
+    el?.scrollBy({
+      left: direction * el.clientWidth * 0.7,
+      behavior: 'smooth',
+    })
+  }
+
+  const arrow =
+    'absolute top-1.5 bottom-1.5 z-10 flex w-9 items-center justify-center rounded-lg bg-white text-slate-600 ring-1 ring-slate-200/80 transition-colors hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-ink'
+
+  return (
+    <div className="relative rounded-xl border border-slate-200/80 bg-white">
+      {edges.start && (
+        <button
+          type="button"
+          onClick={() => page(-1)}
+          aria-label={t('catalog.scrollBack')}
+          className={cn(arrow, 'left-1.5 shadow-[6px_0_8px_-4px_rgba(15,23,42,0.12)]')}
+        >
+          <ChevronLeft className="size-4" aria-hidden="true" />
+        </button>
+      )}
+      {edges.end && (
+        <button
+          type="button"
+          onClick={() => page(1)}
+          aria-label={t('catalog.scrollMore')}
+          className={cn(arrow, 'right-1.5 shadow-[-6px_0_8px_-4px_rgba(15,23,42,0.12)]')}
+        >
+          <ChevronRight className="size-4" aria-hidden="true" />
+        </button>
+      )}
+      <div
+        ref={scroller}
+        onScroll={measure}
+        role="group"
+        aria-label={t('catalog.type')}
+        className="flex gap-1 overflow-x-auto scroll-smooth p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {items.map((item) => {
+          const isSelected = selected === item.value
+          const isIncluded = !isSelected && included.has(Number(item.value))
+          const count = counts?.[item.id]
+          return (
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={isSelected}
+              onClick={() => onSelect(item.value)}
+              className={cn(
+                'relative flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+                isSelected
+                  ? 'font-semibold text-asphalt'
+                  : isIncluded
+                    ? 'bg-accent-tint font-medium text-slate-900'
+                    : 'font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+              )}
+            >
+              {isSelected && (
+                <motion.span layoutId="activeCategoryPill" className="absolute inset-0 rounded-lg bg-machine" transition={PILL_SPRING} />
+              )}
+              <span className="relative">{item.name}</span>
+              <span className={cn('num relative text-xs', isSelected ? 'text-asphalt/70' : count === 0 ? 'text-slate-300' : 'text-slate-400')}>
+                {count === undefined ? '–' : formatNumber(count)}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -196,8 +376,8 @@ export default function CatalogPage() {
   const { user } = useAuth()
   const [, setSearchParams] = useSearchParams()
   const [query] = useQueryParam('q')
-  const [categoryId, setCategoryIdParam] = useQueryParam('categoryId')
-  const [workParam, setWorkParam] = useQueryParam('obra')
+  const [categoryId] = useQueryParam('categoryId')
+  const [workParam] = useQueryParam('obra')
   const workType = isWorkType(workParam) ? workParam : null
   const [city, setCity] = useQueryParam('city')
   const [viewParam, setViewParam] = useQueryParam('view')
@@ -208,7 +388,11 @@ export default function CatalogPage() {
   const { page, size, setPage, setSize } = usePagination()
 
   const categories = useFetch<EquipmentCategory[]>(ENDPOINTS.categories)
-  const filters: CountFilters = { q: query || undefined, city: city || undefined, excludeOwnerId: user?.companyId }
+  const filters: CountFilters = {
+    q: query || undefined,
+    city: city || undefined,
+    excludeOwnerId: user?.companyId,
+  }
   const counts = useCategoryCounts(categories.data ?? [], filters)
   // A type of work searches all its categories at once; a single category wins when both are set.
   const workCategoryIds = workType && !categoryId ? categoryIdsFor(workType, categories.data ?? []) : []
@@ -235,16 +419,28 @@ export default function CatalogPage() {
     size: 100,
   })
   const freeTodayIds = new Set(freeToday.data?.content.map((machine) => machine.id) ?? [])
+  const freeTodayTotal = freeToday.data?.totalElements
   const aiSuggested = useAiSuggested()
 
-  function setCategoryId(value: string) {
-    setCategoryIdParam(value)
-    if (value) setWorkParam('')
-  }
-
-  function setWorkType(value: WorkType | null) {
-    setWorkParam(value ?? '')
-    if (value) setCategoryIdParam('')
+  /**
+   * A category and a type of work exclude each other, so both change in one write: two setters in a row
+   * would each start from the same old query string and the second would undo the first.
+   */
+  function setFilter(key: 'categoryId' | 'obra', value: string) {
+    const other = key === 'categoryId' ? 'obra' : 'categoryId'
+    setSearchParams(
+      (params) => {
+        if (value) {
+          params.set(key, value)
+          params.delete(other)
+        } else {
+          params.delete(key)
+        }
+        params.delete('page')
+        return params
+      },
+      { replace: true },
+    )
   }
 
   const hasFilters = Boolean(query || categoryId || city || workType)
@@ -258,44 +454,81 @@ export default function CatalogPage() {
     <div className="mx-auto max-w-[1200px] space-y-5">
       <PageHeader
         title={t('catalog.title')}
-        description={
-          query
-            ? t('catalog.resultsFor', { query })
-            : t('catalog.description')
-        }
+        description={query ? t('catalog.resultsFor', { query }) : t('catalog.description')}
         breadcrumbs={[{ label: t('nav.catalog') }]}
       />
 
+      <AiAssistBand />
+
       <CatalogSearch id="catalog-page-search" className="sm:hidden" />
 
-      <WorkTypeFilter selected={workType} onSelect={setWorkType} />
-
-      {categories.error ? (
-        <p className="text-sm text-slate-600">{t('catalog.categoriesError')}</p>
-      ) : (
-        <CategoryCards categories={categories.data ?? []} counts={counts} selected={workType && !categoryId ? WORK_TYPE_ACTIVE : categoryId} onSelect={setCategoryId} />
-      )}
-
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <p className="num text-sm text-slate-600" aria-live="polite">
-          {total === undefined ? t('catalog.searching') : t('catalog.count', { count: total, formatted: formatNumber(total) })}
-          {city && t('catalog.inCity', { city })}
-        </p>
-        <div className="flex items-end gap-2">
-          <ViewToggle view={view} onChange={(next) => setViewParam(next === 'map' ? 'map' : '')} />
-          <Select
-            label={t('catalog.city')}
-            placeholder={t('catalog.allCities')}
-            value={city}
-            onChange={(event) => setCity(event.target.value)}
-            options={PERU_CITIES.map((item) => ({ value: item.name, label: item.name }))}
-            className="w-48"
+      <section aria-label={t('catalog.type')} className="space-y-3">
+        <WorkTypePills
+          selected={workType}
+          countFor={(type) => workTypeCount(type, categories.data ?? [], counts)}
+          onSelect={(value) => setFilter('obra', value ?? '')}
+        />
+        {categories.error ? (
+          <p className="text-sm text-slate-600">{t('catalog.categoriesError')}</p>
+        ) : (
+          <CategoryTabs
+            categories={categories.data ?? []}
+            counts={counts}
+            selected={workType && !categoryId ? WORK_TYPE_ACTIVE : categoryId}
+            included={new Set(workCategoryIds)}
+            onSelect={(value) => setFilter('categoryId', value)}
           />
+        )}
+      </section>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+        <p className="num text-sm text-slate-500" aria-live="polite">
+          <span className="text-base font-bold text-slate-900">
+            {total === undefined
+              ? t('catalog.searching')
+              : t('catalog.count', {
+                  count: total,
+                  formatted: formatNumber(total),
+                })}
+          </span>
+          {city && t('catalog.inCity', { city })}
+          {total !== undefined && total > 0 && freeTodayTotal !== undefined && (
+            <span className="ml-2.5 inline-flex items-center gap-1.5 text-positive">
+              <span className="size-1.5 rounded-full bg-status-green" aria-hidden="true" />
+              {t('catalog.freeToday', {
+                count: freeTodayTotal,
+                formatted: formatNumber(freeTodayTotal),
+              })}
+            </span>
+          )}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
           {hasFilters && (
-            <Button variant="ghost" onClick={clearFilters} leftIcon={<FilterX className="size-4" />}>
+            <Button variant="ghost" size="sm" onClick={clearFilters} leftIcon={<FilterX className="size-4" />}>
               {t('catalog.clear')}
             </Button>
           )}
+          <label className="relative">
+            <span className="sr-only">{t('catalog.city')}</span>
+            <MapPin className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+            <select
+              value={city}
+              onChange={(event) => setCity(event.target.value)}
+              className={cn(
+                'h-9 w-48 appearance-none rounded-lg border bg-white pr-9 pl-9 text-sm text-slate-900 transition-colors hover:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+                city ? 'border-ink font-semibold' : 'border-slate-200/80',
+              )}
+            >
+              <option value="">{t('catalog.allCities')}</option>
+              {PERU_CITIES.map((item) => (
+                <option key={item.name} value={item.name}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+          </label>
+          <ViewToggle view={view} onChange={(next) => setViewParam(next === 'map' ? 'map' : '')} />
         </div>
       </div>
 
@@ -307,11 +540,7 @@ export default function CatalogPage() {
         <EmptyState
           icon={SearchX}
           title={hasFilters ? t('catalog.noResultsTitle') : t('catalog.emptyTitle')}
-          description={
-            hasFilters
-              ? t('catalog.noResultsText')
-              : t('catalog.emptyText')
-          }
+          description={hasFilters ? t('catalog.noResultsText') : t('catalog.emptyText')}
           action={
             hasFilters && (
               <Button onClick={clearFilters} leftIcon={<FilterX className="size-4" />}>
@@ -323,7 +552,11 @@ export default function CatalogPage() {
       )}
 
       {!results.error && results.data && results.data.totalElements > 0 && view === 'map' && (
-        <Suspense fallback={<div className="h-[560px] rounded-2xl border border-slate-200/80 bg-white" aria-busy="true" aria-label={t('catalog.loadingMap')} />}>
+        <Suspense
+          fallback={
+            <div className="h-[560px] rounded-2xl border border-slate-200/80 bg-white" aria-busy="true" aria-label={t('catalog.loadingMap')} />
+          }
+        >
           <EquipmentMap machines={results.data.content} />
         </Suspense>
       )}
@@ -332,18 +565,11 @@ export default function CatalogPage() {
         <>
           <ul
             aria-busy={results.isLoading}
-            className={cn(
-              'grid gap-4 transition-opacity sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
-              results.isLoading && 'opacity-60',
-            )}
+            className={cn('grid gap-5 transition-opacity sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4', results.isLoading && 'opacity-60')}
           >
             {results.data.content.map((equipment) => (
               <li key={equipment.id}>
-                <EquipmentCard
-                  equipment={equipment}
-                  suggestedByAi={aiSuggested.has(equipment.id)}
-                  availableToday={freeTodayIds.has(equipment.id)}
-                />
+                <EquipmentCard equipment={equipment} suggestedByAi={aiSuggested.has(equipment.id)} availableToday={freeTodayIds.has(equipment.id)} />
               </li>
             ))}
           </ul>
