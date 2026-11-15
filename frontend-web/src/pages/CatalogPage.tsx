@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, FilterX, LayoutGrid, Map as MapIcon, MapPin, SearchX, Sparkles } from 'lucide-react'
+import { ArrowDownUp, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, FilterX, LayoutGrid, Map as MapIcon, MapPin, SearchX, Sparkles } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
@@ -374,6 +374,14 @@ function CategoryTabs({
   )
 }
 
+/** Orders the search endpoint accepts; nearest is the default and stays out of the URL. */
+const SORT_OPTIONS = ['NEAREST', 'PRICE_ASC', 'PRICE_DESC', 'NEWEST'] as const
+type CatalogSort = (typeof SORT_OPTIONS)[number]
+
+function isCatalogSort(value: string): value is CatalogSort {
+  return (SORT_OPTIONS as readonly string[]).includes(value)
+}
+
 export default function CatalogPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -387,6 +395,8 @@ export default function CatalogPage() {
   // Dates picked in the landing search: only machines free for the whole range.
   const [startDate] = useQueryParam('startDate')
   const [endDate] = useQueryParam('endDate')
+  const [sortParam, setSortParam] = useQueryParam('sort')
+  const sort: CatalogSort = isCatalogSort(sortParam) ? sortParam : 'NEAREST'
   const view: CatalogView = viewParam === 'map' ? 'map' : 'grid'
   const { page, size, setPage, setSize } = usePagination()
 
@@ -408,6 +418,7 @@ export default function CatalogPage() {
     ...categoryFilter,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
+    sort,
     page,
     size,
   })
@@ -526,6 +537,25 @@ export default function CatalogPage() {
               {PERU_CITIES.map((item) => (
                 <option key={item.name} value={item.name}>
                   {item.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+          </label>
+          <label className="relative">
+            <span className="sr-only">{t('catalog.sort')}</span>
+            <ArrowDownUp className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+            <select
+              value={sort}
+              onChange={(event) => setSortParam(event.target.value === 'NEAREST' ? '' : event.target.value)}
+              className={cn(
+                'h-9 w-48 appearance-none rounded-lg border bg-white pr-9 pl-9 text-sm text-slate-900 transition-colors hover:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+                sort !== 'NEAREST' ? 'border-ink font-semibold' : 'border-slate-200/80',
+              )}
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {t(`catalog.sortOptions.${option}`)}
                 </option>
               ))}
             </select>

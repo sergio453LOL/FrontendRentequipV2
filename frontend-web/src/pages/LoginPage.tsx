@@ -8,6 +8,7 @@ import { Input } from '../components/common/Input'
 import { AuthLayout } from '../components/layout/AuthLayout'
 import type { LoginLocationState } from '../contexts/AuthContextDefinition'
 import { useAuth } from '../hooks/useAuth'
+import { IDLE_TIMEOUT_MINUTES } from '../hooks/useSessionTimeout'
 import { useZodForm } from '../hooks/useZodForm'
 import { PATHS } from '../routes/paths'
 import i18n from '../i18n'
@@ -53,9 +54,9 @@ export default function LoginPage() {
       description={t('login.description')}
     >
 
-        {locationState.sessionExpired && !formError && (
+        {(locationState.sessionExpired || locationState.sessionIdle) && !formError && (
           <p role="alert" className="mb-4 rounded-md border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-sm text-[#92400e]">
-            {t('login.sessionExpired')}
+            {locationState.sessionIdle ? t('login.sessionIdle', { minutes: IDLE_TIMEOUT_MINUTES }) : t('login.sessionExpired')}
           </p>
         )}
         {formError && (

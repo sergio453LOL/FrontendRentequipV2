@@ -10,11 +10,15 @@ interface PrivateRouteProps {
 }
 
 export function PrivateRoute({ allowedRoles }: PrivateRouteProps) {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, user, sessionEnd } = useAuth()
   const location = useLocation()
 
   if (!isAuthenticated) {
-    const state: LoginLocationState = { from: location.pathname + location.search }
+    const state: LoginLocationState = {
+      from: location.pathname + location.search,
+      sessionIdle: sessionEnd === 'idle',
+      sessionExpired: sessionEnd === 'expired',
+    }
     return <Navigate to={PATHS.login} replace state={state} />
   }
 
