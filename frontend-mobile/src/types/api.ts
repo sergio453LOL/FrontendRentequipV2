@@ -69,6 +69,21 @@ export interface AuthResponse {
   companyName: string
 }
 
+export type TwoFactorChannel = 'EMAIL' | 'SMS'
+
+/** The login stopped at the second step: a code went to `destination` (masked) by `channel`. */
+export interface TwoFactorChallenge {
+  challengeId: string
+  channel: TwoFactorChannel
+  destination: string
+  expiresInSeconds: number
+}
+
+export interface TwoFactorVerifyRequest {
+  challengeId: string
+  code: string
+}
+
 export type AuthUser = Pick<AuthResponse, 'userId' | 'email' | 'role' | 'companyId' | 'companyName'>
 
 export type EquipmentStatus = 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'INACTIVE'
@@ -227,7 +242,7 @@ export interface Payment {
   createdAt: IsoDateTime
 }
 
-export type ReceiptChannel = 'EMAIL' | 'WHATSAPP'
+export type ReceiptChannel = 'EMAIL' | 'WHATSAPP' | 'SMS'
 
 export interface ReceiptDelivery {
   channel: ReceiptChannel

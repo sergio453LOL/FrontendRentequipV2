@@ -70,11 +70,12 @@ function GalleryArrow({ side, onClick }: { side: 'left' | 'right'; onClick: () =
       onClick={onClick}
       aria-label={side === 'left' ? t('gallery.previous') : t('gallery.next')}
       className={cn(
-        'absolute top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow transition hover:bg-white',
+        'absolute top-1/2 flex size-12 -translate-y-1/2 items-center justify-center rounded-full bg-machine text-asphalt shadow-lg ring-2 ring-asphalt/15 transition',
+        'hover:scale-105 hover:bg-machine-hover focus-visible:ring-4 focus-visible:ring-asphalt/40 focus-visible:outline-none active:scale-95',
         side === 'left' ? 'left-3' : 'right-3',
       )}
     >
-      <Icon className="size-5" />
+      <Icon className="size-7" strokeWidth={2.5} />
     </button>
   )
 }

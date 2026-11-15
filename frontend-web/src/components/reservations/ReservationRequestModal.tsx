@@ -59,9 +59,11 @@ interface ReservationRequestModalProps {
   onClose: () => void
   /** Dates already picked on the availability calendar; the form opens with them filled in. */
   initialDates?: DateSelection
+  /** A price agreed in a negotiation: it replaces the published daily rate. */
+  agreedOffer?: { id: number; dailyRate: number }
 }
 
-export function ReservationRequestModal({ equipment, isOpen, onClose, initialDates }: ReservationRequestModalProps) {
+export function ReservationRequestModal({ equipment, isOpen, onClose, initialDates, agreedOffer }: ReservationRequestModalProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [step, setStep] = useState<CheckoutStep>({ name: 'details' })
@@ -116,10 +118,12 @@ export function ReservationRequestModal({ equipment, isOpen, onClose, initialDat
       startDate: values.startDate,
       endDate: values.endDate,
       notes: values.notes.trim() || undefined,
+      offerId: agreedOffer?.id,
     })
   }
 
-  const rentalAmount = days * equipment.dailyRate
+  const dailyRate = agreedOffer?.dailyRate ?? equipment.dailyRate
+  const rentalAmount = days * dailyRate
 
   /** Once the reservation exists, closing the modal takes the user to it, paid or not. */
   function handleClose() {
@@ -232,7 +236,7 @@ export function ReservationRequestModal({ equipment, isOpen, onClose, initialDat
         <dl className="space-y-2 rounded-lg bg-slate-50 p-4 text-sm">
           <div className="flex justify-between">
             <dt className="text-slate-500">
-              {t('reservation.rentalLine', { rate: formatCurrency(equipment.dailyRate, equipment.currency), days: t('common.day', { count: days }) })}
+              {t('reservation.rentalLine', { rate: formatCurrency(dailyRate, equipment.currency), days: t('common.day', { count: days }) })}
             </dt>
             <dd className="font-medium text-slate-900">{formatCurrency(rentalAmount, equipment.currency)}</dd>
           </div>

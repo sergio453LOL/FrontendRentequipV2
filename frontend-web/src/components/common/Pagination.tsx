@@ -67,8 +67,8 @@ export function Pagination({ pageData, onPageChange, onSizeChange, isDisabled = 
 
         <ul className="flex items-center gap-1">
           <li>
-            <PageButton label={t('pagination.previous')} disabled={isDisabled || page === 0} onClick={() => onPageChange(page - 1)}>
-              <ChevronLeft className="size-4" />
+            <PageButton label={t('pagination.previous')} isArrow disabled={isDisabled || page === 0} onClick={() => onPageChange(page - 1)}>
+              <ChevronLeft className="size-5" strokeWidth={2.5} />
             </PageButton>
           </li>
           {pageItems.map((item, index) =>
@@ -95,10 +95,11 @@ export function Pagination({ pageData, onPageChange, onSizeChange, isDisabled = 
           <li>
             <PageButton
               label={t('pagination.next')}
+              isArrow
               disabled={isDisabled || page >= totalPages - 1}
               onClick={() => onPageChange(page + 1)}
             >
-              <ChevronRight className="size-4" />
+              <ChevronRight className="size-5" strokeWidth={2.5} />
             </PageButton>
           </li>
         </ul>
@@ -112,10 +113,12 @@ interface PageButtonProps {
   onClick: () => void
   disabled?: boolean
   isCurrent?: boolean
+  /** Previous / next: larger and in the accent colour, so they are found at a glance. */
+  isArrow?: boolean
   children: ReactNode
 }
 
-function PageButton({ label, onClick, disabled, isCurrent = false, children }: PageButtonProps) {
+function PageButton({ label, onClick, disabled, isCurrent = false, isArrow = false, children }: PageButtonProps) {
   return (
     <button
       type="button"
@@ -125,9 +128,11 @@ function PageButton({ label, onClick, disabled, isCurrent = false, children }: P
       onClick={onClick}
       className={cn(
         'flex size-9 items-center justify-center rounded-lg text-sm font-medium transition-colors',
-        isCurrent
-          ? 'bg-ink text-white'
-          : 'text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40',
+        isArrow
+          ? 'size-10 bg-machine text-asphalt hover:bg-machine-hover disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400'
+          : isCurrent
+            ? 'bg-ink text-white'
+            : 'text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40',
       )}
     >
       {children}

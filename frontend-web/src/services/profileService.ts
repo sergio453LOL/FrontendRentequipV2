@@ -3,6 +3,9 @@ import type {
   CompanyUpdateRequest,
   PasswordChangeRequest,
   ProfileUpdateRequest,
+  TwoFactorChallenge,
+  TwoFactorChannel,
+  TwoFactorVerifyRequest,
   UploadedImage,
   User,
   WithLinks,
@@ -21,6 +24,22 @@ export const profileService = {
 
   async changePassword(request: PasswordChangeRequest): Promise<void> {
     await api.post(ENDPOINTS.myPassword, request)
+  },
+
+  /** Sends a code to the chosen channel; the protection turns on only when that code comes back. */
+  async startTwoFactor(channel: TwoFactorChannel): Promise<TwoFactorChallenge> {
+    const { data } = await api.post<TwoFactorChallenge>(ENDPOINTS.twoFactorSetup, { channel })
+    return data
+  },
+
+  async confirmTwoFactor(request: TwoFactorVerifyRequest): Promise<User> {
+    const { data } = await api.post<User>(ENDPOINTS.twoFactorConfirm, request)
+    return data
+  },
+
+  async disableTwoFactor(password: string): Promise<User> {
+    const { data } = await api.post<User>(ENDPOINTS.twoFactorDisable, { password })
+    return data
   },
 
   async updateCompany(id: number, request: CompanyUpdateRequest): Promise<WithLinks<Company>> {

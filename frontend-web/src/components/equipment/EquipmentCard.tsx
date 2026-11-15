@@ -1,11 +1,13 @@
-import { ArrowRight, HardHat, Sparkles, Tag, Zap } from 'lucide-react'
+import { ArrowRight, CalendarDays, Gauge, HardHat, Navigation, Sparkles, Tag, Zap } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { buildPath } from '../../routes/paths'
 import type { EquipmentStatus, EquipmentSummary } from '../../types'
 import { cn } from '../../utils/cn'
-import { formatCurrency } from '../../utils/format'
+import { convertCurrency, useExchangeRate } from '../../hooks/useExchangeRate'
+import { formatCurrency, formatNumber } from '../../utils/format'
+import { VerifiedBadge } from '../common/VerifiedBadge'
 import { EquipmentImage } from './EquipmentImage'
 
 interface EquipmentCardProps {
@@ -63,8 +65,23 @@ function Spec({ icon, children, tone }: { icon: ReactNode; children: ReactNode; 
 /** A machine in the catalogue: its photo first, then what it is, where it is and what it costs a day. */
 export function EquipmentCard({ equipment, suggestedByAi = false, availableToday = false }: EquipmentCardProps) {
   const { t } = useTranslation()
+  const penPerUsd = useExchangeRate()
   const forSale = equipment.salePrice !== null && equipment.status !== 'SOLD'
   const hasSpecs = availableToday || equipment.operatorIncluded || forSale
+  const converted = penPerUsd ? convertCurrency(equipment.dailyRate, equipment.currency, penPerUsd) : null
+  const facts = [
+    equipment.manufactureYear && { key: 'year', icon: CalendarDays, text: t('catalog.facts.year', { year: equipment.manufactureYear }) },
+    equipment.usageHours !== null && {
+      key: 'hours',
+      icon: Gauge,
+      text: t('catalog.facts.hours', { hours: formatNumber(equipment.usageHours) }),
+    },
+    equipment.distanceKm !== null && {
+      key: 'distance',
+      icon: Navigation,
+      text: t('catalog.facts.distance', { km: formatNumber(equipment.distanceKm) }),
+    },
+  ].filter((fact): fact is { key: string; icon: typeof Gauge; text: string } => Boolean(fact))
   return (
     <Link
       to={buildPath.equipmentDetail(equipment.id)}
@@ -107,18 +124,39 @@ export function EquipmentCard({ equipment, suggestedByAi = false, availableToday
             )}
           </div>
         )}
-        <h3 className="line-clamp-1 text-[15px] leading-5 font-semibold text-slate-900" title={equipment.name}>
+        <p className="truncate text-xs font-semibold text-slate-600">
+          {equipment.brand} {equipment.model}
+        </p>
+        <h3 className="mt-0.5 line-clamp-1 text-[15px] leading-5 font-semibold text-slate-900" title={equipment.name}>
           {equipment.name}
         </h3>
-        <p className="mt-1 truncate text-xs text-slate-500">
-          {equipment.city} · {equipment.ownerCompanyName}
+        <p className="mt-1 flex min-w-0 items-center gap-1 text-xs text-slate-500">
+          <span className="truncate">
+            {equipment.city} · {equipment.ownerCompanyName}
+          </span>
+          {equipment.ownerCompanyVerified && <VerifiedBadge compact />}
         </p>
+        {facts.length > 0 && (
+          <ul className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-700">
+            {facts.map(({ key, icon: Icon, text }) => (
+              <li key={key} className={cn('inline-flex items-center gap-1', key === 'distance' && 'font-semibold text-action-ink')}>
+                <Icon className="size-3.5 text-slate-500" aria-hidden="true" />
+                {text}
+              </li>
+            ))}
+          </ul>
+        )}
 
         <div className="mt-auto pt-3.5" />
         <div className="flex items-end justify-between gap-2 border-t border-slate-100 pt-3">
           <p className="num">
             <span className="text-lg font-bold text-slate-950 tabular-nums">{formatCurrency(equipment.dailyRate, equipment.currency)}</span>
             <span className="text-xs text-slate-500"> {t('common.perDay')}</span>
+            {converted && (
+              <span className="block text-xs font-medium text-slate-600 tabular-nums">
+                {t('catalog.facts.approx', { amount: formatCurrency(converted.amount, converted.currency) })}
+              </span>
+            )}
           </p>
           <span className="mb-0.5 inline-flex items-center gap-1 text-sm font-semibold text-slate-500 transition-colors duration-200 group-hover:text-action-ink">
             {t('catalog.quote')}

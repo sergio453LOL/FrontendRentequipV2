@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarPlus, MapPin, SearchX, ShieldCheck, Star } from 'lucide-react'
+import { ArrowLeft, CalendarPlus, HandCoins, MapPin, SearchX, ShieldCheck, Star } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
@@ -7,7 +7,10 @@ import { EmptyState } from '../components/common/EmptyState'
 import { ErrorState } from '../components/common/ErrorState'
 import { PageHeader } from '../components/common/PageHeader'
 import { StatusBadge } from '../components/common/StatusBadge'
+import { EquipmentVideo } from '../components/equipment/EquipmentVideo'
+import { OfferModal } from '../components/offers/OfferModal'
 import { ImageGallery } from '../components/equipment/ImageGallery'
+import { OperatorSheet } from '../components/equipment/OperatorSheet'
 import { AvailabilityCalendar } from '../components/equipment/AvailabilityCalendar'
 import { EMPTY_SELECTION, type DateSelection } from '../components/equipment/dateSelection'
 import { QuickQuote } from '../components/equipment/QuickQuote'
@@ -22,9 +25,10 @@ import { useQueryParam } from '../hooks/useQueryParam'
 import { useRefreshSignal } from '../hooks/useRefreshSignal'
 import { PATHS } from '../routes/paths'
 import { ENDPOINTS } from '../services/endpoints'
-import type { Equipment, EquipmentRating, WithLinks } from '../types'
+import type { Equipment, EquipmentRating, PageResponse, PriceOffer, WithLinks } from '../types'
 import { categoryName } from '../utils/categoryName'
 import { formatCurrency, formatDateRange, formatNumber, rentalDays } from '../utils/format'
+import { convertCurrency, useExchangeRate } from '../hooks/useExchangeRate'
 
 function parseId(value: string | undefined): number | null {
   const id = Number(value)
@@ -70,6 +74,9 @@ export default function EquipmentDetailPage() {
   const [isReserving, setIsReserving] = useState(false)
   const [reserveParam, setReserveParam] = useQueryParam('reservar')
   const [dates, setDates] = useState<DateSelection>(EMPTY_SELECTION)
+  const [isOffering, setIsOffering] = useState(false)
+  const [offerParam] = useQueryParam('offer')
+  const offers = useFetch<PageResponse<PriceOffer>>(offerParam ? ENDPOINTS.offers : null, { role: 'RENTER', size: 50 })
 
   const { data: equipment, error, isLoading, refetch } = useFetch<WithLinks<Equipment>>(
     equipmentId ? ENDPOINTS.equipment(equipmentId) : null,
@@ -91,6 +98,10 @@ export default function EquipmentDetailPage() {
         ? t('equipment.unavailable')
       : null
   const averageRating = rating.data?.averageRating ?? 0
+  const acceptedOffer = offers.data?.content.find(
+    (offer) => String(offer.id) === offerParam && offer.equipmentId === equipment.id && offer.status === 'ACCEPTED' && offer.agreedDailyRate !== null,
+  )
+  const agreedOffer = acceptedOffer ? { id: acceptedOffer.id, dailyRate: acceptedOffer.agreedDailyRate! } : undefined
   const hasDates = dates.startDate !== null && dates.endDate !== null
   const selectedDays = hasDates ? rentalDays(dates.startDate!, dates.endDate!) : undefined
 
@@ -130,6 +141,7 @@ export default function EquipmentDetailPage() {
               <SpecItem label={t('equipment.model')} value={equipment.model} />
               <SpecItem label={t('equipment.year')} value={equipment.manufactureYear?.toString() ?? '—'} />
               <SpecItem label={t('equipment.serial')} value={equipment.serialNumber ?? '—'} />
+              <SpecItem label={t('equipment.usageHours')} value={equipment.usageHours !== null ? `${formatNumber(equipment.usageHours)} h` : '—'} />
               <SpecItem label={t('equipment.city')} value={equipment.city} />
               <SpecItem label={t('equipment.currency')} value={equipment.currency} />
             </dl>
@@ -140,6 +152,10 @@ export default function EquipmentDetailPage() {
             )}
           </section>
 
+          {equipment.videoUrl && <EquipmentVideo url={equipment.videoUrl} title={equipment.name} />}
+
+          {equipment.operatorIncluded && equipment.operator && <OperatorSheet operator={equipment.operator} />}
+
           <section aria-labelledby="owner-title" className="space-y-3">
             <h2 id="owner-title" className="text-lg font-bold text-ink">
               {t('equipment.ownerTitle')}
@@ -148,6 +164,7 @@ export default function EquipmentDetailPage() {
               name={equipment.ownerCompanyName}
               logoUrl={equipment.ownerCompanyLogoUrl}
               description={equipment.ownerCompanyDescription}
+              verified={equipment.ownerCompanyVerified}
             />
           </section>
 
@@ -176,6 +193,7 @@ export default function EquipmentDetailPage() {
                 {formatCurrency(equipment.dailyRate, equipment.currency)}
                 <span className="text-sm font-normal text-slate-500"> {t('common.perDay')}</span>
               </p>
+              <DollarPrice amount={equipment.dailyRate} currency={equipment.currency} />
               {equipment.weeklyRate !== null && (
                 <p className="num text-sm text-slate-600">{t('equipment.perWeek', { price: formatCurrency(equipment.weeklyRate, equipment.currency) })}</p>
               )}
@@ -206,6 +224,12 @@ export default function EquipmentDetailPage() {
               </ul>
             )}
 
+            {agreedOffer && (
+              <p className="rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900">
+                {t('offers.agreedBanner', { price: formatCurrency(agreedOffer.dailyRate, equipment.currency) })}
+              </p>
+            )}
+
             {reserveBlockedReason === null && <QuickQuote equipment={equipment} selectedDays={selectedDays} />}
 
             <Button
@@ -220,6 +244,11 @@ export default function EquipmentDetailPage() {
               {hasDates ? t('equipment.reserveRange', { range: formatDateRange(dates.startDate!, dates.endDate!) }) : t('equipment.reserve')}
             </Button>
             {reserveBlockedReason && <p className="text-center text-[13px] text-slate-600">{reserveBlockedReason}</p>}
+            {reserveBlockedReason === null && !agreedOffer && (
+              <Button variant="secondary" fullWidth onClick={() => setIsOffering(true)} leftIcon={<HandCoins className="size-4" />}>
+                {t('offers.negotiate')}
+              </Button>
+            )}
 
             {equipment.salePrice !== null && equipment.status !== 'SOLD' && (
               <div className="space-y-1 border-t border-slate-100 pt-4 text-sm">
@@ -247,7 +276,9 @@ export default function EquipmentDetailPage() {
           if (reserveParam) setReserveParam('')
         }}
         initialDates={dates}
+        agreedOffer={agreedOffer}
       />
+      <OfferModal equipment={equipment} isOpen={isOffering} onClose={() => setIsOffering(false)} dates={dates} />
     </div>
   )
 }
@@ -259,4 +290,13 @@ function SpecItem({ label, value }: { label: string; value: string }) {
       <dd className="font-medium break-words text-ink">{value}</dd>
     </div>
   )
+}
+
+/** The daily rate in the other currency, at the day's exchange rate. */
+function DollarPrice({ amount, currency }: { amount: number; currency: string }) {
+  const { t } = useTranslation()
+  const penPerUsd = useExchangeRate()
+  const converted = penPerUsd ? convertCurrency(amount, currency, penPerUsd) : null
+  if (!converted) return null
+  return <p className="num text-sm font-medium text-slate-700">{t('equipment.approxPrice', { amount: formatCurrency(converted.amount, converted.currency) })}</p>
 }

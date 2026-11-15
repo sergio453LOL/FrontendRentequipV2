@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Controller, useForm, type Path } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native'
@@ -14,12 +14,14 @@ import { radius, spacing } from '../../theme'
 import { makeStyles } from '../../theme/makeStyles'
 import { ApiError } from '../../utils/apiError'
 import { PERU_CITIES } from '../../utils/cities'
+import { api } from '../../services/api'
+import { cityNameFromSunat, isValidRuc, type RucInfo } from '../../utils/ruc'
 
 /** Messages are i18n keys, translated where the field shows them. */
 const registerSchema = z
   .object({
     companyName: z.string().trim().min(2, 'validation.min2').max(150, 'validation.max150'),
-    taxId: z.string().trim().regex(/^\d{11}$/, 'validation.taxId'),
+    taxId: z.string().trim().regex(/^\d{11}$/, 'validation.taxId').refine(isValidRuc, 'validation.rucCheck'),
     companyEmail: z.string().trim().pipe(z.email('validation.emailInvalid')),
     city: z.string().min(1, 'validation.cityRequired'),
     firstName: z.string().trim().min(1, 'validation.firstNameRequired').max(80, 'validation.max80'),
@@ -87,6 +89,9 @@ export default function RegisterScreen() {
     control,
     handleSubmit,
     setError,
+    setValue,
+    getValues,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
@@ -103,6 +108,30 @@ export default function RegisterScreen() {
       confirmPassword: '',
     },
   })
+
+  // A complete, valid RUC (20 or 10) is looked up in SUNAT and fills the business name and the city.
+  const taxId = watch('taxId')
+  const [sunat, setSunat] = useState<{ ruc: string; info: RucInfo | null } | null>(null)
+  useEffect(() => {
+    const ruc = taxId.trim()
+    if (!isValidRuc(ruc) || sunat?.ruc === ruc) return
+    let isCurrent = true
+    api
+      .get<RucInfo>(`/identity/ruc/${ruc}`)
+      .then(({ data }) => {
+        if (!isCurrent) return
+        setSunat({ ruc, info: data })
+        if (data.name) setValue('companyName', data.name, { shouldValidate: true })
+        const city = cityNameFromSunat(data, PERU_CITIES.map((item) => item.name))
+        if (city && !getValues('city')) setValue('city', city, { shouldValidate: true })
+      })
+      .catch(() => {
+        if (isCurrent) setSunat({ ruc, info: null })
+      })
+    return () => {
+      isCurrent = false
+    }
+  }, [taxId, sunat?.ruc, setValue, getValues])
 
   async function onSubmit(values: RegisterValues) {
     setFormError(null)
@@ -168,6 +197,13 @@ export default function RegisterScreen() {
 
         <Text style={styles.section}>{t('register.companySection')}</Text>
         {COMPANY_FIELDS.map(renderField)}
+        {sunat?.ruc === taxId.trim() && (
+          <Text style={sunat.info ? styles.sunatOk : styles.sunatNote} accessibilityLiveRegion="polite">
+            {sunat.info
+              ? t('register.sunatFound', { state: [sunat.info.state, sunat.info.condition].filter(Boolean).join(' / ') })
+              : t('register.sunatSkipped')}
+          </Text>
+        )}
         <Controller
           control={control}
           name="city"
@@ -199,6 +235,8 @@ const useStyles = makeStyles((colors, typography) => ({
   content: { padding: spacing.xl, gap: spacing.lg, paddingBottom: 48 },
   section: { ...typography.heading, marginTop: spacing.sm },
   label: { fontSize: 14, fontWeight: '600', color: colors.text },
+  sunatOk: { fontSize: 13, color: colors.success, marginTop: -spacing.sm },
+  sunatNote: { fontSize: 13, color: colors.muted, marginTop: -spacing.sm },
   cityGroup: { gap: spacing.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   error: { fontSize: 12, color: colors.danger },

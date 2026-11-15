@@ -57,6 +57,16 @@ const publishSchema = z
     latitude: z.string(),
     longitude: z.string(),
     operatorIncluded: z.boolean(),
+    usageHours: z.string().refine((value) => value === '' || (/^\d{1,6}$/.test(value) && Number(value) <= 200000), 'validation.hours'),
+    videoUrl: z
+      .string()
+      .trim()
+      .max(500, 'validation.max255')
+      .refine((value) => value === '' || /^https?:\/\/\S+$/.test(value), 'validation.url'),
+    operatorName: z.string().trim().max(120, 'validation.max150'),
+    operatorLicense: z.string().trim().max(60, 'validation.max80'),
+    operatorExperience: z.string().refine((value) => value === '' || (/^\d{1,2}$/.test(value) && Number(value) <= 60), 'validation.years'),
+    operatorCertifications: z.string().trim().max(500, 'validation.max2000'),
   })
   .refine((values) => values.weeklyRate === '' || Number(values.weeklyRate) <= Number(values.dailyRate) * 7, {
     path: ['weeklyRate'],
@@ -117,6 +127,12 @@ export default function PublishEquipmentPage() {
       latitude: '',
       longitude: '',
       operatorIncluded: false,
+      usageHours: '',
+      videoUrl: '',
+      operatorName: '',
+      operatorLicense: '',
+      operatorExperience: '',
+      operatorCertifications: '',
     },
   })
 
@@ -181,6 +197,17 @@ export default function PublishEquipmentPage() {
       imageUrls,
       ownerCompanyId: user.companyId,
       operatorIncluded: values.operatorIncluded,
+      usageHours: values.usageHours ? Number(values.usageHours) : undefined,
+      videoUrl: values.videoUrl || undefined,
+      operator:
+        values.operatorIncluded && values.operatorName
+          ? {
+              name: values.operatorName,
+              license: values.operatorLicense || undefined,
+              experienceYears: values.operatorExperience ? Number(values.operatorExperience) : undefined,
+              certifications: values.operatorCertifications || undefined,
+            }
+          : undefined,
     })
   }
 
@@ -202,6 +229,8 @@ export default function PublishEquipmentPage() {
           <Input label={t('publish.model')} required placeholder="320 GC" error={errors.model?.message} {...register('model')} />
           <Input label={t('publish.year')} inputMode="numeric" maxLength={4} placeholder={String(CURRENT_YEAR - 3)} error={errors.manufactureYear?.message} {...register('manufactureYear')} />
           <Input label={t('publish.serial')} placeholder="CAT0320GCXYZ" error={errors.serialNumber?.message} {...register('serialNumber')} />
+          <Input label={t('publish.usageHours')} inputMode="numeric" placeholder="4500" hint={t('publish.optional')} error={errors.usageHours?.message} {...register('usageHours')} />
+          <Input label={t('publish.videoUrl')} type="url" placeholder="https://www.youtube.com/watch?v=…" hint={t('publish.videoHint')} error={errors.videoUrl?.message} {...register('videoUrl')} />
           <div className="sm:col-span-2">
             <Controller
               control={control}
@@ -241,6 +270,21 @@ export default function PublishEquipmentPage() {
               <span className="block text-sm text-slate-600">{t('publish.operatorHint')}</span>
             </span>
           </label>
+          {draft.operatorIncluded && (
+            <>
+              <Input label={t('publish.operatorName')} placeholder="Juan Carlos Quispe" error={errors.operatorName?.message} {...register('operatorName')} />
+              <Input label={t('publish.operatorLicense')} placeholder="A-IIIc" error={errors.operatorLicense?.message} {...register('operatorLicense')} />
+              <Input label={t('publish.operatorExperience')} inputMode="numeric" placeholder="8" error={errors.operatorExperience?.message} {...register('operatorExperience')} />
+              <Textarea
+                className="sm:col-span-2"
+                label={t('publish.operatorCertifications')}
+                rows={3}
+                hint={t('publish.operatorCertificationsHint')}
+                error={errors.operatorCertifications?.message}
+                {...register('operatorCertifications')}
+              />
+            </>
+          )}
         </Section>
 
         <Section title={t('publish.specsTitle')} description={t('publish.specsText')}>

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { ArrowDownUp, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, FilterX, LayoutGrid, Map as MapIcon, MapPin, SearchX, Sparkles } from 'lucide-react'
+import { ArrowDownUp, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, FilterX, LayoutGrid, LocateFixed, Map as MapIcon, MapPin, SearchX, Sparkles, Tag } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
@@ -15,6 +15,8 @@ import { useAuth } from '../hooks/useAuth'
 import { useFetch } from '../hooks/useFetch'
 import { usePagination } from '../hooks/usePagination'
 import { useQueryParam } from '../hooks/useQueryParam'
+import { useToast } from '../hooks/useToast'
+import { useVisitorLocation } from '../hooks/useVisitorLocation'
 import { api } from '../services/api'
 import { ENDPOINTS } from '../services/endpoints'
 import type { EquipmentCategory, EquipmentSummary, PageResponse } from '../types'
@@ -81,6 +83,7 @@ function ViewToggle({ view, onChange }: { view: CatalogView; onChange: (view: Ca
 interface CountFilters {
   q?: string
   city?: string
+  brand?: string
   excludeOwnerId?: number
 }
 
@@ -391,6 +394,20 @@ export default function CatalogPage() {
   const [workParam] = useQueryParam('obra')
   const workType = isWorkType(workParam) ? workParam : null
   const [city, setCity] = useQueryParam('city')
+  const [brand, setBrand] = useQueryParam('brand')
+  const location = useVisitorLocation()
+  const toast = useToast()
+  // A refused or failed position must be said out loud: the button alone would just stay as it was.
+  const previousLocationStatus = useRef(location.status)
+  useEffect(() => {
+    if (previousLocationStatus.current === 'locating') {
+      if (location.status === 'denied') toast.error(t('catalog.locationFailed'), t('catalog.locationDenied'))
+      if (location.status === 'unavailable') toast.error(t('catalog.locationFailed'), t('catalog.locationUnavailable'))
+      if (location.status === 'ready') toast.success(t('catalog.nearMeOn'))
+    }
+    previousLocationStatus.current = location.status
+  }, [location.status, t, toast])
+  const brands = useFetch<string[]>(ENDPOINTS.equipmentBrands)
   const [viewParam, setViewParam] = useQueryParam('view')
   // Dates picked in the landing search: only machines free for the whole range.
   const [startDate] = useQueryParam('startDate')
@@ -404,8 +421,14 @@ export default function CatalogPage() {
   const filters: CountFilters = {
     q: query || undefined,
     city: city || undefined,
+    brand: brand || undefined,
     excludeOwnerId: user?.companyId,
   }
+  // With the visitor's position every card says how far it is; the radius covers all of Peru, so sharing
+  // the location orders by distance without hiding anything.
+  const visitorPosition = location.coords
+    ? { latitude: location.coords.latitude, longitude: location.coords.longitude, radiusKm: 1500 }
+    : {}
   const counts = useCategoryCounts(categories.data ?? [], filters)
   // A type of work searches all its categories at once; a single category wins when both are set.
   const workCategoryIds = workType && !categoryId ? categoryIdsFor(workType, categories.data ?? []) : []
@@ -416,6 +439,7 @@ export default function CatalogPage() {
   const results = useFetch<PageResponse<EquipmentSummary>>(ENDPOINTS.equipmentSearch, {
     ...filters,
     ...categoryFilter,
+    ...visitorPosition,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
     sort,
@@ -457,7 +481,7 @@ export default function CatalogPage() {
     )
   }
 
-  const hasFilters = Boolean(query || categoryId || city || workType)
+  const hasFilters = Boolean(query || categoryId || city || workType || brand)
   const total = results.data?.totalElements
 
   function clearFilters() {
@@ -542,6 +566,39 @@ export default function CatalogPage() {
             </select>
             <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
           </label>
+          {(brands.data?.length ?? 0) > 0 && (
+            <label className="relative">
+              <span className="sr-only">{t('catalog.brand')}</span>
+              <Tag className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+              <select
+                value={brand}
+                onChange={(event) => setBrand(event.target.value)}
+                className={cn(
+                  'h-9 w-44 appearance-none rounded-lg border bg-white pr-9 pl-9 text-sm text-slate-900 transition-colors hover:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+                  brand ? 'border-ink font-semibold' : 'border-slate-200/80',
+                )}
+              >
+                <option value="">{t('catalog.allBrands')}</option>
+                {brands.data?.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+            </label>
+          )}
+          <Button
+            variant={location.coords ? 'primary' : 'secondary'}
+            size="sm"
+            isLoading={location.status === 'locating'}
+            aria-pressed={location.coords !== null}
+            title={location.status === 'denied' ? t('catalog.locationDenied') : location.coords ? t('catalog.nearMeOn') : undefined}
+            onClick={location.coords ? location.clear : location.request}
+            leftIcon={<LocateFixed className="size-4" />}
+          >
+            {location.status === 'locating' ? t('catalog.locating') : t('catalog.nearMe')}
+          </Button>
           <label className="relative">
             <span className="sr-only">{t('catalog.sort')}</span>
             <ArrowDownUp className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />

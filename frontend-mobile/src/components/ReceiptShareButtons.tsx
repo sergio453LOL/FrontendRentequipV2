@@ -8,7 +8,7 @@ import { spacing } from '../theme'
 import type { ReceiptChannel } from '../types/api'
 import { AppButton } from './AppButton'
 
-/** Sends the receipt to the user's registered email or WhatsApp; the toast says exactly where it went. */
+/** Sends the receipt to the user's registered email, WhatsApp or SMS; the toast says exactly where it went. */
 export function ReceiptShareButtons({ reservationId }: { reservationId: number }) {
   const { t } = useTranslation()
   const toast = useToast()
@@ -49,11 +49,21 @@ export function ReceiptShareButtons({ reservationId }: { reservationId: number }
         disabled={isRunning}
         onPress={() => void send('WHATSAPP')}
       />
+      <AppButton
+        title={t('receipt.bySms')}
+        icon="chatbox-ellipses-outline"
+        variant="secondary"
+        style={styles.flex}
+        isLoading={isRunning && sendingChannel === 'SMS'}
+        disabled={isRunning}
+        onPress={() => void send('SMS')}
+      />
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: spacing.sm },
-  flex: { flex: 1 },
+  // Three buttons do not fit one phone row: email and WhatsApp share it, SMS takes the next.
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  flex: { flexGrow: 1, flexBasis: '45%' },
 })
