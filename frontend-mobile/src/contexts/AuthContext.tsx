@@ -4,14 +4,16 @@ import i18n from '../i18n'
 import { setSessionExpiredHandler } from '../services/api'
 import { authStorage } from '../services/authStorage'
 import { authService } from '../services/rentequipApi'
-import type { AuthUser, LoginRequest, RegisterRequest } from '../types/api'
+import type { AuthResponse, AuthUser, LoginRequest, RegisterRequest, TwoFactorChallenge, TwoFactorVerifyRequest } from '../types/api'
 
 export type AuthStatus = 'restoring' | 'signedOut' | 'signedIn'
 
 export interface AuthContextValue {
   status: AuthStatus
   user: AuthUser | null
-  login: (credentials: LoginRequest) => Promise<void>
+  /** Resolves with the challenge when the account has the two-step verification on; null once signed in. */
+  login: (credentials: LoginRequest) => Promise<TwoFactorChallenge | null>
+  verifyLogin: (request: TwoFactorVerifyRequest) => Promise<void>
   register: (request: RegisterRequest) => Promise<void>
   logout: () => Promise<void>
 }
@@ -43,11 +45,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => setSessionExpiredHandler(null)
   }, [toast])
 
-  const login = useCallback(async (credentials: LoginRequest) => {
-    const session = await authStorage.save(await authService.login(credentials))
+  const startSession = useCallback(async (auth: AuthResponse) => {
+    const session = await authStorage.save(auth)
     setUser(session.user)
     setStatus('signedIn')
   }, [])
+
+  const login = useCallback(
+    async (credentials: LoginRequest) => {
+      const result = await authService.login(credentials)
+      if ('challengeId' in result) return result
+      await startSession(result)
+      return null
+    },
+    [startSession],
+  )
+
+  const verifyLogin = useCallback(
+    async (request: TwoFactorVerifyRequest) => startSession(await authService.verifyLogin(request)),
+    [startSession],
+  )
 
   const register = useCallback(async (request: RegisterRequest) => {
     const session = await authStorage.save(await authService.register(request))
@@ -62,8 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user, login, register, logout }),
-    [status, user, login, register, logout],
+    () => ({ status, user, login, verifyLogin, register, logout }),
+    [status, user, login, verifyLogin, register, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

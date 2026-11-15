@@ -1,5 +1,5 @@
-import { ArrowLeft, ArrowRight, Building2, Check, LocateFixed, UserRound, type LucideIcon } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowLeft, ArrowRight, BadgeCheck, Building2, Check, LocateFixed, UserRound, type LucideIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import type { Path } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -17,13 +17,16 @@ import { findCity, PERU_CITIES } from '../utils/cities'
 import { cn } from '../utils/cn'
 import { applyServerFieldErrors } from '../utils/formErrors'
 import { PASSWORD_RULES } from '../utils/passwordRules'
+import { identityService, type RucInfo } from '../services/identityService'
+import { isValidRuc } from '../utils/ruc'
 
 const optionalPhone = z.string().trim().max(20, 'validation.max20').regex(/^[\d\s+()-]*$/, 'validation.phoneChars')
 
 const registerSchema = z
   .object({
     companyName: z.string().trim().min(2, 'validation.min2').max(150, 'validation.max150'),
-    taxId: z.string().trim().regex(/^\d{11}$/, 'validation.taxId'),
+    taxId: z.string().trim().regex(/^\d{11}$/, 'validation.taxId').refine(isValidRuc, 'validation.rucCheck'),
+    dni: z.string().trim().regex(/^(\d{8})?$/, 'validation.dni'),
     companyEmail: z.string().trim().pipe(z.email('validation.emailInvalid')),
     companyPhone: optionalPhone,
     city: z.string().min(1, 'validation.cityRequired'),
@@ -87,6 +90,7 @@ export default function RegisterPage() {
     trigger,
     setValue,
     setError,
+    getValues,
     watch,
     formState: { errors, isSubmitting },
   } = useZodForm(registerSchema, {
@@ -99,6 +103,7 @@ export default function RegisterPage() {
       address: '',
       latitude: '',
       longitude: '',
+      dni: '',
       firstName: '',
       lastName: '',
       email: '',
@@ -109,6 +114,60 @@ export default function RegisterPage() {
   })
 
   const password = watch('password')
+  const taxIdValue = watch('taxId')
+  const dniValue = watch('dni')
+  const [rucLookup, setRucLookup] = useState<{ ruc: string; state: 'loading' | 'found' | 'missing' | 'skipped'; info?: RucInfo } | null>(null)
+  const [dniLookup, setDniLookup] = useState<'loading' | 'found' | 'missing' | 'skipped' | null>(null)
+
+  // A complete, well-formed RUC is looked up in SUNAT once; the name fills in if the field is still empty.
+  useEffect(() => {
+    const ruc = taxIdValue.trim()
+    if (!isValidRuc(ruc) || rucLookup?.ruc === ruc) return
+    setRucLookup({ ruc, state: 'loading' })
+    identityService
+      .ruc(ruc)
+      .then((info) => {
+        setRucLookup({ ruc, state: 'found', info })
+        fillFromSunat(info)
+      })
+      .catch((error: unknown) => {
+        const status = ApiError.from(error).status
+        // 503: SUNAT lookups are not configured on this server; the check digit is all we can do.
+        setRucLookup({ ruc, state: status === 404 ? 'missing' : 'skipped' })
+      })
+  }, [taxIdValue, rucLookup?.ruc, getValues, setValue])
+
+  /**
+   * SUNAT's data fills the company step: the business name always (it is the legal one), the fiscal
+   * address and the city only when still empty, so nothing the user typed is overwritten.
+   */
+  function fillFromSunat(info: RucInfo) {
+    if (info.name) setValue('companyName', info.name, { shouldValidate: true })
+    if (info.address && !getValues('address').trim()) {
+      const address = [info.address.trim(), info.district].filter(Boolean).join(', ')
+      setValue('address', address.slice(0, 255), { shouldValidate: true })
+    }
+    const city = cityFromSunat(info)
+    if (city && !getValues('city')) {
+      setValue('city', city.name, { shouldValidate: true })
+      setValue('latitude', city.latitude.toFixed(7))
+      setValue('longitude', city.longitude.toFixed(7))
+    }
+  }
+
+  async function lookupDni() {
+    const dni = dniValue.trim()
+    if (!/^\d{8}$/.test(dni)) return
+    setDniLookup('loading')
+    try {
+      const info = await identityService.dni(dni)
+      if (info.firstNames) setValue('firstName', capitalize(info.firstNames), { shouldValidate: true })
+      if (info.lastNames) setValue('lastName', capitalize(info.lastNames), { shouldValidate: true })
+      setDniLookup('found')
+    } catch (error) {
+      setDniLookup(ApiError.from(error).status === 404 ? 'missing' : 'skipped')
+    }
+  }
   const cityField = register('city')
 
   async function goToNextStep() {
@@ -224,7 +283,34 @@ export default function RegisterPage() {
           <fieldset className={cn('grid gap-5 sm:grid-cols-2', step !== 0 && 'hidden')}>
             <legend className="sr-only">{t('register.companyLegend')}</legend>
             <Input className="sm:col-span-2" label={t('register.companyName')} required placeholder={t('register.companyNamePlaceholder')} error={errors.companyName?.message} {...register('companyName')} />
-            <Input label={t('register.taxId')} required inputMode="numeric" maxLength={11} placeholder="20123456789" hint={t('register.taxIdHint')} error={errors.taxId?.message} {...register('taxId')} />
+            <div>
+              <Input
+                label={t('register.taxId')}
+                required
+                inputMode="numeric"
+                maxLength={11}
+                placeholder="20123456789"
+                hint={rucLookup?.ruc === taxIdValue.trim() ? undefined : t('register.taxIdHint')}
+                error={errors.taxId?.message}
+                {...register('taxId')}
+              />
+              {rucLookup?.ruc === taxIdValue.trim() && (
+                <p className={cn('mt-1.5 flex items-start gap-1.5 text-xs', rucLookup.state === 'found' ? 'text-positive' : 'text-slate-600')} role="status">
+                  {rucLookup.state === 'loading' && t('verification.checking')}
+                  {rucLookup.state === 'found' && rucLookup.info && (
+                    <>
+                      <BadgeCheck className="size-4 shrink-0" aria-hidden="true" />
+                      {t('verification.sunatFound', {
+                        type: t(`verification.rucType.${rucLookup.info.type}`),
+                        state: [rucLookup.info.state, rucLookup.info.condition].filter(Boolean).join(' / '),
+                      })}
+                    </>
+                  )}
+                  {rucLookup.state === 'missing' && t('verification.sunatMissing')}
+                  {rucLookup.state === 'skipped' && t('verification.formatOk')}
+                </p>
+              )}
+            </div>
             <Input label={t('register.companyPhone')} type="tel" placeholder="01 234 5678" error={errors.companyPhone?.message} {...register('companyPhone')} />
             <Input className="sm:col-span-2" label={t('register.companyEmail')} type="email" required placeholder={t('register.companyEmailPlaceholder')} error={errors.companyEmail?.message} {...register('companyEmail')} />
             <Select
@@ -260,6 +346,25 @@ export default function RegisterPage() {
 
           <fieldset className={cn('grid gap-5 sm:grid-cols-2', step !== 1 && 'hidden')}>
             <legend className="sr-only">{t('register.adminLegend')}</legend>
+            <div className="sm:col-span-2">
+              <Input
+                label={t('verification.dni')}
+                inputMode="numeric"
+                maxLength={8}
+                placeholder="46027896"
+                hint={
+                  dniLookup === 'found'
+                    ? t('verification.dniFound')
+                    : dniLookup === 'missing'
+                      ? t('verification.dniMissing')
+                      : dniLookup === 'skipped'
+                        ? t('verification.dniSkipped')
+                        : t('verification.dniHint')
+                }
+                error={errors.dni?.message}
+                {...register('dni', { onBlur: () => void lookupDni() })}
+              />
+            </div>
             <Input label={t('register.firstName')} required autoComplete="given-name" error={errors.firstName?.message} {...register('firstName')} />
             <Input label={t('register.lastName')} required autoComplete="family-name" error={errors.lastName?.message} {...register('lastName')} />
             <Input label={t('register.email')} type="email" required autoComplete="email" hint={t('register.emailHint')} error={errors.email?.message} {...register('email')} />
@@ -303,4 +408,23 @@ export default function RegisterPage() {
         </form>
     </AuthLayout>
   )
+}
+
+/** RENIEC writes names in capitals: "ANA MARIA" becomes "Ana Maria". */
+function capitalize(text: string): string {
+  return text.toLowerCase().replace(/(^|\s)\p{L}/gu, (letter) => letter.toUpperCase())
+}
+
+
+const normalizePlace = (text: string) =>
+  text
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .trim()
+
+/** The catalogue city that matches SUNAT's province, department or district ("LIMA", "CALLAO"...). */
+function cityFromSunat(info: RucInfo) {
+  const places = [info.province, info.department, info.district].filter((place): place is string => Boolean(place)).map(normalizePlace)
+  return PERU_CITIES.find((city) => places.includes(normalizePlace(city.name)))
 }

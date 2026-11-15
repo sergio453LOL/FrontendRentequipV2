@@ -19,6 +19,8 @@ import type {
   ReceiptChannel,
   ReceiptDelivery,
   RegisterRequest,
+  TwoFactorChallenge,
+  TwoFactorVerifyRequest,
   Reservation,
   ReservationCreateRequest,
   ReservationRole,
@@ -28,8 +30,12 @@ import type {
 import { api } from './api'
 
 export const authService = {
-  async login(request: LoginRequest): Promise<AuthResponse> {
-    return (await api.post<AuthResponse>('/auth/login', request)).data
+  /** 200 brings the tokens; 202 means the account has the two-step verification on and a code was sent. */
+  async login(request: LoginRequest): Promise<AuthResponse | TwoFactorChallenge> {
+    return (await api.post<AuthResponse | TwoFactorChallenge>('/auth/login', request)).data
+  },
+  async verifyLogin(request: TwoFactorVerifyRequest): Promise<AuthResponse> {
+    return (await api.post<AuthResponse>('/auth/login/verify', request)).data
   },
   async register(request: RegisterRequest): Promise<AuthResponse> {
     return (await api.post<AuthResponse>('/auth/register', request)).data

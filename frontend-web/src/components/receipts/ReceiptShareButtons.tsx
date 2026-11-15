@@ -1,4 +1,4 @@
-import { Mail, MessageCircle } from 'lucide-react'
+import { Mail, MessageCircle, MessageSquareText } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation } from '../../hooks/useMutation'
@@ -11,7 +11,7 @@ interface ReceiptShareButtonsProps {
   size?: 'sm' | 'md'
 }
 
-/** Sends the receipt to the user's registered email or WhatsApp; the toast says exactly where it went. */
+/** Sends the receipt to the user's registered email, WhatsApp or SMS; the toast says exactly where it went. */
 export function ReceiptShareButtons({ reservationId, size = 'md' }: ReceiptShareButtonsProps) {
   const { t } = useTranslation()
   const [sendingChannel, setSendingChannel] = useState<ReceiptChannel | null>(null)
@@ -48,6 +48,19 @@ export function ReceiptShareButtons({ reservationId, size = 'md' }: ReceiptShare
         leftIcon={<MessageCircle className="size-4" />}
       >
         {t('receipt.sendWhatsApp')}
+      </Button>
+      <Button
+        size={size}
+        variant="secondary"
+        disabled={send.isLoading}
+        isLoading={send.isLoading && sendingChannel === 'SMS'}
+        onClick={() => {
+          setSendingChannel('SMS')
+          void send.mutate('SMS')
+        }}
+        leftIcon={<MessageSquareText className="size-4" />}
+      >
+        {t('receipt.sendSms')}
       </Button>
     </>
   )

@@ -16,6 +16,11 @@ export interface Company {
   description: string | null
   active: boolean
   createdAt: IsoDateTime
+  /** SUNAT reports the RUC as ACTIVO and HABIDO. */
+  verified: boolean
+  verifiedAt: IsoDateTime | null
+  /** SUNAT's last answer, e.g. "ACTIVO / HABIDO"; null until checked. */
+  taxStatus: string | null
 }
 
 export interface CompanyCreateRequest {

@@ -11,7 +11,17 @@ type MessageCode = keyof typeof es.errors.code
 const isMessageCode = (code: string): code is MessageCode => i18n.exists(`errors.code.${code}`)
 
 /** Codes whose backend message is already written for the end user (e.g. the bank's decline reason). */
-const USER_FACING_CODES = new Set(['PAYMENT_DECLINED', 'DELIVERY_FAILED', 'CHANNEL_NOT_CONFIGURED'])
+const USER_FACING_CODES = new Set([
+  'PAYMENT_DECLINED',
+  'DELIVERY_FAILED',
+  'CHANNEL_NOT_CONFIGURED',
+  // Two-step verification: the server message says what to do (attempts left, seconds to wait...).
+  'INVALID_VERIFICATION_CODE',
+  'VERIFICATION_CODE_EXPIRED',
+  'VERIFICATION_CODE_TOO_SOON',
+  'TWO_FACTOR_WRONG_PASSWORD',
+  'TWO_FACTOR_PHONE_REQUIRED',
+])
 
 /**
  * Normalized error thrown by the API layer. `message` is always safe to show to the user, in the language

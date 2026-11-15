@@ -3,6 +3,7 @@ import { Menu, Search, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { useAuth } from '../../hooks/useAuth'
 import { useDebounce } from '../../hooks/useDebounce'
 import { PATHS } from '../../routes/paths'
 import { cn } from '../../utils/cn'
@@ -11,6 +12,7 @@ import { BrandWordmark } from './BrandMark'
 import { FullscreenToggle } from './FullscreenToggle'
 import { LanguageMenu } from './LanguageMenu'
 import { ModeSwitch } from './ModeSwitch'
+import { NotificationBell } from './NotificationBell'
 import { RefreshButton } from './RefreshButton'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -92,6 +94,7 @@ interface TopBarProps {
  */
 export function TopBar({ mode, onModeChange, onOpenMenu, onToggleAssistant, isAssistantOpen }: TopBarProps) {
   const { t } = useTranslation()
+  const { isAuthenticated } = useAuth()
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-2 sm:px-4 lg:px-6">
       <button
@@ -133,6 +136,7 @@ export function TopBar({ mode, onModeChange, onOpenMenu, onToggleAssistant, isAs
           <span className="sr-only sm:hidden">{t('nav.assistantLong')}</span>
         </span>
       </motion.button>
+      {isAuthenticated && <NotificationBell />}
       <RefreshButton />
       <LanguageMenu />
       <FullscreenToggle className="hidden sm:flex" />

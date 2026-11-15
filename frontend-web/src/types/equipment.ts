@@ -33,6 +33,21 @@ export interface Equipment {
   salePrice: number | null
   /** Share of the rent already paid that comes off the sale price (0-100). */
   rentCreditPercent: number
+  /** Hour meter reading; null when the owner did not say. */
+  usageHours: number | null
+  /** Demo clip: YouTube, Vimeo or a direct .mp4 link. */
+  videoUrl: string | null
+  /** Who runs the machine when the rate includes an operator; null when not described. */
+  operator: OperatorProfile | null
+  ownerCompanyVerified: boolean
+}
+
+export interface OperatorProfile {
+  name: string
+  license: string | null
+  experienceYears: number | null
+  /** One certification per line. */
+  certifications: string | null
 }
 
 /** Lightweight projection used by search results and map pins. */
@@ -53,6 +68,20 @@ export interface EquipmentSummary {
   operatorIncluded: boolean
   /** Null when it is only for rent. */
   salePrice: number | null
+  manufactureYear: number | null
+  usageHours: number | null
+  /** Kilometres from the visitor; null when the search did not know where they are. */
+  distanceKm: number | null
+  ownerCompanyVerified: boolean
+}
+
+/** Soles per dollar, for showing prices in both currencies. */
+export interface ExchangeRate {
+  base: 'USD'
+  quote: 'PEN'
+  rate: number
+  updatedAt: string | null
+  source: string
 }
 
 export interface EquipmentCreateRequest {
@@ -75,6 +104,9 @@ export interface EquipmentCreateRequest {
   categoryIds: number[]
   ownerCompanyId: number
   operatorIncluded?: boolean
+  usageHours?: number
+  videoUrl?: string
+  operator?: Partial<OperatorProfile>
 }
 
 export type EquipmentUpdateRequest = Partial<

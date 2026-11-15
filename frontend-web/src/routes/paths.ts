@@ -11,6 +11,7 @@ export const PATHS = {
   categories: '/categories',
   profile: '/profile',
   purchases: '/purchases',
+  offers: '/offers',
 } as const
 
 export const buildPath = {

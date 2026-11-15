@@ -41,6 +41,8 @@ export interface ReservationCreateRequest {
   startDate: IsoDate
   endDate: IsoDate
   notes?: string
+  /** An accepted price offer: the reservation charges the agreed daily rate. */
+  offerId?: number
 }
 
 export interface ReservationStatusUpdateRequest {
@@ -67,7 +69,7 @@ export interface BlockedWindow {
   status: ReservationStatus
 }
 
-export type ReceiptChannel = 'EMAIL' | 'WHATSAPP'
+export type ReceiptChannel = 'EMAIL' | 'WHATSAPP' | 'SMS'
 
 export interface ReceiptDelivery {
   channel: ReceiptChannel

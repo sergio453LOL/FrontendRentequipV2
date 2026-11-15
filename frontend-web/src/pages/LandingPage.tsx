@@ -28,6 +28,7 @@ import { ENDPOINTS } from '../services/endpoints'
 import type { EquipmentCategory, EquipmentSummary, PageResponse } from '../types'
 import { formatCurrency, formatNumber } from '../utils/format'
 import { MODE_HOME, readStoredMode, storeMode, type WorkspaceMode } from '../utils/workspaceMode'
+import { ScrollToTopButton } from '../components/common/ScrollToTopButton'
 
 const TOOLS_CATEGORY = 'herramientas'
 const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1]
@@ -290,6 +291,7 @@ export default function LandingPage() {
           <span>{t('landing.location')}</span>
         </div>
       </footer>
+      <ScrollToTopButton />
     </div>
   )
 }

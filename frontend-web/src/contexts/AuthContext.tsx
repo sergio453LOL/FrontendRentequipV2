@@ -4,7 +4,7 @@ import { useSessionTimeout, type SessionEndReason } from '../hooks/useSessionTim
 import { PATHS } from '../routes/paths'
 import { setUnauthorizedHandler } from '../services/api'
 import { authService } from '../services/authService'
-import type { AuthUser, LoginRequest, RegisterRequest } from '../types'
+import type { AuthResponse, AuthUser, LoginRequest, RegisterRequest, TwoFactorVerifyRequest } from '../types'
 import { toAuthUser, tokenStorage } from '../utils/tokenStorage'
 import { AuthContext, type AuthContextValue } from './AuthContextDefinition'
 
@@ -26,12 +26,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => setUnauthorizedHandler(null)
   }, [endSession])
 
-  const login = useCallback(async (credentials: LoginRequest) => {
-    const auth = await authService.login(credentials)
+  const startSession = useCallback((auth: AuthResponse) => {
     tokenStorage.setSession(auth)
     setSessionEnd(null)
     setUser(toAuthUser(auth))
   }, [])
+
+  const login = useCallback(
+    async (credentials: LoginRequest) => {
+      const result = await authService.login(credentials)
+      if ('challengeId' in result) return result
+      startSession(result)
+      return null
+    },
+    [startSession],
+  )
+
+  const verifyLogin = useCallback(
+    async (request: TwoFactorVerifyRequest) => startSession(await authService.verifyLogin(request)),
+    [startSession],
+  )
 
   const register = useCallback(async (request: RegisterRequest) => {
     const auth = await authService.register(request)
@@ -53,8 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isAuthenticated: user !== null, sessionEnd, login, register, logout, updateUser }),
-    [user, sessionEnd, login, register, logout, updateUser],
+    () => ({ user, isAuthenticated: user !== null, sessionEnd, login, verifyLogin, register, logout, updateUser }),
+    [user, sessionEnd, login, verifyLogin, register, logout, updateUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

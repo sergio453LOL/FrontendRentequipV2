@@ -1,3 +1,4 @@
+import type { TwoFactorChannel } from './auth'
 import type { IsoDateTime } from './common'
 
 export type UserRole = 'ADMIN' | 'MANAGER' | 'OPERATOR'
@@ -15,6 +16,8 @@ export interface User {
   companyId: number
   companyName: string
   createdAt: IsoDateTime
+  /** Where the sign-in code goes; null when the two-step verification is off. */
+  twoFactorChannel: TwoFactorChannel | null
 }
 
 export interface UserCreateRequest {

@@ -31,5 +31,20 @@ export interface AuthResponse {
   companyName: string
 }
 
+export type TwoFactorChannel = 'EMAIL' | 'SMS'
+
+/** The login stopped at the second step: a code went to `destination` (masked) by `channel`. */
+export interface TwoFactorChallenge {
+  challengeId: string
+  channel: TwoFactorChannel
+  destination: string
+  expiresInSeconds: number
+}
+
+export interface TwoFactorVerifyRequest {
+  challengeId: string
+  code: string
+}
+
 /** Profile of the logged-in user: the `AuthResponse` without its tokens. */
 export type AuthUser = Pick<AuthResponse, 'userId' | 'email' | 'role' | 'companyId' | 'companyName'>

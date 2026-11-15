@@ -1,5 +1,5 @@
-import { Building2, Check, KeyRound, UserRound, type LucideIcon } from 'lucide-react'
-import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { Building2, Check, KeyRound, Mail, MessageSquareText, ShieldCheck, UserRound, type LucideIcon } from 'lucide-react'
+import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 import { Button } from '../components/common/Button'
@@ -9,6 +9,7 @@ import { PageHeader } from '../components/common/PageHeader'
 import { Select } from '../components/common/Select'
 import { Textarea } from '../components/common/Textarea'
 import { Avatar } from '../components/profile/Avatar'
+import { CompanyVerification } from '../components/profile/CompanyVerification'
 import { OwnerCard } from '../components/profile/OwnerCard'
 import { ProfileImageField } from '../components/profile/ProfileImageField'
 import { useAuth } from '../hooks/useAuth'
@@ -19,7 +20,7 @@ import { useToast } from '../hooks/useToast'
 import { useZodForm } from '../hooks/useZodForm'
 import { ENDPOINTS } from '../services/endpoints'
 import { profileService } from '../services/profileService'
-import type { Company, User, WithLinks } from '../types'
+import type { Company, TwoFactorChallenge, TwoFactorChannel, User, WithLinks } from '../types'
 import { ApiError } from '../utils/apiError'
 import { findCity, PERU_CITIES } from '../utils/cities'
 import { cn } from '../utils/cn'
@@ -158,11 +159,16 @@ export default function ProfilePage() {
           (company.error ? (
             <ErrorState error={company.error} onRetry={company.refetch} />
           ) : company.data ? (
-            <CompanySection key={company.data.id} company={company.data} canEdit={user?.role === 'ADMIN'} />
+            <CompanySection key={company.data.id} company={company.data} canEdit={user?.role === 'ADMIN'} onVerified={company.refetch} />
           ) : (
             <SectionSkeleton />
           ))}
-        {activeTab === 'security' && <SecuritySection />}
+        {activeTab === 'security' && (
+          <div className="space-y-10">
+            <SecuritySection />
+            {me.data && <TwoFactorSection key={`${me.data.id}-${me.data.twoFactorChannel}`} me={me.data} onChanged={me.refetch} />}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -267,7 +273,7 @@ function AccountSection({ me }: { me: User }) {
   )
 }
 
-function CompanySection({ company, canEdit }: { company: Company; canEdit: boolean }) {
+function CompanySection({ company, canEdit, onVerified }: { company: Company; canEdit: boolean; onVerified: () => void }) {
   const { t } = useTranslation()
   const toast = useToast()
   const { updateUser } = useAuth()
@@ -311,9 +317,12 @@ function CompanySection({ company, canEdit }: { company: Company; canEdit: boole
       title={t('profile.company.title')}
       description={t('profile.company.description')}
       aside={
-        <Preview label={t('profile.company.preview')}>
-          <OwnerCard name={name || company.name} logoUrl={logoUrl || null} city={city} description={description} />
-        </Preview>
+        <div className="space-y-4">
+          <Preview label={t('profile.company.preview')}>
+            <OwnerCard name={name || company.name} logoUrl={logoUrl || null} city={city} description={description} verified={company.verified} />
+          </Preview>
+          <CompanyVerification company={company} canEdit={canEdit} onVerified={onVerified} />
+        </div>
       }
     >
       <form noValidate onSubmit={handleSubmit(onSubmit)}>
@@ -428,6 +437,183 @@ function SecuritySection() {
           </Button>
         </div>
       </form>
+    </SettingsRow>
+  )
+}
+
+
+const TWO_FACTOR_CHANNELS: { id: TwoFactorChannel; icon: LucideIcon }[] = [
+  { id: 'EMAIL', icon: Mail },
+  { id: 'SMS', icon: MessageSquareText },
+]
+
+/**
+ * Turns the two-step verification on (a test code to the chosen channel must come back first, so nobody
+ * locks themselves out) or off (with the password).
+ */
+function TwoFactorSection({ me, onChanged }: { me: User; onChanged: () => void }) {
+  const { t } = useTranslation()
+  const toast = useToast()
+  const [channel, setChannel] = useState<TwoFactorChannel>(me.phone ? 'SMS' : 'EMAIL')
+  const [challenge, setChallenge] = useState<TwoFactorChallenge | null>(null)
+  const [code, setCode] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState<'send' | 'confirm' | 'disable' | null>(null)
+  const isOn = me.twoFactorChannel !== null
+
+  async function run(action: 'send' | 'confirm' | 'disable', task: () => Promise<void>) {
+    setError(null)
+    setBusy(action)
+    try {
+      await task()
+    } catch (failure) {
+      setError(ApiError.from(failure).message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const sendCode = () =>
+    run('send', async () => {
+      setChallenge(await profileService.startTwoFactor(channel))
+      setCode('')
+    })
+
+  function confirm(event: FormEvent) {
+    event.preventDefault()
+    if (!challenge) return
+    void run('confirm', async () => {
+      await profileService.confirmTwoFactor({ challengeId: challenge.challengeId, code })
+      toast.success(t('profile.twoFactor.enabled'))
+      onChanged()
+    })
+  }
+
+  function disable(event: FormEvent) {
+    event.preventDefault()
+    void run('disable', async () => {
+      await profileService.disableTwoFactor(password)
+      toast.success(t('profile.twoFactor.disabled'))
+      onChanged()
+    })
+  }
+
+  const status = (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium',
+        isOn ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600',
+      )}
+    >
+      <ShieldCheck className="size-3.5" aria-hidden="true" />
+      {t(isOn ? 'profile.twoFactor.on' : 'profile.twoFactor.off')}
+    </span>
+  )
+
+  return (
+    <SettingsRow title={t('profile.twoFactor.title')} description={t('profile.twoFactor.description')} aside={status}>
+      {error && (
+        <p role="alert" className="mb-4 rounded-md bg-[#ffedea] px-4 py-3 text-sm text-[#831c1e]">
+          {error}
+        </p>
+      )}
+      {isOn ? (
+        <form noValidate onSubmit={disable} className="grid gap-4">
+          <p className="text-sm text-slate-700">
+            {t('profile.twoFactor.activeVia', {
+              channel: t(`login.twoFactor.channels.${me.twoFactorChannel ?? 'EMAIL'}`),
+              destination: me.twoFactorChannel === 'SMS' ? me.phone : me.email,
+            })}
+          </p>
+          <Input
+            label={t('profile.security.current')}
+            hint={t('profile.twoFactor.disableHint')}
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+          <div className="flex justify-end">
+            <Button type="submit" variant="danger" isLoading={busy === 'disable'} disabled={!password}>
+              {t('profile.twoFactor.disable')}
+            </Button>
+          </div>
+        </form>
+      ) : challenge ? (
+        <form noValidate onSubmit={confirm} className="grid gap-4">
+          <p className="text-sm text-slate-700">{t('profile.twoFactor.sentTo', { destination: challenge.destination })}</p>
+          <Input
+            label={t('profile.twoFactor.code')}
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            autoFocus
+            required
+            maxLength={6}
+            placeholder="000000"
+            value={code}
+            onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+            className="max-w-48 [&_input]:tracking-[0.4em] [&_input]:tabular-nums"
+          />
+          <div className="flex flex-wrap justify-end gap-3">
+            <Button type="button" variant="ghost" onClick={() => setChallenge(null)}>
+              {t('profile.twoFactor.cancel')}
+            </Button>
+            <Button type="button" variant="secondary" isLoading={busy === 'send'} onClick={() => void sendCode()}>
+              {t('profile.twoFactor.resend')}
+            </Button>
+            <Button type="submit" variant="primary" isLoading={busy === 'confirm'} disabled={code.length !== 6}>
+              {t('profile.twoFactor.activate')}
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <div className="grid gap-4">
+          <fieldset>
+            <legend className="mb-2 text-sm font-medium text-ink">{t('profile.twoFactor.chooseChannel')}</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {TWO_FACTOR_CHANNELS.map(({ id, icon: Icon }) => {
+                const unavailable = id === 'SMS' && !me.phone
+                return (
+                  <label
+                    key={id}
+                    className={cn(
+                      'flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition-colors',
+                      channel === id ? 'border-ink bg-slate-50' : 'border-slate-200 hover:border-slate-300',
+                      unavailable && 'cursor-not-allowed opacity-60',
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="two-factor-channel"
+                      value={id}
+                      checked={channel === id}
+                      disabled={unavailable}
+                      onChange={() => setChannel(id)}
+                      className="mt-0.5 accent-ink"
+                    />
+                    <span className="grid gap-0.5">
+                      <span className="flex items-center gap-1.5 font-medium text-ink">
+                        <Icon className="size-4" aria-hidden="true" />
+                        {t(`login.twoFactor.channels.${id}`)}
+                      </span>
+                      <span className="text-slate-600">
+                        {id === 'EMAIL' ? me.email : (me.phone ?? t('profile.twoFactor.smsNeedsPhone'))}
+                      </span>
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+          </fieldset>
+          <div className="flex justify-end">
+            <Button type="button" variant="primary" isLoading={busy === 'send'} onClick={() => void sendCode()}>
+              {t('profile.twoFactor.send')}
+            </Button>
+          </div>
+        </div>
+      )}
     </SettingsRow>
   )
 }

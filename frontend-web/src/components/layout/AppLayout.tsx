@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { CalendarRange, ClipboardList, HandCoins, LayoutDashboard, PlusCircle, Search, ShoppingBag, Sparkles, Tags, Truck } from 'lucide-react'
+import { CalendarRange, ClipboardList, HandCoins, Handshake, LayoutDashboard, MessagesSquare, PlusCircle, Search, ShoppingBag, Sparkles, Tags, Truck } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
@@ -10,6 +10,7 @@ import { ASSISTANT_PARAM } from '../../utils/assistantLink'
 import { MODE_HOME, modeForLocation, readStoredMode, storeMode, type WorkspaceMode } from '../../utils/workspaceMode'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { OfflineBanner } from '../common/OfflineBanner'
+import { ScrollToTopButton } from '../common/ScrollToTopButton'
 import { Sidebar, type SidebarItem } from '../common/Sidebar'
 import { FullPageSpinner } from '../common/Spinner'
 import { TopBar } from '../common/TopBar'
@@ -23,18 +24,31 @@ const NAVIGATION: Record<WorkspaceMode, (Omit<SidebarItem, 'label'> & { label: N
     { label: 'catalog', to: PATHS.catalog, icon: Search },
     { label: 'myReservations', to: `${PATHS.reservations}?role=RENTER`, icon: CalendarRange },
     { label: 'myPurchases', to: `${PATHS.purchases}?role=RENTER`, icon: ShoppingBag },
+    { label: 'myOffers', to: `${PATHS.offers}?role=RENTER`, icon: MessagesSquare },
   ],
   owner: [
     { label: 'dashboard', to: PATHS.home, icon: LayoutDashboard },
     { label: 'fleet', to: PATHS.fleet, icon: Truck },
     { label: 'ownerReservations', to: `${PATHS.reservations}?role=OWNER`, icon: ClipboardList },
     { label: 'sales', to: `${PATHS.purchases}?role=OWNER`, icon: HandCoins },
+    { label: 'receivedOffers', to: `${PATHS.offers}?role=OWNER`, icon: Handshake },
     { label: 'publish', to: PATHS.publishEquipment, icon: PlusCircle, allowedRoles: PUBLISHER_ROLES },
     { label: 'categories', to: PATHS.categories, icon: Tags, allowedRoles: ADMIN_ROLES },
   ],
 }
 
-type NavKey = 'catalog' | 'myReservations' | 'myPurchases' | 'dashboard' | 'fleet' | 'ownerReservations' | 'sales' | 'publish' | 'categories'
+type NavKey =
+  | 'catalog'
+  | 'myReservations'
+  | 'myPurchases'
+  | 'myOffers'
+  | 'dashboard'
+  | 'fleet'
+  | 'ownerReservations'
+  | 'sales'
+  | 'receivedOffers'
+  | 'publish'
+  | 'categories'
 
 /**
  * Asphalt sidebar, white header and the screen on a light slate ground. The navigation follows the
@@ -153,6 +167,7 @@ export function AppLayout() {
           </motion.button>
         )}
       </AnimatePresence>
+      <ScrollToTopButton raised={mode === 'renter' && !isAssistantOpen} />
     </div>
   )
 }

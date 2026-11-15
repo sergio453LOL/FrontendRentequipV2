@@ -7,6 +7,7 @@ import { GuestRoute, PrivateRoute } from './PrivateRoute'
 import { ADMIN_ROLES, PUBLISHER_ROLES } from './roles'
 
 const LandingPage = lazy(() => import('../pages/LandingPage'))
+const OffersPage = lazy(() => import('../pages/OffersPage'))
 const LoginPage = lazy(() => import('../pages/LoginPage'))
 const RegisterPage = lazy(() => import('../pages/RegisterPage'))
 const DashboardPage = lazy(() => import('../pages/DashboardPage'))
@@ -39,6 +40,7 @@ export function AppRoutes() {
             <Route path={PATHS.reservations} element={<MyReservationsPage />} />
             <Route path={PATHS.profile} element={<ProfilePage />} />
             <Route path={PATHS.purchases} element={<PurchasesPage />} />
+            <Route path={PATHS.offers} element={<OffersPage />} />
             <Route element={<PrivateRoute allowedRoles={PUBLISHER_ROLES} />}>
               <Route path={PATHS.publishEquipment} element={<PublishEquipmentPage />} />
             </Route>
