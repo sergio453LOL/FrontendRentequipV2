@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion'
-import { CalendarClock, CircleCheck, CirclePause, HardHat, PackageOpen, Plus, Trash2, Wrench, type LucideIcon } from 'lucide-react'
+import { BadgeCheck, CalendarClock, CircleCheck, CirclePause, HardHat, PackageOpen, Plus, Tag, Trash2, Wrench, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
+import { SaleTermsModal } from '../components/purchases/SaleTermsModal'
 import { EmptyState } from '../components/common/EmptyState'
 import { ErrorState } from '../components/common/ErrorState'
 import { PageHeader } from '../components/common/PageHeader'
@@ -65,16 +66,19 @@ interface MachineCardProps {
   outlook: MachineOutlook
   /** Only for roles that can publish; the backend refuses machines with pending or active reservations. */
   onDelete?: () => void
+  /** Opens the sale terms (rent with an option to buy); same roles as publishing. */
+  onSell?: () => void
 }
 
 /** Where the machine is right now, as the owner thinks of it. */
-type FleetState = 'onSite' | 'available' | 'maintenance' | 'inactive'
+type FleetState = 'onSite' | 'available' | 'maintenance' | 'inactive' | 'sold'
 
 const FLEET_STATES: Record<FleetState, { icon: LucideIcon; chip: string; bar: string }> = {
   onSite: { icon: HardHat, chip: 'bg-[#2563eb] text-[#f8fafc]', bar: 'bg-[#2563eb]' },
   available: { icon: CircleCheck, chip: 'bg-[#059669] text-[#f8fafc]', bar: 'bg-[#10b981]' },
   maintenance: { icon: Wrench, chip: 'bg-brand text-[#0f172a]', bar: 'bg-brand' },
   inactive: { icon: CirclePause, chip: 'bg-[#475569] text-[#f8fafc]', bar: 'bg-[#94a3b8]' },
+  sold: { icon: BadgeCheck, chip: 'bg-[#0f172a] text-[#f8fafc]', bar: 'bg-[#0f172a]' },
 }
 
 /** On site while a rental is in progress (or the backend marks it rented); otherwise its own status. */
@@ -83,10 +87,11 @@ function fleetStateOf(machine: EquipmentSummary, reservations: Reservation[]): F
   if (inProgress || machine.status === 'RENTED') return 'onSite'
   if (machine.status === 'MAINTENANCE') return 'maintenance'
   if (machine.status === 'INACTIVE') return 'inactive'
+  if (machine.status === 'SOLD') return 'sold'
   return 'available'
 }
 
-function MachineCard({ machine, outlook, onDelete, state }: MachineCardProps & { state: FleetState }) {
+function MachineCard({ machine, outlook, onDelete, onSell, state }: MachineCardProps & { state: FleetState }) {
   const { t } = useTranslation()
   const occupancy = outlook.bookedDays / OCCUPANCY_WINDOW_DAYS
   const { icon: StateIcon, chip, bar } = FLEET_STATES[state]
@@ -122,6 +127,13 @@ function MachineCard({ machine, outlook, onDelete, state }: MachineCardProps & {
           </p>
         </div>
 
+        {machine.salePrice !== null && state !== 'sold' && (
+          <p className="flex items-center gap-1.5 text-sm text-slate-700">
+            <Tag className="size-4 text-slate-400" aria-hidden="true" />
+            {t('sale.forSaleAt', { price: formatCurrency(machine.salePrice, machine.currency) })}
+          </p>
+        )}
+
         <div>
           <div className="mb-1.5 flex items-baseline justify-between text-xs">
             <span className="font-semibold text-slate-600">{t('fleet.occupancy', { days: OCCUPANCY_WINDOW_DAYS })}</span>
@@ -145,11 +157,21 @@ function MachineCard({ machine, outlook, onDelete, state }: MachineCardProps & {
               {t('fleet.requests', { count: outlook.pendingRequests })}
             </Link>
           )}
+          {onSell && state !== 'sold' && (
+            <button
+              type="button"
+              onClick={onSell}
+              className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100"
+              aria-label={t('sale.openFor', { name: machine.name })}
+            >
+              <Tag className="size-3.5" aria-hidden="true" /> {machine.salePrice !== null ? t('sale.edit') : t('sale.sell')}
+            </button>
+          )}
           {onDelete && (
             <button
               type="button"
               onClick={onDelete}
-              className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50"
+              className={`${onSell && state !== 'sold' ? '' : 'ml-auto '}inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50`}
               aria-label={t('fleet.deleteOf', { name: machine.name })}
             >
               <Trash2 className="size-3.5" aria-hidden="true" /> {t('fleet.delete')}
@@ -169,6 +191,7 @@ export default function FleetPage() {
   const fleet = useFetch<PageResponse<EquipmentSummary>>(user ? ENDPOINTS.companyEquipment(user.companyId) : null, { page, size })
   const owned = useFetch<PageResponse<Reservation>>(ENDPOINTS.reservations, { role: 'OWNER', size: 100 })
   const [deleting, setDeleting] = useState<EquipmentSummary | null>(null)
+  const [selling, setSelling] = useState<EquipmentSummary | null>(null)
   // In the URL, so a filtered fleet survives a reload and can be shared.
   const [stateParam, setStateParam] = useQueryParam('estado')
   const stateFilter: FleetState | 'all' = Object.hasOwn(FLEET_STATES, stateParam) ? (stateParam as FleetState) : 'all'
@@ -251,6 +274,7 @@ export default function FleetPage() {
                     state={state}
                     outlook={outlookFor(machine.id, reservations, today)}
                     onDelete={publisher ? () => setDeleting(machine) : undefined}
+                    onSell={publisher ? () => setSelling(machine) : undefined}
                   />
                 </motion.li>
               ))}
@@ -258,6 +282,8 @@ export default function FleetPage() {
           <Pagination pageData={fleet.data} onPageChange={setPage} onSizeChange={setSize} isDisabled={fleet.isLoading} />
         </>
       )}
+
+      {selling && <SaleTermsModal machine={selling} onClose={() => setSelling(null)} onSaved={fleet.refetch} />}
 
       <ConfirmDialog
         isOpen={deleting !== null}

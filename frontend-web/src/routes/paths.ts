@@ -9,6 +9,8 @@ export const PATHS = {
   equipmentDetail: '/equipment/:id',
   reservations: '/reservations',
   categories: '/categories',
+  profile: '/profile',
+  purchases: '/purchases',
 } as const
 
 export const buildPath = {

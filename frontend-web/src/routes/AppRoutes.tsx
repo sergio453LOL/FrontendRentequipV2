@@ -16,6 +16,8 @@ const EquipmentDetailPage = lazy(() => import('../pages/EquipmentDetailPage'))
 const MyReservationsPage = lazy(() => import('../pages/MyReservationsPage'))
 const PublishEquipmentPage = lazy(() => import('../pages/PublishEquipmentPage'))
 const CategoriesPage = lazy(() => import('../pages/CategoriesPage'))
+const PurchasesPage = lazy(() => import('../pages/PurchasesPage'))
+const ProfilePage = lazy(() => import('../pages/ProfilePage'))
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'))
 
 export function AppRoutes() {
@@ -35,6 +37,8 @@ export function AppRoutes() {
             <Route path={PATHS.fleet} element={<FleetPage />} />
             <Route path={PATHS.equipmentDetail} element={<EquipmentDetailPage />} />
             <Route path={PATHS.reservations} element={<MyReservationsPage />} />
+            <Route path={PATHS.profile} element={<ProfilePage />} />
+            <Route path={PATHS.purchases} element={<PurchasesPage />} />
             <Route element={<PrivateRoute allowedRoles={PUBLISHER_ROLES} />}>
               <Route path={PATHS.publishEquipment} element={<PublishEquipmentPage />} />
             </Route>

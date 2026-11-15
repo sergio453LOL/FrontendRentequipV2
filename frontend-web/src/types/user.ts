@@ -8,6 +8,8 @@ export interface User {
   lastName: string
   email: string
   phone: string | null
+  /** Public URL of the profile photo; null shows the initials. */
+  avatarUrl: string | null
   role: UserRole
   enabled: boolean
   companyId: number
@@ -26,3 +28,16 @@ export interface UserCreateRequest {
 }
 
 export type UserUpdateRequest = Partial<Pick<User, 'firstName' | 'lastName' | 'phone' | 'role'>>
+
+/** Self-service profile. An empty string removes the phone or the photo. */
+export interface ProfileUpdateRequest {
+  firstName?: string
+  lastName?: string
+  phone?: string
+  avatarUrl?: string
+}
+
+export interface PasswordChangeRequest {
+  currentPassword: string
+  newPassword: string
+}

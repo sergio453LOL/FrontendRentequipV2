@@ -3,13 +3,23 @@ import type { StripeElementsOptions } from '@stripe/stripe-js'
 import { useTranslation } from 'react-i18next'
 import { currentLanguage } from '../../i18n'
 import { getStripe, isStripeEnabled } from '../../services/stripeClient'
-import type { Payment, Reservation } from '../../types'
+import type { ReactNode } from 'react'
 import { SimulatedPaymentForm } from './SimulatedPaymentForm'
 import { StripePaymentForm } from './StripePaymentForm'
 
+/** What the card pays for: a reservation, or the purchase of a rented machine. */
+export interface Checkout {
+  /** Shown above the card fields: what is being paid and how the amount is made up. */
+  summary: ReactNode
+  amount: number
+  currency: string
+  /** Sends the single-use card token; resolves with undefined when the payment failed. */
+  pay: (paymentToken: string) => Promise<unknown>
+  isPaying: boolean
+}
+
 export interface PaymentFormProps {
-  reservation: Reservation
-  onPaid: (payments: Payment[]) => void
+  checkout: Checkout
   /** Optional secondary action, e.g. "Pagar después" in the booking flow. */
   onSkip?: () => void
 }

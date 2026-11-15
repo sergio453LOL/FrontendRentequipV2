@@ -32,6 +32,8 @@ export interface Reservation {
   createdAt: IsoDateTime
   /** The renter already reviewed this reservation. */ 
   reviewed: boolean
+  /** Sale price when the owner also sells this machine (rent with an option to buy); else null. */
+  equipmentSalePrice: number | null
 }
 
 export interface ReservationCreateRequest {

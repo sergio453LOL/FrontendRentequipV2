@@ -20,7 +20,9 @@ export function modeForLocation(pathname: string, search: string): WorkspaceMode
   if (pathname === PATHS.home || pathname === PATHS.fleet || pathname === PATHS.publishEquipment || pathname === PATHS.categories) {
     return 'owner'
   }
-  if (pathname === PATHS.reservations) return new URLSearchParams(search).get('role') === 'OWNER' ? 'owner' : 'renter'
+  if (pathname === PATHS.reservations || pathname === PATHS.purchases) {
+    return new URLSearchParams(search).get('role') === 'OWNER' ? 'owner' : 'renter'
+  }
   return null
 }
 

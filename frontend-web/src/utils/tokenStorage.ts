@@ -63,6 +63,15 @@ export const tokenStorage = {
     localStorage.setItem(SESSION_KEY, JSON.stringify(session))
   },
 
+  /** Keeps the session in step after the profile changes something the shell shows (the company name). */
+  updateUser(patch: Partial<AuthUser>): AuthUser | null {
+    const session = readSession()
+    if (!session) return null
+    const next: StoredSession = { ...session, user: { ...session.user, ...patch } }
+    localStorage.setItem(SESSION_KEY, JSON.stringify(next))
+    return next.user
+  },
+
   clear(): void {
     localStorage.removeItem(SESSION_KEY)
   },

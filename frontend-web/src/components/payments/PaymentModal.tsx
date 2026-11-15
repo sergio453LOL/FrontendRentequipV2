@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Payment, Reservation } from '../../types'
 import { Modal } from '../common/Modal'
-import { PaymentForm } from './PaymentForm'
+import { ReservationPaymentForm } from './ReservationPaymentForm'
 import { PaymentSuccess } from './PaymentSuccess'
 
 interface PaymentModalProps {
@@ -26,7 +26,7 @@ export function PaymentModal({ reservation, onClose, onPaid }: PaymentModalProps
       {payments ? (
         <PaymentSuccess reservation={{ ...reservation, paymentStatus: 'PAID' }} payments={payments} onDone={onClose} />
       ) : (
-        <PaymentForm reservation={reservation} onPaid={handlePaid} />
+        <ReservationPaymentForm reservation={reservation} onPaid={handlePaid} />
       )}
     </Modal>
   )

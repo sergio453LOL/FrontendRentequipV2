@@ -38,9 +38,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     navigate(PATHS.login, { replace: true })
   }, [navigate])
 
+  const updateUser = useCallback((patch: Partial<AuthUser>) => {
+    const next = tokenStorage.updateUser(patch)
+    if (next) setUser(next)
+  }, [])
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isAuthenticated: user !== null, login, register, logout }),
-    [user, login, register, logout],
+    () => ({ user, isAuthenticated: user !== null, login, register, logout, updateUser }),
+    [user, login, register, logout, updateUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

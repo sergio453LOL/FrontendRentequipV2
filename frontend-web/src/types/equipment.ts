@@ -1,6 +1,6 @@
 import type { IsoDate, IsoDateTime, PageParams } from './common'
 
-export type EquipmentStatus = 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'INACTIVE'
+export type EquipmentStatus = 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'INACTIVE' | 'SOLD'
 
 export interface Equipment {
   id: number
@@ -24,9 +24,15 @@ export interface Equipment {
   categories: string[]
   ownerCompanyId: number
   ownerCompanyName: string
+  ownerCompanyLogoUrl: string | null
+  ownerCompanyDescription: string | null
   createdAt: IsoDateTime
   /** The rate includes a qualified operator. */
   operatorIncluded: boolean
+  /** Price to buy it outright; null when it is only for rent. */
+  salePrice: number | null
+  /** Share of the rent already paid that comes off the sale price (0-100). */
+  rentCreditPercent: number
 }
 
 /** Lightweight projection used by search results and map pins. */
@@ -45,6 +51,8 @@ export interface EquipmentSummary {
   ownerCompanyId: number
   ownerCompanyName: string
   operatorIncluded: boolean
+  /** Null when it is only for rent. */
+  salePrice: number | null
 }
 
 export interface EquipmentCreateRequest {

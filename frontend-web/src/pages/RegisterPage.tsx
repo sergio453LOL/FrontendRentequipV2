@@ -16,13 +16,7 @@ import { ApiError } from '../utils/apiError'
 import { findCity, PERU_CITIES } from '../utils/cities'
 import { cn } from '../utils/cn'
 import { applyServerFieldErrors } from '../utils/formErrors'
-
-const PASSWORD_RULES = [
-  { label: 'length', test: (value: string) => value.length >= 8 && value.length <= 64 },
-  { label: 'lower', test: (value: string) => /[a-z]/.test(value) },
-  { label: 'upper', test: (value: string) => /[A-Z]/.test(value) },
-  { label: 'digit', test: (value: string) => /\d/.test(value) },
-] as const
+import { PASSWORD_RULES } from '../utils/passwordRules'
 
 const optionalPhone = z.string().trim().max(20, 'validation.max20').regex(/^[\d\s+()-]*$/, 'validation.phoneChars')
 

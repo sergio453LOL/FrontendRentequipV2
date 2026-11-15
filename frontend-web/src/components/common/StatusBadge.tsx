@@ -1,4 +1,4 @@
-import type { EquipmentStatus, ReservationPaymentStatus, ReservationStatus } from '../../types'
+import type { EquipmentStatus, PurchaseStatus, ReservationPaymentStatus, ReservationStatus } from '../../types'
 import { cn } from '../../utils/cn'
 import { useTranslation } from 'react-i18next'
 
@@ -27,6 +27,15 @@ const EQUIPMENT_TONES: Record<EquipmentStatus, Tone> = {
   RENTED: 'blue',
   MAINTENANCE: 'amber',
   INACTIVE: 'slate',
+  SOLD: 'slate',
+}
+
+const PURCHASE_TONES: Record<PurchaseStatus, Tone> = {
+  PENDING: 'amber',
+  ACCEPTED: 'blue',
+  PAID: 'green',
+  REJECTED: 'red',
+  CANCELLED: 'slate',
 }
 
 const PAYMENT_TONES: Record<ReservationPaymentStatus, Tone> = {
@@ -38,6 +47,7 @@ const PAYMENT_TONES: Record<ReservationPaymentStatus, Tone> = {
 type StatusBadgeProps =
   | { kind: 'reservation'; status: ReservationStatus }
   | { kind: 'equipment'; status: EquipmentStatus }
+  | { kind: 'purchase'; status: PurchaseStatus }
   | { kind: 'payment'; status: ReservationPaymentStatus }
 
 function toneOf(props: StatusBadgeProps): Tone {
@@ -48,6 +58,8 @@ function toneOf(props: StatusBadgeProps): Tone {
       return EQUIPMENT_TONES[props.status]
     case 'payment':
       return PAYMENT_TONES[props.status]
+    case 'purchase':
+      return PURCHASE_TONES[props.status]
   }
 }
 
@@ -58,7 +70,9 @@ export function StatusBadge(props: StatusBadgeProps) {
       ? t(`status.reservation.${props.status}`)
       : props.kind === 'equipment'
         ? t(`status.equipment.${props.status}`)
-        : t(`status.payment.${props.status}`)
+        : props.kind === 'purchase'
+          ? t(`status.purchase.${props.status}`)
+          : t(`status.payment.${props.status}`)
   const classes = TONE_CLASSES[toneOf(props)]
   return (
     <span

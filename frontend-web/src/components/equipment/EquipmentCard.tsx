@@ -1,4 +1,4 @@
-import { ArrowRight, HardHat, Sparkles, Zap } from 'lucide-react'
+import { ArrowRight, HardHat, Sparkles, Tag, Zap } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -21,6 +21,7 @@ const STATUS_DOT: Record<EquipmentStatus, string> = {
   RENTED: 'bg-status-blue',
   MAINTENANCE: 'bg-status-amber',
   INACTIVE: 'bg-slate-400',
+  SOLD: 'bg-slate-400',
 }
 
 /** The machine's state on its photo: a frosted chip whose dot pulses while it can be booked. */
@@ -39,12 +40,18 @@ function StatusChip({ status }: { status: EquipmentStatus }) {
 }
 
 /** A small technical fact about the rental, set under the photo rather than over it. */
-function Spec({ icon, children, tone }: { icon: ReactNode; children: ReactNode; tone: 'now' | 'operator' }) {
+const SPEC_TONES = {
+  now: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
+  operator: 'bg-amber-50 text-amber-800 ring-amber-200',
+  sale: 'bg-slate-100 text-slate-800 ring-slate-300',
+} as const
+
+function Spec({ icon, children, tone }: { icon: ReactNode; children: ReactNode; tone: keyof typeof SPEC_TONES }) {
   return (
     <span
       className={cn(
         'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11.5px] font-semibold ring-1 ring-inset',
-        tone === 'now' ? 'bg-emerald-50 text-emerald-800 ring-emerald-200' : 'bg-amber-50 text-amber-800 ring-amber-200',
+        SPEC_TONES[tone],
       )}
     >
       {icon}
@@ -56,7 +63,8 @@ function Spec({ icon, children, tone }: { icon: ReactNode; children: ReactNode; 
 /** A machine in the catalogue: its photo first, then what it is, where it is and what it costs a day. */
 export function EquipmentCard({ equipment, suggestedByAi = false, availableToday = false }: EquipmentCardProps) {
   const { t } = useTranslation()
-  const hasSpecs = availableToday || equipment.operatorIncluded
+  const forSale = equipment.salePrice !== null && equipment.status !== 'SOLD'
+  const hasSpecs = availableToday || equipment.operatorIncluded || forSale
   return (
     <Link
       to={buildPath.equipmentDetail(equipment.id)}
@@ -90,6 +98,11 @@ export function EquipmentCard({ equipment, suggestedByAi = false, availableToday
             {equipment.operatorIncluded && (
               <Spec tone="operator" icon={<HardHat className="size-3" aria-hidden="true" />}>
                 {t('tags.operator')}
+              </Spec>
+            )}
+            {forSale && (
+              <Spec tone="sale" icon={<Tag className="size-3" aria-hidden="true" />}>
+                {t('tags.forSale')}
               </Spec>
             )}
           </div>

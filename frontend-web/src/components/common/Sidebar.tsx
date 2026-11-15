@@ -2,10 +2,13 @@ import { LogOut, PanelLeftClose, PanelLeftOpen, X, type LucideIcon } from 'lucid
 import { useTranslation } from 'react-i18next'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import { useFetch } from '../../hooks/useFetch'
 import { PATHS } from '../../routes/paths'
-import type { UserRole } from '../../types'
+import { ENDPOINTS } from '../../services/endpoints'
+import type { Company, User, UserRole } from '../../types'
 import { cn } from '../../utils/cn'
 import type { WorkspaceMode } from '../../utils/workspaceMode'
+import { Avatar } from '../profile/Avatar'
 import { BrandMark } from './BrandMark'
 import { ModeSwitch } from './ModeSwitch'
 import { CatalogSearch } from './TopBar'
@@ -54,6 +57,10 @@ export function Sidebar({ items, mode, onModeChange, isOpen, onClose, isCollapse
   const hiddenWhenCollapsed = isCollapsed && 'lg:hidden'
   const collapseLabel = isCollapsed ? t('nav.expandMenu') : t('nav.collapseMenu')
   const CollapseIcon = isCollapsed ? PanelLeftOpen : PanelLeftClose
+  // The shell shows who is signed in with their photo and the company logo; both refresh after a profile save.
+  const me = useFetch<User>(user ? ENDPOINTS.me : null)
+  const company = useFetch<Company>(user ? ENDPOINTS.company(user.companyId) : null)
+  const displayName = me.data ? `${me.data.firstName} ${me.data.lastName}` : (user?.email ?? '')
 
   return (
     <aside
@@ -80,12 +87,19 @@ export function Sidebar({ items, mode, onModeChange, isOpen, onClose, isCollapse
       </div>
 
       {user && (
-        <div className={cn('px-5 pt-2 pb-4', hiddenWhenCollapsed)}>
-          <p className="truncate text-sm font-semibold text-white" title={user.companyName}>
-            {user.companyName}
-          </p>
-          <p className="text-xs text-slate-400">{t(`roles.${user.role}`)}</p>
-        </div>
+        <Link
+          to={`${PATHS.profile}?tab=company`}
+          onClick={onClose}
+          className={cn('mx-3 mb-3 flex items-center gap-3 rounded-md px-2 py-2 hover:bg-white/5', hiddenWhenCollapsed)}
+        >
+          <Avatar name={user.companyName} src={company.data?.logoUrl} shape="square" size="sm" tone="dark" />
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold text-white" title={user.companyName}>
+              {user.companyName}
+            </span>
+            <span className="block text-xs text-slate-400">{t(`roles.${user.role}`)}</span>
+          </span>
+        </Link>
       )}
 
       <ModeSwitch mode={mode} onChange={onModeChange} tone="dark" className="mx-4 mb-2 lg:hidden" />
@@ -138,12 +152,27 @@ export function Sidebar({ items, mode, onModeChange, isOpen, onClose, isCollapse
         <div
           className={cn(
             'mt-auto flex items-center gap-2 border-t border-white/10 px-5 py-4 lg:mt-0',
-            isCollapsed && 'lg:justify-center lg:px-0',
+            isCollapsed && 'lg:flex-col lg:justify-center lg:gap-1 lg:px-0',
           )}
         >
-          <p className={cn('min-w-0 flex-1 truncate text-xs text-slate-400', hiddenWhenCollapsed)} title={user.email}>
-            {user.email}
-          </p>
+          <Link
+            to={PATHS.profile}
+            onClick={onClose}
+            aria-label={t('nav.profile')}
+            title={isCollapsed ? t('nav.profile') : undefined}
+            className={cn(
+              '-ml-2 flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-white/5',
+              isCollapsed && 'lg:ml-0 lg:flex-none lg:px-1',
+            )}
+          >
+            <Avatar name={displayName} src={me.data?.avatarUrl} size="sm" tone="dark" />
+            <span className={cn('min-w-0', hiddenWhenCollapsed)}>
+              <span className="block truncate text-sm font-medium text-white">{displayName}</span>
+              <span className="block truncate text-xs text-slate-400" title={user.email}>
+                {user.email}
+              </span>
+            </span>
+          </Link>
           <button
             type="button"
             onClick={logout}
