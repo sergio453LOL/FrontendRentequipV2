@@ -30,6 +30,8 @@ export interface Reservation {
   notes: string | null
   paymentStatus: ReservationPaymentStatus
   createdAt: IsoDateTime
+  /** The renter already reviewed this reservation. */ 
+  reviewed: boolean
 }
 
 export interface ReservationCreateRequest {

@@ -1,4 +1,4 @@
-import { CalendarX2, Check, CreditCard, FileDown, FilterX, Flag, Play, Search, X } from 'lucide-react'
+import { CalendarX2, Check, CreditCard, FileDown, FilterX, Flag, Play, Search, Star, X } from 'lucide-react'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -12,6 +12,7 @@ import { Pagination } from '../components/common/Pagination'
 import { SkeletonLoader } from '../components/common/SkeletonLoader'
 import { ReservationCard } from '../components/reservations/ReservationCard'
 import { ReservationTimeline } from '../components/reservations/ReservationTimeline'
+import { ReviewModal } from '../components/reviews/ReviewModal'
 import { useAuth } from '../hooks/useAuth'
 import { useFetch } from '../hooks/useFetch'
 import { useMutation } from '../hooks/useMutation'
@@ -139,6 +140,7 @@ export default function MyReservationsPage() {
   const toast = useToast()
   const [pending, setPending] = useState<{ action: ReservationAction; reservation: Reservation } | null>(null)
   const [payingReservation, setPayingReservation] = useState<Reservation | null>(null)
+  const [reviewingReservation, setReviewingReservation] = useState<Reservation | null>(null)
   const [downloadingId, setDownloadingId] = useState<number | null>(null)
 
   async function handleDownloadReceipt(reservation: Reservation) {
@@ -188,6 +190,22 @@ export default function MyReservationsPage() {
           </Button>
         )}
         {role === 'RENTER' && reservation.paymentStatus === 'PAID' && <ReceiptShareButtons reservationId={reservation.id} size="sm" />}
+        {role === 'RENTER' && reservation.status === 'COMPLETED' && !reservation.reviewed && (
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => setReviewingReservation(reservation)}
+            leftIcon={<Star className="size-4" />}
+          >
+            {t('reviews.rate')}
+          </Button>
+        )}
+        {role === 'RENTER' && reservation.reviewed && (
+          <span className="inline-flex items-center gap-1 px-2 text-sm font-medium text-slate-600">
+            <Star className="size-4 fill-brand text-brand" aria-hidden="true" />
+            {t('reviews.rated')}
+          </span>
+        )}
         {availableActions(reservation, role, canManage).map((action) => {
           const Icon = ACTION_ICONS[action]
           const isNegative = action === 'reject' || action === 'cancel'
@@ -301,6 +319,13 @@ export default function MyReservationsPage() {
             onPaid={refetch}
           />
         </Suspense>
+      )}
+      {reviewingReservation && (
+        <ReviewModal
+          reservation={reviewingReservation}
+          onClose={() => setReviewingReservation(null)}
+          onSaved={refetch}
+        />
       )}
 
       {pending && pendingConfig && pendingText && (

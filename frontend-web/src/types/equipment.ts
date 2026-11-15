@@ -101,4 +101,5 @@ export interface EquipmentCategoryRequest {
 export interface EquipmentRating {
   equipmentId: number
   averageRating: number
+  reviewCount: number
 }

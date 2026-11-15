@@ -13,6 +13,7 @@ import { EMPTY_SELECTION, type DateSelection } from '../components/equipment/dat
 import { QuickQuote } from '../components/equipment/QuickQuote'
 import { SpecificationList } from '../components/equipment/SpecificationList'
 import { ReservationRequestModal } from '../components/reservations/ReservationRequestModal'
+import { EquipmentReviews } from '../components/reviews/EquipmentReviews'
 import { useAuth } from '../hooks/useAuth'
 import { useFetch } from '../hooks/useFetch'
 import { useQueryParam } from '../hooks/useQueryParam'
@@ -20,7 +21,7 @@ import { PATHS } from '../routes/paths'
 import { ENDPOINTS } from '../services/endpoints'
 import type { Equipment, EquipmentRating, WithLinks } from '../types'
 import { categoryName } from '../utils/categoryName'
-import { formatCurrency, formatDateRange, rentalDays } from '../utils/format'
+import { formatCurrency, formatDateRange, formatNumber, rentalDays } from '../utils/format'
 
 function parseId(value: string | undefined): number | null {
   const id = Number(value)
@@ -132,6 +133,8 @@ export default function EquipmentDetailPage() {
               <p className="text-sm text-slate-500">{t('equipment.noSpecs')}</p>
             )}
           </section>
+
+          <EquipmentReviews equipmentId={equipment.id} rating={rating.data ?? null} />
         </div>
 
         <aside className="lg:col-span-2">
@@ -139,10 +142,15 @@ export default function EquipmentDetailPage() {
             <div className="flex items-center justify-between gap-3">
               <StatusBadge kind="equipment" status={equipment.status} />
               {averageRating > 0 && (
-                <span className="flex items-center gap-1 text-sm font-medium text-slate-700" aria-label={t('equipment.rating', { value: averageRating.toFixed(1) })}>
-                  <Star className="size-4 fill-accent text-accent" aria-hidden="true" />
-                  {averageRating.toFixed(1)}
-                </span>
+                <a
+                  href="#reviews-title"
+                  className="flex items-center gap-1 rounded-md text-sm font-medium text-slate-700 hover:text-ink"
+                  aria-label={t('equipment.rating', { value: averageRating.toFixed(1) })}
+                >
+                  <Star className="size-4 fill-brand text-brand" aria-hidden="true" />
+                  <span className="num">{averageRating.toFixed(1)}</span>
+                  <span className="num font-normal text-slate-500">({formatNumber(rating.data?.reviewCount ?? 0)})</span>
+                </a>
               )}
             </div>
 

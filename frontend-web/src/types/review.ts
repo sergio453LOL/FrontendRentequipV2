@@ -5,6 +5,7 @@ export interface Review {
   reservationId: number
   equipmentId: number
   reviewerCompanyId: number
+  reviewerCompanyName: string
   rating: number
   conditionRating: number | null
   comment: string | null
