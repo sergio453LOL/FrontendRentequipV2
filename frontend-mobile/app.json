@@ -47,6 +47,12 @@
       ],
       "expo-font"
     ],
-    "scheme": "rentequip"
+    "scheme": "rentequip",
+    "extra": {
+      "eas": {
+        "projectId": "13c29b2a-cecb-454d-9ca2-a2976bfbd6c2"
+      }
+    },
+    "owner": "sergiorojas"
   }
 }
