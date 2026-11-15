@@ -1,18 +1,18 @@
 import { Lock, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { Reservation } from '../../types'
 import { formatCurrency } from '../../utils/format'
 import { Button } from '../common/Button'
 
 interface PaymentActionsProps {
-  reservation: Reservation
+  amount: number
+  currency: string
   isProcessing: boolean
   securityNote: string
   onSkip?: () => void
 }
 
 /** Security note plus the submit button (and "Pagar después" in the booking flow). */
-export function PaymentActions({ reservation, isProcessing, securityNote, onSkip }: PaymentActionsProps) {
+export function PaymentActions({ amount, currency, isProcessing, securityNote, onSkip }: PaymentActionsProps) {
   const { t } = useTranslation()
   return (
     <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -27,7 +27,7 @@ export function PaymentActions({ reservation, isProcessing, securityNote, onSkip
           </Button>
         )}
         <Button type="submit" variant="action" isLoading={isProcessing} leftIcon={<Lock className="size-4" />}>
-          {t('payment.payAmount', { amount: formatCurrency(reservation.totalAmount, reservation.currency) })}
+          {t('payment.payAmount', { amount: formatCurrency(amount, currency) })}
         </Button>
       </div>
     </div>

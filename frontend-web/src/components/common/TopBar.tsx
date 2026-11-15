@@ -11,6 +11,7 @@ import { BrandWordmark } from './BrandMark'
 import { FullscreenToggle } from './FullscreenToggle'
 import { LanguageMenu } from './LanguageMenu'
 import { ModeSwitch } from './ModeSwitch'
+import { RefreshButton } from './RefreshButton'
 import { ThemeToggle } from './ThemeToggle'
 
 const SEARCH_DEBOUNCE_MS = 400
@@ -132,8 +133,9 @@ export function TopBar({ mode, onModeChange, onOpenMenu, onToggleAssistant, isAs
           <span className="sr-only sm:hidden">{t('nav.assistantLong')}</span>
         </span>
       </motion.button>
+      <RefreshButton />
       <LanguageMenu />
-      <FullscreenToggle />
+      <FullscreenToggle className="hidden sm:flex" />
       <ThemeToggle />
     </header>
   )

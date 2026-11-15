@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer, useState } from 'react'
 import { api } from '../services/api'
 import { ApiError } from '../utils/apiError'
+import { useRefreshSignal } from './useRefreshSignal'
 
 export type QueryValue = string | number | boolean | null | undefined
 
@@ -49,6 +50,7 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
 export function useFetch<T>(url: string | null, params?: QueryParams): UseFetchResult<T> {
   const [state, dispatch] = useReducer(fetchReducer<T>, { data: null, error: null, isLoading: url !== null })
   const [reloadCount, setReloadCount] = useState(0)
+  const refreshSignal = useRefreshSignal()
   const paramsKey = JSON.stringify(params ?? {})
 
   useEffect(() => {
@@ -80,7 +82,7 @@ export function useFetch<T>(url: string | null, params?: QueryParams): UseFetchR
 
     void load(url)
     return () => controller.abort()
-  }, [url, paramsKey, reloadCount])
+  }, [url, paramsKey, reloadCount, refreshSignal])
 
   const refetch = useCallback(() => setReloadCount((count) => count + 1), [])
 

@@ -15,8 +15,6 @@ import {
 import { Input } from '../common/Input'
 import { PaymentActions } from './PaymentActions'
 import type { PaymentFormProps } from './PaymentForm'
-import { PaymentSummary } from './PaymentSummary'
-import { usePayReservation } from './usePayReservation'
 
 const cardSchema = z.object({
   holderName: z.string().trim().min(3, 'validation.holderName'),
@@ -33,7 +31,7 @@ const BRAND_LABELS = { visa: 'VISA', mastercard: 'Mastercard', amex: 'AMEX', unk
  * Card checkout used when no Stripe publishable key is configured. The card is tokenized in the browser by
  * a sandbox that mimics Stripe.js, and only the token is sent to the backend.
  */
-export function SimulatedPaymentForm({ reservation, onPaid, onSkip }: PaymentFormProps) {
+export function SimulatedPaymentForm({ checkout, onSkip }: PaymentFormProps) {
   const { t } = useTranslation()
   const [isTokenizing, setIsTokenizing] = useState(false)
   const {
@@ -45,22 +43,21 @@ export function SimulatedPaymentForm({ reservation, onPaid, onSkip }: PaymentFor
   } = useZodForm(cardSchema, { defaultValues: { holderName: '', number: '', expiry: '', cvc: '' } })
 
   const brand = detectCardBrand(watch('number'))
-  const payment = usePayReservation(reservation, onPaid)
 
   const numberField = register('number')
   const expiryField = register('expiry')
-  const isProcessing = isTokenizing || payment.isLoading
+  const isProcessing = isTokenizing || checkout.isPaying
 
   async function onSubmit(values: CardFormValues) {
     setIsTokenizing(true)
     const token = await createCardToken(values)
     setIsTokenizing(false)
-    await payment.mutate(token)
+    await checkout.pay(token)
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
-      <PaymentSummary reservation={reservation} />
+      {checkout.summary}
 
       <fieldset className="space-y-4" disabled={isProcessing}>
         <legend className="sr-only">{t('payment.cardLegend')}</legend>
@@ -122,7 +119,8 @@ export function SimulatedPaymentForm({ reservation, onPaid, onSkip }: PaymentFor
       </details>
 
       <PaymentActions
-        reservation={reservation}
+        amount={checkout.amount}
+        currency={checkout.currency}
         isProcessing={isProcessing}
         securityNote={t('payment.simulatedNote')}
         onSkip={onSkip}

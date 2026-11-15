@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { CalendarRange, ClipboardList, LayoutDashboard, PlusCircle, Search, Sparkles, Tags, Truck } from 'lucide-react'
+import { CalendarRange, ClipboardList, HandCoins, LayoutDashboard, PlusCircle, Search, ShoppingBag, Sparkles, Tags, Truck } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
@@ -22,17 +22,19 @@ const NAVIGATION: Record<WorkspaceMode, (Omit<SidebarItem, 'label'> & { label: N
   renter: [
     { label: 'catalog', to: PATHS.catalog, icon: Search },
     { label: 'myReservations', to: `${PATHS.reservations}?role=RENTER`, icon: CalendarRange },
+    { label: 'myPurchases', to: `${PATHS.purchases}?role=RENTER`, icon: ShoppingBag },
   ],
   owner: [
     { label: 'dashboard', to: PATHS.home, icon: LayoutDashboard },
     { label: 'fleet', to: PATHS.fleet, icon: Truck },
     { label: 'ownerReservations', to: `${PATHS.reservations}?role=OWNER`, icon: ClipboardList },
+    { label: 'sales', to: `${PATHS.purchases}?role=OWNER`, icon: HandCoins },
     { label: 'publish', to: PATHS.publishEquipment, icon: PlusCircle, allowedRoles: PUBLISHER_ROLES },
     { label: 'categories', to: PATHS.categories, icon: Tags, allowedRoles: ADMIN_ROLES },
   ],
 }
 
-type NavKey = 'catalog' | 'myReservations' | 'dashboard' | 'fleet' | 'ownerReservations' | 'publish' | 'categories'
+type NavKey = 'catalog' | 'myReservations' | 'myPurchases' | 'dashboard' | 'fleet' | 'ownerReservations' | 'sales' | 'publish' | 'categories'
 
 /**
  * Asphalt sidebar, white header and the screen on a light slate ground. The navigation follows the

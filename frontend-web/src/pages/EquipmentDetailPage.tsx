@@ -1,4 +1,4 @@
-import { ArrowLeft, Building2, CalendarPlus, MapPin, SearchX, ShieldCheck, Star } from 'lucide-react'
+import { ArrowLeft, CalendarPlus, MapPin, SearchX, ShieldCheck, Star } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
@@ -13,10 +13,13 @@ import { EMPTY_SELECTION, type DateSelection } from '../components/equipment/dat
 import { QuickQuote } from '../components/equipment/QuickQuote'
 import { SpecificationList } from '../components/equipment/SpecificationList'
 import { ReservationRequestModal } from '../components/reservations/ReservationRequestModal'
+import { Avatar } from '../components/profile/Avatar'
+import { OwnerCard } from '../components/profile/OwnerCard'
 import { EquipmentReviews } from '../components/reviews/EquipmentReviews'
 import { useAuth } from '../hooks/useAuth'
 import { useFetch } from '../hooks/useFetch'
 import { useQueryParam } from '../hooks/useQueryParam'
+import { useRefreshSignal } from '../hooks/useRefreshSignal'
 import { PATHS } from '../routes/paths'
 import { ENDPOINTS } from '../services/endpoints'
 import type { Equipment, EquipmentRating, WithLinks } from '../types'
@@ -71,6 +74,7 @@ export default function EquipmentDetailPage() {
   const { data: equipment, error, isLoading, refetch } = useFetch<WithLinks<Equipment>>(
     equipmentId ? ENDPOINTS.equipment(equipmentId) : null,
   )
+  const refreshSignal = useRefreshSignal()
   const rating = useFetch<EquipmentRating>(equipmentId ? ENDPOINTS.equipmentRating : null, { equipmentId })
 
   if (equipmentId === null || error?.status === 404) return <NotFoundEquipment />
@@ -81,8 +85,10 @@ export default function EquipmentDetailPage() {
   const isAvailable = equipment.status === 'AVAILABLE'
   const reserveBlockedReason = isOwnEquipment
     ? t('equipment.ownEquipment')
-    : !isAvailable
-      ? t('equipment.unavailable')
+    : equipment.status === 'SOLD'
+      ? t('purchase.soldNotice')
+      : !isAvailable
+        ? t('equipment.unavailable')
       : null
   const averageRating = rating.data?.averageRating ?? 0
   const hasDates = dates.startDate !== null && dates.endDate !== null
@@ -134,7 +140,18 @@ export default function EquipmentDetailPage() {
             )}
           </section>
 
-          <EquipmentReviews equipmentId={equipment.id} rating={rating.data ?? null} />
+          <section aria-labelledby="owner-title" className="space-y-3">
+            <h2 id="owner-title" className="text-lg font-bold text-ink">
+              {t('equipment.ownerTitle')}
+            </h2>
+            <OwnerCard
+              name={equipment.ownerCompanyName}
+              logoUrl={equipment.ownerCompanyLogoUrl}
+              description={equipment.ownerCompanyDescription}
+            />
+          </section>
+
+          <EquipmentReviews key={refreshSignal} equipmentId={equipment.id} rating={rating.data ?? null} />
         </div>
 
         <aside className="lg:col-span-2">
@@ -174,7 +191,7 @@ export default function EquipmentDetailPage() {
                 {[equipment.address, equipment.city].filter(Boolean).join(', ')}
               </li>
               <li className="flex items-center gap-2">
-                <Building2 className="size-4 shrink-0 text-slate-500" aria-hidden="true" />
+                <Avatar name={equipment.ownerCompanyName} src={equipment.ownerCompanyLogoUrl} shape="square" size="xs" />
                 {equipment.ownerCompanyName}
               </li>
             </ul>
@@ -203,6 +220,20 @@ export default function EquipmentDetailPage() {
               {hasDates ? t('equipment.reserveRange', { range: formatDateRange(dates.startDate!, dates.endDate!) }) : t('equipment.reserve')}
             </Button>
             {reserveBlockedReason && <p className="text-center text-[13px] text-slate-600">{reserveBlockedReason}</p>}
+
+            {equipment.salePrice !== null && equipment.status !== 'SOLD' && (
+              <div className="space-y-1 border-t border-slate-100 pt-4 text-sm">
+                <p className="flex items-baseline justify-between gap-3 font-semibold text-ink">
+                  <span>{t('purchase.optionTitle')}</span>
+                  <span className="num">{formatCurrency(equipment.salePrice, equipment.currency)}</span>
+                </p>
+                <p className="leading-6 text-slate-600">
+                  {equipment.rentCreditPercent > 0
+                    ? t('purchase.optionText', { percent: equipment.rentCreditPercent })
+                    : t('purchase.optionTextNoCredit')}
+                </p>
+              </div>
+            )}
           </div>
         </aside>
       </div>

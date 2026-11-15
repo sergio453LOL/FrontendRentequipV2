@@ -20,7 +20,7 @@ import { Input } from '../common/Input'
 import { Modal } from '../common/Modal'
 import { Spinner } from '../common/Spinner'
 import { Textarea } from '../common/Textarea'
-import { PaymentForm } from '../payments/PaymentForm'
+import { ReservationPaymentForm } from '../payments/ReservationPaymentForm'
 import { PaymentSuccess } from '../payments/PaymentSuccess'
 
 const MAX_RENTAL_DAYS = 365
@@ -138,7 +138,7 @@ export function ReservationRequestModal({ equipment, isOpen, onClose, initialDat
       <Modal isOpen={isOpen} onClose={handleClose} title={t(`reservation.steps.${step.name}`)}>
         <p className="mb-4 text-[13px] font-medium text-slate-600">{t('reservation.stepOf', { n: STEP_NUMBERS[step.name] })}</p>
         {step.name === 'payment' ? (
-          <PaymentForm
+          <ReservationPaymentForm
             reservation={step.reservation}
             onSkip={handleClose}
             onPaid={(payments) =>

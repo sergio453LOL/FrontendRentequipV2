@@ -1,4 +1,4 @@
-import { CalendarX2, Check, CreditCard, FileDown, FilterX, Flag, Play, Search, Star, X } from 'lucide-react'
+import { CalendarX2, Check, CreditCard, FileDown, FilterX, Flag, Play, Search, ShoppingBag, Star, X } from 'lucide-react'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -12,10 +12,12 @@ import { Pagination } from '../components/common/Pagination'
 import { SkeletonLoader } from '../components/common/SkeletonLoader'
 import { ReservationCard } from '../components/reservations/ReservationCard'
 import { ReservationTimeline } from '../components/reservations/ReservationTimeline'
+import { PurchaseOfferModal } from '../components/purchases/PurchaseOfferModal'
 import { ReviewModal } from '../components/reviews/ReviewModal'
 import { useAuth } from '../hooks/useAuth'
 import { useFetch } from '../hooks/useFetch'
 import { useMutation } from '../hooks/useMutation'
+import { useRefreshSignal } from '../hooks/useRefreshSignal'
 import { useToast } from '../hooks/useToast'
 import { usePagination } from '../hooks/usePagination'
 import { useQueryParam } from '../hooks/useQueryParam'
@@ -82,9 +84,13 @@ function runAction(action: ReservationAction, reservation: Reservation, reason: 
 
 const ALL = 'ALL'
 
+/** A renter can ask to buy the machine once the owner has confirmed the rental, and keeps the option after returning it. */
+const PURCHASABLE_FROM: ReservationStatus[] = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED']
+
 /** Reservations per status for the current side (renter or owner): the totals behind the filter cards. */
 function useStatusCounts(role: ReservationRole, reloadKey: number): Record<string, number> | null {
-  const key = `${role}|${reloadKey}`
+  const refreshSignal = useRefreshSignal()
+  const key = `${role}|${reloadKey}|${refreshSignal}`
   const [result, setResult] = useState<{ key: string; counts: Record<string, number> } | null>(null)
 
   useEffect(() => {
@@ -141,6 +147,7 @@ export default function MyReservationsPage() {
   const [pending, setPending] = useState<{ action: ReservationAction; reservation: Reservation } | null>(null)
   const [payingReservation, setPayingReservation] = useState<Reservation | null>(null)
   const [reviewingReservation, setReviewingReservation] = useState<Reservation | null>(null)
+  const [buyingReservation, setBuyingReservation] = useState<Reservation | null>(null)
   const [downloadingId, setDownloadingId] = useState<number | null>(null)
 
   async function handleDownloadReceipt(reservation: Reservation) {
@@ -198,6 +205,11 @@ export default function MyReservationsPage() {
             leftIcon={<Star className="size-4" />}
           >
             {t('reviews.rate')}
+          </Button>
+        )}
+        {role === 'RENTER' && reservation.equipmentSalePrice !== null && PURCHASABLE_FROM.includes(reservation.status) && (
+          <Button size="sm" variant="secondary" onClick={() => setBuyingReservation(reservation)} leftIcon={<ShoppingBag className="size-4" />}>
+            {t('purchase.buy')}
           </Button>
         )}
         {role === 'RENTER' && reservation.reviewed && (
@@ -320,6 +332,8 @@ export default function MyReservationsPage() {
           />
         </Suspense>
       )}
+      {buyingReservation && <PurchaseOfferModal reservation={buyingReservation} onClose={() => setBuyingReservation(null)} />}
+
       {reviewingReservation && (
         <ReviewModal
           reservation={reviewingReservation}

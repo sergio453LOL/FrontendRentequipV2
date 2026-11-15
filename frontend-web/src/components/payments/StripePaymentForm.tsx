@@ -9,10 +9,8 @@ import { useZodForm } from '../../hooks/useZodForm'
 import { Input } from '../common/Input'
 import { PaymentActions } from './PaymentActions'
 import type { PaymentFormProps } from './PaymentForm'
-import { PaymentSummary } from './PaymentSummary'
 import { StripeCardField } from './StripeCardField'
 import { stripeElementStyle } from './stripeElementStyle'
-import { usePayReservation } from './usePayReservation'
 
 const holderSchema = z.object({
   holderName: z.string().trim().min(3, 'validation.holderName'),
@@ -42,7 +40,7 @@ const STRIPE_TEST_CARDS = [
  * Card checkout with Stripe Elements. The card fields are Stripe iframes, so the number never touches
  * RentEquip's code; Stripe.js returns a payment method id and only that id is sent to the backend.
  */
-export function StripePaymentForm({ reservation, onPaid, onSkip }: PaymentFormProps) {
+export function StripePaymentForm({ checkout, onSkip }: PaymentFormProps) {
   const { t } = useTranslation()
   const stripe = useStripe()
   const elements = useElements()
@@ -50,7 +48,6 @@ export function StripePaymentForm({ reservation, onPaid, onSkip }: PaymentFormPr
   const { theme } = useTheme()
   // Recomputed on theme change; Stripe updates the iframes in place, keeping what was typed.
   const elementOptions = useMemo(() => ({ style: stripeElementStyle(theme) }), [theme])
-  const payment = usePayReservation(reservation, onPaid)
   const [isTokenizing, setIsTokenizing] = useState(false)
   const [complete, setComplete] = useState<Record<CardFieldName, boolean>>({ number: false, expiry: false, cvc: false })
   const [cardErrors, setCardErrors] = useState<Partial<Record<CardFieldName, string>>>({})
@@ -60,7 +57,7 @@ export function StripePaymentForm({ reservation, onPaid, onSkip }: PaymentFormPr
     formState: { errors },
   } = useZodForm(holderSchema, { defaultValues: { holderName: '' } })
 
-  const isProcessing = isTokenizing || payment.isLoading
+  const isProcessing = isTokenizing || checkout.isPaying
 
   function trackField(field: CardFieldName) {
     return (event: StripeElementChangeEvent) => {
@@ -95,12 +92,12 @@ export function StripePaymentForm({ reservation, onPaid, onSkip }: PaymentFormPr
       toast.error(t('payment.cardInvalid'), error.message ?? t('payment.cardInvalidText'))
       return
     }
-    await payment.mutate(paymentMethod.id)
+    await checkout.pay(paymentMethod.id)
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
-      <PaymentSummary reservation={reservation} />
+      {checkout.summary}
 
       <fieldset className="space-y-4" disabled={isProcessing}>
         <legend className="sr-only">{t('payment.cardLegend')}</legend>
@@ -133,7 +130,8 @@ export function StripePaymentForm({ reservation, onPaid, onSkip }: PaymentFormPr
       </details>
 
       <PaymentActions
-        reservation={reservation}
+        amount={checkout.amount}
+        currency={checkout.currency}
         isProcessing={isProcessing || !stripe}
         securityNote={t('payment.stripeNote')}
         onSkip={onSkip}

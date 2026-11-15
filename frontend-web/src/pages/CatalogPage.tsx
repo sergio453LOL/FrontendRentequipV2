@@ -21,6 +21,7 @@ import type { EquipmentCategory, EquipmentSummary, PageResponse } from '../types
 import { useAiSuggested } from '../utils/aiSuggestions'
 import { ASSISTANT_PARAM } from '../utils/assistantLink'
 import { PERU_CITIES } from '../utils/cities'
+import { useRefreshSignal } from '../hooks/useRefreshSignal'
 import { categoryName } from '../utils/categoryName'
 import { cn } from '../utils/cn'
 import { formatNumber, todayIso } from '../utils/format'
@@ -88,9 +89,11 @@ interface CountFilters {
  * what a click will return. One request per category, asking only for the total.
  */
 function useCategoryCounts(categories: EquipmentCategory[], filters: CountFilters): Record<string, number> | null {
+  const refreshSignal = useRefreshSignal()
   const key = JSON.stringify({
     ids: categories.map((category) => category.id),
     ...filters,
+    refreshSignal,
   })
   const [result, setResult] = useState<{
     key: string
