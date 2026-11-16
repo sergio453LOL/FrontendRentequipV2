@@ -31,15 +31,23 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): voi
   unauthorizedHandler = handler
 }
 
-api.interceptors.request.use((config) => {
-  const token = tokenStorage.getAccessToken()
+let pendingRefresh: Promise<string> | null = null
+
+api.interceptors.request.use(async (config) => {
+  let token = tokenStorage.getAccessToken()
+  // The access token lives only in memory: after a reload, trade the refresh token for a new one first.
+  if (!token && tokenStorage.getRefreshToken() && !config.url?.startsWith(AUTH_PATH_PREFIX)) {
+    try {
+      token = await refreshOnce()
+    } catch {
+      // Sent without a token: a 401 then ends the session in the response interceptor.
+    }
+  }
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
 })
-
-let pendingRefresh: Promise<string> | null = null
 
 async function refreshAccessToken(): Promise<string> {
   const refreshToken = tokenStorage.getRefreshToken()

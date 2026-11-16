@@ -352,7 +352,7 @@ function CompanySection({ company, canEdit, onVerified }: { company: Company; ca
               {...register('description')}
             />
             <Input label={t('register.companyEmail')} type="email" required error={errors.email?.message} {...register('email')} />
-            <Input label={t('register.companyPhone')} type="tel" placeholder="01 234 5678" error={errors.phone?.message} {...register('phone')} />
+            <Input label={t('register.companyPhone')} type="tel" placeholder="987 654 321" error={errors.phone?.message} {...register('phone')} />
             <Select label={t('register.city')} required options={cityOptions} error={errors.city?.message} {...register('city')} />
             <Input label={t('register.address')} placeholder="Av. Javier Prado 123" error={errors.address?.message} {...register('address')} />
             <Input label={t('register.taxId')} value={company.taxId} readOnly disabled hint={t('profile.company.taxIdLocked')} />

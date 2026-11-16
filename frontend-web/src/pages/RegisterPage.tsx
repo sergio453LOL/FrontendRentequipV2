@@ -73,7 +73,7 @@ const STEPS = [
   {
     title: 'company',
     icon: Building2,
-    fields: ['companyName', 'taxId', 'companyEmail', 'companyPhone', 'city', 'address'],
+    fields: ['taxId', 'companyPhone', 'companyName', 'companyEmail', 'city', 'address'],
   },
   {
     title: 'admin',
@@ -415,17 +415,7 @@ export default function RegisterPage() {
 
           <fieldset className={cn('grid gap-5 sm:grid-cols-2', step !== 1 && 'hidden')}>
             <legend className="sr-only">{t(isPerson ? 'register.personLegend' : 'register.companyLegend')}</legend>
-            <Input
-              className="sm:col-span-2"
-              label={t(isPerson ? 'register.personName' : 'register.companyName')}
-              required
-              placeholder={t(isPerson ? 'register.personNamePlaceholder' : 'register.companyNamePlaceholder')}
-              readOnly={Boolean(sunatLock?.name)}
-              leftIcon={sunatLock?.name ? <Lock className="size-4" /> : undefined}
-              hint={sunatLock?.name ? t('verification.lockedSunat') : undefined}
-              error={errors.companyName?.message}
-              {...register('companyName')}
-            />
+            {/* The RUC goes first: SUNAT fills and locks the name, city and address below it. */}
             <div>
               <Input
                 label={t('register.taxId')}
@@ -454,7 +444,18 @@ export default function RegisterPage() {
                 </p>
               )}
             </div>
-            <Input label={t(isPerson ? 'register.personPhone' : 'register.companyPhone')} type="tel" placeholder="01 234 5678" error={errors.companyPhone?.message} {...register('companyPhone')} />
+            <Input label={t(isPerson ? 'register.personPhone' : 'register.companyPhone')} type="tel" autoComplete="tel" placeholder="987 654 321" error={errors.companyPhone?.message} {...register('companyPhone')} />
+            <Input
+              className="sm:col-span-2"
+              label={t(isPerson ? 'register.personName' : 'register.companyName')}
+              required
+              placeholder={t(isPerson ? 'register.personNamePlaceholder' : 'register.companyNamePlaceholder')}
+              readOnly={Boolean(sunatLock?.name)}
+              leftIcon={sunatLock?.name ? <Lock className="size-4" /> : undefined}
+              hint={sunatLock?.name ? t('verification.lockedSunat') : undefined}
+              error={errors.companyName?.message}
+              {...register('companyName')}
+            />
             <Input className="sm:col-span-2" label={t(isPerson ? 'register.personEmail' : 'register.companyEmail')} type="email" required placeholder={t('register.companyEmailPlaceholder')} error={errors.companyEmail?.message} {...register('companyEmail')} />
             {sunatLock?.city ? (
               // A <select> cannot be read-only, so the city SUNAT gave is shown in a locked text field.
