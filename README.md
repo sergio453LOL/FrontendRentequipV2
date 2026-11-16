@@ -144,7 +144,7 @@ Las dos apps siguen la misma separación en capas:
 | **4.1 Diseño visual** | Tailwind CSS con una paleta industrial (amarillo maquinaria y asfalto), tipografía consistente e iconos Lucide. Responsive en móvil, tablet y escritorio, con sidebar colapsable. Animaciones sutiles con Framer Motion. **Modo oscuro** y pantalla completa. |
 | **4.2 Experiencia de usuario** | Landing con buscador rápido y cotizador. Búsqueda con debounce, filtros y orden. Registro en pasos con indicador de progreso. Formularios con labels, placeholders y hints. `ConfirmDialog` antes de eliminar o cancelar. Alt text en imágenes y navegación por teclado. Tooltips, mensajes contextuales y estados vacíos con acción. |
 | **4.3 Vistas** | 14 vistas: landing, login, registro, panel (dashboard con gráficos), catálogo, detalle del equipo, publicar equipo, mi flota, mis reservas, ofertas, compras, perfil, categorías y 404. |
-| **4.4 Paginación** | Seis listados paginados contra endpoints paginados del backend (catálogo, flota, reservas, ofertas, compras y dashboard). El componente `Pagination` tiene anterior/siguiente y números de página, muestra "X–Y de Z resultados" y permite elegir 12, 24, 48 o 96 por página (múltiplos que llenan la grilla de 3 y 4 columnas). `usePagination` guarda `page` y `size` en la URL para compartir el enlace. |
+| **4.4 Paginación** | Seis listados paginados contra endpoints paginados del backend (catálogo, flota, reservas, ofertas, compras y dashboard). El componente `Pagination` tiene anterior/siguiente y números de página, muestra "X–Y de Z resultados" y permite elegir 10, 25, 50 o 100 por página. `usePagination` guarda `page` y `size` en la URL para compartir el enlace. |
 
 ## 7. Mobile — Cobertura de la Rúbrica
 
