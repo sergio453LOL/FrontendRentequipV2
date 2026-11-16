@@ -47,6 +47,8 @@ export function Input({ label, error, hint, leftIcon, id, className, required, t
             fieldClasses(Boolean(error)),
             'h-9',
             leftIcon != null && 'pl-9',
+            // Read-only values come from an official source (SUNAT, RENIEC): visibly not editable.
+            rest.readOnly && 'cursor-not-allowed border-slate-200 bg-raised text-slate-700 focus:ring-0',
             // Edge draws its own eye inside password fields; ours replaces it.
             isPassword && 'pr-10 [&::-ms-reveal]:hidden',
           )}

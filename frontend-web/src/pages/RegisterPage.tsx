@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, BadgeCheck, Building2, Check, LocateFixed, UserRound, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BadgeCheck, Building2, Check, IdCard, LocateFixed, Lock, UserRound, type LucideIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Path } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -49,7 +49,27 @@ const registerSchema = z
 
 type RegisterFormValues = z.infer<typeof registerSchema>
 
+/**
+ * Who is signing up decides the RUC: a company (persona jurídica) has a RUC 20; a person with a business
+ * (persona natural con negocio) has a RUC 10, whose digits 3 to 10 are their DNI.
+ */
+type AccountType = 'COMPANY' | 'PERSON'
+const ACCOUNT_TYPES: AccountType[] = ['COMPANY', 'PERSON']
+const RUC_PREFIX: Record<AccountType, string> = { COMPANY: '20', PERSON: '10' }
+
+/** Only a complete RUC is judged, so typing the first digits never shows an error. */
+function rucPrefixError(ruc: string, type: AccountType | null): string | undefined {
+  const value = ruc.trim()
+  if (!type || !/^\d{11}$/.test(value) || value.startsWith(RUC_PREFIX[type])) return undefined
+  return type === 'COMPANY' ? 'validation.ruc20' : 'validation.ruc10'
+}
+
 const STEPS = [
+  {
+    title: 'type',
+    icon: IdCard,
+    fields: [],
+  },
   {
     title: 'company',
     icon: Building2,
@@ -83,6 +103,9 @@ export default function RegisterPage() {
   const [step, setStep] = useState(0)
   const [formError, setFormError] = useState<string | null>(null)
   const [locationStatus, setLocationStatus] = useState<LocationStatus>('idle')
+  const [accountType, setAccountType] = useState<AccountType | null>(null)
+  const [typeMissing, setTypeMissing] = useState(false)
+  const isPerson = accountType === 'PERSON'
 
   const {
     register,
@@ -118,61 +141,131 @@ export default function RegisterPage() {
   const dniValue = watch('dni')
   const [rucLookup, setRucLookup] = useState<{ ruc: string; state: 'loading' | 'found' | 'missing' | 'skipped'; info?: RucInfo } | null>(null)
   const [dniLookup, setDniLookup] = useState<'loading' | 'found' | 'missing' | 'skipped' | null>(null)
+  // Fields filled from SUNAT (for this RUC) or RENIEC (for this DNI) are read-only until the number changes.
+  const [sunatFilled, setSunatFilled] = useState<{ ruc: string; name: boolean; address: boolean; city: boolean } | null>(null)
+  const [reniecFilled, setReniecFilled] = useState<{ dni: string; firstName: boolean; lastName: boolean } | null>(null)
+  const sunatLock = sunatFilled?.ruc === taxIdValue.trim() ? sunatFilled : null
+  const reniecLock = reniecFilled?.dni === dniValue.trim() ? reniecFilled : null
 
-  // A complete, well-formed RUC is looked up in SUNAT once; the name fills in if the field is still empty.
+  // A complete, well-formed RUC of the chosen type is looked up in SUNAT once; what SUNAT returns fills in
+  // and locks. A RUC 10 also carries the person's DNI, so RENIEC fills in their names even if SUNAT is down.
   useEffect(() => {
     const ruc = taxIdValue.trim()
-    if (!isValidRuc(ruc) || rucLookup?.ruc === ruc) return
+    if (!isValidRuc(ruc) || rucPrefixError(ruc, accountType) || rucLookup?.ruc === ruc) return
+    if (accountType === 'PERSON') {
+      const dni = ruc.slice(2, 10)
+      setValue('dni', dni, { shouldValidate: true })
+      void lookupDni(dni)
+    }
     setRucLookup({ ruc, state: 'loading' })
     identityService
       .ruc(ruc)
       .then((info) => {
+        if (getValues('taxId').trim() !== ruc) return
         setRucLookup({ ruc, state: 'found', info })
-        fillFromSunat(info)
+        fillFromSunat(ruc, info)
       })
       .catch((error: unknown) => {
         const status = ApiError.from(error).status
         // 503: SUNAT lookups are not configured on this server; the check digit is all we can do.
         setRucLookup({ ruc, state: status === 404 ? 'missing' : 'skipped' })
       })
-  }, [taxIdValue, rucLookup?.ruc, getValues, setValue])
+  }, [taxIdValue, accountType, rucLookup?.ruc, getValues, setValue])
 
   /**
-   * SUNAT's data fills the company step: the business name always (it is the legal one), the fiscal
-   * address and the city only when still empty, so nothing the user typed is overwritten.
+   * SUNAT's data is the legal record, so it replaces whatever was typed and stays read-only: business
+   * name, fiscal address and the catalogue city of its province.
    */
-  function fillFromSunat(info: RucInfo) {
-    if (info.name) setValue('companyName', info.name, { shouldValidate: true })
-    if (info.address && !getValues('address').trim()) {
-      const address = [info.address.trim(), info.district].filter(Boolean).join(', ')
+  function fillFromSunat(ruc: string, info: RucInfo) {
+    const filled = { ruc, name: false, address: false, city: false }
+    if (info.name) {
+      setValue('companyName', info.name.slice(0, 150), { shouldValidate: true })
+      filled.name = true
+    }
+    if (info.address) {
+      // apisperu already ends the address with the district; the free API does not.
+      const street = info.address.trim()
+      const hasDistrict = info.district && street.toUpperCase().includes(info.district.toUpperCase())
+      const address = hasDistrict ? street : [street, info.district].filter(Boolean).join(', ')
       setValue('address', address.slice(0, 255), { shouldValidate: true })
+      filled.address = true
     }
     const city = cityFromSunat(info)
-    if (city && !getValues('city')) {
+    if (city) {
       setValue('city', city.name, { shouldValidate: true })
       setValue('latitude', city.latitude.toFixed(7))
       setValue('longitude', city.longitude.toFixed(7))
+      filled.city = true
     }
+    setSunatFilled(filled)
   }
 
-  async function lookupDni() {
-    const dni = dniValue.trim()
-    if (!/^\d{8}$/.test(dni)) return
+  /** A different RUC drops what the previous one filled in, so the old company's data is not kept by mistake. */
+  function releaseSunat(newRuc: string) {
+    if (!sunatFilled || sunatFilled.ruc === newRuc.trim()) return
+    if (sunatFilled.name) setValue('companyName', '')
+    if (sunatFilled.address) setValue('address', '')
+    if (sunatFilled.city) {
+      setValue('city', '')
+      setValue('latitude', '')
+      setValue('longitude', '')
+    }
+    setSunatFilled(null)
+  }
+
+  async function lookupDni(dni = getValues('dni').trim()) {
+    if (!/^\d{8}$/.test(dni) || reniecFilled?.dni === dni) return
     setDniLookup('loading')
     try {
       const info = await identityService.dni(dni)
+      if (getValues('dni').trim() !== dni) return
       if (info.firstNames) setValue('firstName', capitalize(info.firstNames), { shouldValidate: true })
       if (info.lastNames) setValue('lastName', capitalize(info.lastNames), { shouldValidate: true })
+      setReniecFilled({ dni, firstName: Boolean(info.firstNames), lastName: Boolean(info.lastNames) })
       setDniLookup('found')
     } catch (error) {
       setDniLookup(ApiError.from(error).status === 404 ? 'missing' : 'skipped')
     }
   }
+
+  function releaseReniec(newDni: string) {
+    if (!reniecFilled || reniecFilled.dni === newDni.trim()) return
+    if (reniecFilled.firstName) setValue('firstName', '')
+    if (reniecFilled.lastName) setValue('lastName', '')
+    setReniecFilled(null)
+    setDniLookup(null)
+  }
   const cityField = register('city')
 
+  /**
+   * Switching between company and person starts the RUC over: a RUC 20 is never valid for a person, and
+   * everything SUNAT and RENIEC filled in belonged to the previous number.
+   */
+  function chooseType(type: AccountType) {
+    setTypeMissing(false)
+    if (type === accountType) return
+    setAccountType(type)
+    releaseSunat('')
+    releaseReniec('')
+    setValue('taxId', '')
+    setValue('dni', '')
+    setRucLookup(null)
+  }
+
   async function goToNextStep() {
-    const isStepValid = await trigger([...STEPS[0].fields])
-    if (isStepValid) setStep(1)
+    if (step === 0) {
+      if (accountType) setStep(1)
+      else setTypeMissing(true)
+      return
+    }
+    const isStepValid = await trigger([...STEPS[step].fields])
+    if (!isStepValid) return
+    const prefixError = rucPrefixError(getValues('taxId'), accountType)
+    if (prefixError) {
+      setError('taxId', { message: prefixError })
+      return
+    }
+    setStep(step + 1)
   }
 
   function detectLocation() {
@@ -198,7 +291,7 @@ export default function RegisterPage() {
     const latitude = values.latitude ? Number(values.latitude) : city?.latitude
     const longitude = values.longitude ? Number(values.longitude) : city?.longitude
     if (latitude === undefined || longitude === undefined) {
-      setStep(0)
+      setStep(1)
       setError('city', { message: 'validation.cityInvalid' })
       return
     }
@@ -225,7 +318,7 @@ export default function RegisterPage() {
     } catch (error) {
       const appliedToFields = applyServerFieldErrors(error, setError, SERVER_FIELD_MAP)
       const companyFieldFailed = ApiError.from(error).details.some((detail) => detail.field.startsWith('company.'))
-      if (companyFieldFailed) setStep(0)
+      if (companyFieldFailed) setStep(1)
       setFormError(appliedToFields ? t('register.checkFields') : ApiError.from(error).message)
     }
   }
@@ -253,9 +346,10 @@ export default function RegisterPage() {
                 >
                   {isDone ? <Check className="size-4" /> : <Icon className="size-4" />}
                 </span>
-                <span className={cn('text-sm font-medium', isCurrent ? 'text-slate-900' : 'text-slate-500')}>
+                {/* Three labels do not fit a phone: only the current one is shown there, all are read aloud. */}
+                <span className={cn('text-sm font-medium', isCurrent ? 'text-slate-900' : 'text-slate-500 max-sm:sr-only')}>
                   <span className="sr-only">{t('register.stepN', { n: index + 1 })}</span>
-                  {t(`register.steps.${title}`)}
+                  {t(isPerson && title !== 'type' ? `register.stepsPerson.${title}` : `register.steps.${title}`)}
                 </span>
                 {index < STEPS.length - 1 && <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />}
               </li>
@@ -272,7 +366,7 @@ export default function RegisterPage() {
         <form
           noValidate
           onSubmit={
-            step === 0
+            step < STEPS.length - 1
               ? (event) => {
                   event.preventDefault()
                   void goToNextStep()
@@ -280,19 +374,68 @@ export default function RegisterPage() {
               : handleSubmit(onSubmit)
           }
         >
-          <fieldset className={cn('grid gap-5 sm:grid-cols-2', step !== 0 && 'hidden')}>
-            <legend className="sr-only">{t('register.companyLegend')}</legend>
-            <Input className="sm:col-span-2" label={t('register.companyName')} required placeholder={t('register.companyNamePlaceholder')} error={errors.companyName?.message} {...register('companyName')} />
+          {/* A form control, not a card row: two radios with their explanation, the whole option clickable. */}
+          <fieldset className={cn('grid gap-3', step !== 0 && 'hidden')} aria-describedby={typeMissing ? 'account-type-error' : undefined}>
+            <legend className="mb-4 text-base font-semibold text-slate-900">{t('register.typeLegend')}</legend>
+            {ACCOUNT_TYPES.map((type) => {
+              const isChosen = accountType === type
+              return (
+                <label
+                  key={type}
+                  className={cn(
+                    'flex cursor-pointer items-start gap-4 rounded-lg border-2 px-5 py-4 transition-colors',
+                    'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-slate-300',
+                    isChosen ? 'border-ink bg-raised' : 'border-slate-200 hover:border-slate-400',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="accountType"
+                    value={type}
+                    checked={isChosen}
+                    onChange={() => chooseType(type)}
+                    className="mt-1 size-4 shrink-0 accent-ink"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-baseline justify-between gap-x-3">
+                      <span className="text-base font-semibold text-slate-900">{t(`register.types.${type}.title`)}</span>
+                      <span className="num text-sm font-semibold text-slate-600">{t(`register.types.${type}.ruc`)}</span>
+                    </span>
+                    <span className="mt-1 block text-sm leading-relaxed text-slate-600">{t(`register.types.${type}.text`)}</span>
+                  </span>
+                </label>
+              )
+            })}
+            {typeMissing && (
+              <p id="account-type-error" role="alert" className="text-sm text-red-600">
+                {t('register.typeRequired')}
+              </p>
+            )}
+          </fieldset>
+
+          <fieldset className={cn('grid gap-5 sm:grid-cols-2', step !== 1 && 'hidden')}>
+            <legend className="sr-only">{t(isPerson ? 'register.personLegend' : 'register.companyLegend')}</legend>
+            <Input
+              className="sm:col-span-2"
+              label={t(isPerson ? 'register.personName' : 'register.companyName')}
+              required
+              placeholder={t(isPerson ? 'register.personNamePlaceholder' : 'register.companyNamePlaceholder')}
+              readOnly={Boolean(sunatLock?.name)}
+              leftIcon={sunatLock?.name ? <Lock className="size-4" /> : undefined}
+              hint={sunatLock?.name ? t('verification.lockedSunat') : undefined}
+              error={errors.companyName?.message}
+              {...register('companyName')}
+            />
             <div>
               <Input
                 label={t('register.taxId')}
                 required
                 inputMode="numeric"
                 maxLength={11}
-                placeholder="20123456789"
-                hint={rucLookup?.ruc === taxIdValue.trim() ? undefined : t('register.taxIdHint')}
-                error={errors.taxId?.message}
-                {...register('taxId')}
+                placeholder={isPerson ? '10467793549' : '20123456789'}
+                hint={rucLookup?.ruc === taxIdValue.trim() ? undefined : t(isPerson ? 'register.taxIdHintPerson' : 'register.taxIdHintCompany')}
+                error={errors.taxId?.message ?? rucPrefixError(taxIdValue, accountType)}
+                {...register('taxId', { onChange: (event) => releaseSunat(event.target.value) })}
               />
               {rucLookup?.ruc === taxIdValue.trim() && (
                 <p className={cn('mt-1.5 flex items-start gap-1.5 text-xs', rucLookup.state === 'found' ? 'text-positive' : 'text-slate-600')} role="status">
@@ -311,23 +454,43 @@ export default function RegisterPage() {
                 </p>
               )}
             </div>
-            <Input label={t('register.companyPhone')} type="tel" placeholder="01 234 5678" error={errors.companyPhone?.message} {...register('companyPhone')} />
-            <Input className="sm:col-span-2" label={t('register.companyEmail')} type="email" required placeholder={t('register.companyEmailPlaceholder')} error={errors.companyEmail?.message} {...register('companyEmail')} />
-            <Select
-              label={t('register.city')}
-              required
-              placeholder={t('register.cityPlaceholder')}
-              options={PERU_CITIES.map((city) => ({ value: city.name, label: city.name }))}
-              error={errors.city?.message}
-              {...cityField}
-              onChange={(event) => {
-                void cityField.onChange(event)
-                setValue('latitude', '')
-                setValue('longitude', '')
-                setLocationStatus('idle')
-              }}
+            <Input label={t(isPerson ? 'register.personPhone' : 'register.companyPhone')} type="tel" placeholder="01 234 5678" error={errors.companyPhone?.message} {...register('companyPhone')} />
+            <Input className="sm:col-span-2" label={t(isPerson ? 'register.personEmail' : 'register.companyEmail')} type="email" required placeholder={t('register.companyEmailPlaceholder')} error={errors.companyEmail?.message} {...register('companyEmail')} />
+            {sunatLock?.city ? (
+              // A <select> cannot be read-only, so the city SUNAT gave is shown in a locked text field.
+              <Input
+                label={t('register.city')}
+                required
+                readOnly
+                value={watch('city')}
+                leftIcon={<Lock className="size-4" />}
+                hint={t('verification.lockedSunat')}
+              />
+            ) : (
+              <Select
+                label={t('register.city')}
+                required
+                placeholder={t('register.cityPlaceholder')}
+                options={PERU_CITIES.map((city) => ({ value: city.name, label: city.name }))}
+                error={errors.city?.message}
+                {...cityField}
+                onChange={(event) => {
+                  void cityField.onChange(event)
+                  setValue('latitude', '')
+                  setValue('longitude', '')
+                  setLocationStatus('idle')
+                }}
+              />
+            )}
+            <Input
+              label={t('register.address')}
+              placeholder="Av. Javier Prado 123"
+              readOnly={Boolean(sunatLock?.address)}
+              leftIcon={sunatLock?.address ? <Lock className="size-4" /> : undefined}
+              hint={sunatLock?.address ? t('verification.lockedSunat') : undefined}
+              error={errors.address?.message}
+              {...register('address')}
             />
-            <Input label={t('register.address')} placeholder="Av. Javier Prado 123" error={errors.address?.message} {...register('address')} />
             <div className="flex flex-col gap-2 rounded-lg bg-slate-50 p-4 text-sm sm:col-span-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-slate-600">
                 {t(`register.location.${locationStatus === 'locating' ? 'idle' : locationStatus}`)}
@@ -344,16 +507,22 @@ export default function RegisterPage() {
             </div>
           </fieldset>
 
-          <fieldset className={cn('grid gap-5 sm:grid-cols-2', step !== 1 && 'hidden')}>
-            <legend className="sr-only">{t('register.adminLegend')}</legend>
+          <fieldset className={cn('grid gap-5 sm:grid-cols-2', step !== 2 && 'hidden')}>
+            <legend className="sr-only">{t(isPerson ? 'register.personAdminLegend' : 'register.adminLegend')}</legend>
             <div className="sm:col-span-2">
               <Input
-                label={t('verification.dni')}
+                label={t(isPerson ? 'verification.dniPerson' : 'verification.dni')}
+                required={isPerson}
                 inputMode="numeric"
                 maxLength={8}
                 placeholder="46027896"
+                // A RUC 10 is the person's DNI with a prefix and a check digit: the DNI is not theirs to change.
+                readOnly={isPerson}
+                leftIcon={isPerson ? <Lock className="size-4" /> : undefined}
                 hint={
-                  dniLookup === 'found'
+                  isPerson && dniLookup !== 'found'
+                    ? t('verification.dniFromRuc')
+                    : dniLookup === 'found'
                     ? t('verification.dniFound')
                     : dniLookup === 'missing'
                       ? t('verification.dniMissing')
@@ -362,11 +531,32 @@ export default function RegisterPage() {
                         : t('verification.dniHint')
                 }
                 error={errors.dni?.message}
-                {...register('dni', { onBlur: () => void lookupDni() })}
+                {...register('dni', {
+                  onChange: (event) => releaseReniec(event.target.value),
+                  onBlur: () => void lookupDni(),
+                })}
               />
             </div>
-            <Input label={t('register.firstName')} required autoComplete="given-name" error={errors.firstName?.message} {...register('firstName')} />
-            <Input label={t('register.lastName')} required autoComplete="family-name" error={errors.lastName?.message} {...register('lastName')} />
+            <Input
+              label={t('register.firstName')}
+              required
+              autoComplete="given-name"
+              readOnly={Boolean(reniecLock?.firstName)}
+              leftIcon={reniecLock?.firstName ? <Lock className="size-4" /> : undefined}
+              hint={reniecLock?.firstName ? t('verification.lockedReniec') : undefined}
+              error={errors.firstName?.message}
+              {...register('firstName')}
+            />
+            <Input
+              label={t('register.lastName')}
+              required
+              autoComplete="family-name"
+              readOnly={Boolean(reniecLock?.lastName)}
+              leftIcon={reniecLock?.lastName ? <Lock className="size-4" /> : undefined}
+              hint={reniecLock?.lastName ? t('verification.lockedReniec') : undefined}
+              error={errors.lastName?.message}
+              {...register('lastName')}
+            />
             <Input label={t('register.email')} type="email" required autoComplete="email" hint={t('register.emailHint')} error={errors.email?.message} {...register('email')} />
             <Input label={t('register.phone')} type="tel" autoComplete="tel" placeholder="987 654 321" error={errors.phone?.message} {...register('phone')} />
             <Input label={t('register.password')} type="password" required autoComplete="new-password" error={errors.password?.message} {...register('password')} />
@@ -391,16 +581,18 @@ export default function RegisterPage() {
                 {t('register.haveAccount')}
               </Link>
             ) : (
-              <Button variant="secondary" onClick={() => setStep(0)} disabled={isSubmitting} leftIcon={<ArrowLeft className="size-4" />}>
+              <Button variant="secondary" onClick={() => setStep(step - 1)} disabled={isSubmitting} leftIcon={<ArrowLeft className="size-4" />}>
                 {t('register.previous')}
               </Button>
             )}
-            {step === 0 ? (
-              <Button variant="gradient" onClick={goToNextStep} className="h-11 px-6">
+            {/* Different keys: reusing one <button> would turn "Next" into type=submit during the same
+                click, and the browser would submit the form before the last step is filled in. */}
+            {step < STEPS.length - 1 ? (
+              <Button key="next" variant="gradient" onClick={goToNextStep} className="h-11 px-6">
                 {t('register.next')} <ArrowRight className="size-4" aria-hidden="true" />
               </Button>
             ) : (
-              <Button type="submit" variant="gradient" isLoading={isSubmitting} className="h-11 px-6">
+              <Button key="submit" type="submit" variant="gradient" isLoading={isSubmitting} className="h-11 px-6">
                 {t('register.submit')}
               </Button>
             )}

@@ -1,9 +1,11 @@
-import { Mail, MessageCircle, MessageSquareText } from 'lucide-react'
+import { BellRing, Mail, MessageCircle, MessageSquareText } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation } from '../../hooks/useMutation'
+import { useToast } from '../../hooks/useToast'
 import { reservationService } from '../../services/reservationService'
 import type { ReceiptChannel } from '../../types'
+import { ApiError } from '../../utils/apiError'
 import { Button } from '../common/Button'
 
 interface ReceiptShareButtonsProps {
@@ -11,22 +13,58 @@ interface ReceiptShareButtonsProps {
   size?: 'sm' | 'md'
 }
 
+const ALL_CHANNELS: ReceiptChannel[] = ['EMAIL', 'WHATSAPP', 'SMS']
+
 /** Sends the receipt to the user's registered email, WhatsApp or SMS; the toast says exactly where it went. */
 export function ReceiptShareButtons({ reservationId, size = 'md' }: ReceiptShareButtonsProps) {
   const { t } = useTranslation()
+  const toast = useToast()
   const [sendingChannel, setSendingChannel] = useState<ReceiptChannel | null>(null)
+  const [isSendingAll, setIsSendingAll] = useState(false)
   const send = useMutation((channel: ReceiptChannel) => reservationService.sendReceipt(reservationId, channel), {
     successMessage: (delivery) =>
       t('receipt.sent', { channel: t(`receipt.channels.${delivery.channel}`), destination: delivery.destination }),
     errorTitle: t('receipt.sendFailed'),
   })
+  const isBusy = send.isLoading || isSendingAll
+
+  /** Every channel at once; one channel failing (e.g. no phone on file) does not stop the others. */
+  async function sendAll() {
+    setIsSendingAll(true)
+    try {
+      const results = await Promise.allSettled(
+        ALL_CHANNELS.map((channel) => reservationService.sendReceipt(reservationId, channel)),
+      )
+      const sent: string[] = []
+      const failed: string[] = []
+      results.forEach((result, index) => {
+        const channelName = t(`receipt.channels.${ALL_CHANNELS[index]}`)
+        if (result.status === 'fulfilled') sent.push(channelName)
+        else failed.push(`${channelName}: ${ApiError.from(result.reason).message}`)
+      })
+      if (sent.length > 0) toast.success(t('receipt.sentAll', { channels: sent.join(', ') }))
+      if (failed.length > 0) toast.error(t('receipt.sendAllPartial'), failed.join(' · '))
+    } finally {
+      setIsSendingAll(false)
+    }
+  }
 
   return (
     <>
       <Button
         size={size}
+        variant="primary"
+        disabled={isBusy}
+        isLoading={isSendingAll}
+        onClick={() => void sendAll()}
+        leftIcon={<BellRing className="size-4" />}
+      >
+        {t('receipt.sendAll')}
+      </Button>
+      <Button
+        size={size}
         variant="secondary"
-        disabled={send.isLoading}
+        disabled={isBusy}
         isLoading={send.isLoading && sendingChannel === 'EMAIL'}
         onClick={() => {
           setSendingChannel('EMAIL')
@@ -39,7 +77,7 @@ export function ReceiptShareButtons({ reservationId, size = 'md' }: ReceiptShare
       <Button
         size={size}
         variant="secondary"
-        disabled={send.isLoading}
+        disabled={isBusy}
         isLoading={send.isLoading && sendingChannel === 'WHATSAPP'}
         onClick={() => {
           setSendingChannel('WHATSAPP')
@@ -52,7 +90,7 @@ export function ReceiptShareButtons({ reservationId, size = 'md' }: ReceiptShare
       <Button
         size={size}
         variant="secondary"
-        disabled={send.isLoading}
+        disabled={isBusy}
         isLoading={send.isLoading && sendingChannel === 'SMS'}
         onClick={() => {
           setSendingChannel('SMS')
