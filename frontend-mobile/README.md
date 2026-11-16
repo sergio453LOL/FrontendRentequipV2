@@ -22,8 +22,8 @@ Si el QR no conecta (otra red o firewall), usa `npm run start:tunnel`: Expo crea
 
 ## Con el backend desplegado
 
-1. En `.env` pon la URL HTTPS que imprime `deploy/deploy-aws.sh`:
-   `EXPO_PUBLIC_API_URL=https://3-237-198-235.sslip.io/api/v1`
+1. En `.env` pon la URL HTTPS del backend desplegado (Elastic IP, no cambia):
+   `EXPO_PUBLIC_API_URL=https://184-197-5-219.sslip.io/api/v1`
 2. Reinicia con `npx expo start -c`: las variables `EXPO_PUBLIC_*` se insertan al empaquetar y `-c`
    limpia la caché para que tome la nueva.
 3. Escanea el QR con Expo Go. Ya funciona con cualquier red, porque la API es pública.

@@ -10,12 +10,20 @@ npm install
 npm run dev
 ```
 
-## Deployment en Vercel
+## Deployment en GitHub Pages (actual)
+
+La web está publicada en https://sergio453lol.github.io/FrontendRentequipV2/. El workflow
+[`.github/workflows/deploy-pages.yml`](../.github/workflows/deploy-pages.yml) la compila y publica en cada
+push a `main`, con `VITE_API_URL` y `VITE_STRIPE_PUBLISHABLE_KEY` como variables del repositorio
+(**Settings > Secrets and variables > Actions > Variables**). Sin `VITE_API_URL` usa
+`https://184-197-5-219.sslip.io/api/v1`.
+
+## Deployment en Vercel (alternativa)
 
 1. En Vercel: **Add New > Project**, importa el repositorio y en **Root Directory** elige `frontend-web`.
    El resto lo toma de `vercel.json` (framework Vite, `npm run build`, carpeta `dist`).
 2. En **Settings > Environment Variables** agrega `VITE_API_URL` con la URL **HTTPS** del backend
-   (la imprime `deploy/deploy-aws.sh`, p. ej. `https://3-237-198-235.sslip.io/api/v1`).
+   (la imprime `deploy/deploy-aws.sh`, p. ej. `https://184-197-5-219.sslip.io/api/v1`).
    Vite la inserta al compilar, así que si cambia hay que volver a desplegar (**Redeploy**).
 3. Despliega. La URL `https://<proyecto>.vercel.app` ya está permitida por el CORS del backend
    (`https://*.vercel.app`). Para un dominio propio, agrégalo a `CORS_ALLOWED_ORIGINS` en el backend.
