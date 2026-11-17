@@ -41,9 +41,13 @@ eas env:create --name GOOGLE_MAPS_API_KEY --value <tu-clave> --environment previ
 eas build -p android --profile preview
 ```
 
-En Expo Go el mapa funciona sin clave. En un APK, `react-native-maps` necesita
-`GOOGLE_MAPS_API_KEY` (Maps SDK for Android en Google Cloud); `app.config.ts` la toma del entorno,
-así que la clave nunca se guarda en el repositorio.
+En Expo Go el mapa usa `react-native-maps` sin clave. En un APK de Android sin `GOOGLE_MAPS_API_KEY`, la pantalla Mapa
+usa Leaflet + OpenStreetMap dentro de un WebView (`src/components/LeafletMap.tsx`), que no necesita clave. Si se
+configura `GOOGLE_MAPS_API_KEY` (Maps SDK for Android en Google Cloud), el APK vuelve a `react-native-maps`;
+`app.config.ts` la toma del entorno, así que la clave nunca se guarda en el repositorio.
+
+El APK desactiva la minificación de R8 (`expo-build-properties`): con ella, R8 borraba la base de datos interna de
+WorkManager y la app se cerraba al abrir.
 
 ## Cómo cubre la rúbrica de Mobile
 

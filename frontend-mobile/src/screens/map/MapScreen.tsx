@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
+import Constants, { ExecutionEnvironment } from 'expo-constants'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import MapView, { Callout, Marker, type Region } from 'react-native-maps'
 import { AppButton } from '../../components/AppButton'
+import { LeafletMap, type LeafletMapHandle, type LeafletMarker } from '../../components/LeafletMap'
 import { LoadingView } from '../../components/StateViews'
 import { useAsync } from '../../hooks/useAsync'
 import { useAuth } from '../../hooks/useAuth'
@@ -46,6 +48,15 @@ function radiusFor(region: Region): number {
   return Math.min(MAX_RADIUS_KM, Math.max(1, Math.round(visibleKm)))
 }
 
+/**
+ * Android draws react-native-maps with Google Maps, which needs an API key in the build. Expo Go brings its own
+ * key; an APK built without GOOGLE_MAPS_API_KEY uses the Leaflet + OpenStreetMap map instead, which needs none.
+ */
+const USE_NATIVE_MAP =
+  Platform.OS !== 'android' ||
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient ||
+  Constants.expoConfig?.extra?.googleMapsConfigured === true
+
 export default function MapScreen() {
   const { t } = useTranslation()
   const { colors, scheme } = useTheme()
@@ -54,6 +65,7 @@ export default function MapScreen() {
   const { user } = useAuth()
   const location = useCurrentLocation()
   const mapRef = useRef<MapView>(null)
+  const leafletRef = useRef<LeafletMapHandle>(null)
   const [chosenArea, setArea] = useState<SearchArea | null>(null)
   const [visibleRegion, setVisibleRegion] = useState<Region | null>(null)
 
@@ -77,6 +89,23 @@ export default function MapScreen() {
   )
   const { data, error, isLoading, reload } = useAsync(area ? fetchArea : null)
 
+  const leafletMarkers = useMemo<LeafletMarker[]>(
+    () =>
+      (data?.content ?? []).map((item) => ({
+        id: item.id,
+        latitude: item.latitude,
+        longitude: item.longitude,
+        color: PIN_COLORS[item.status],
+        title: item.name,
+        subtitle: `${formatCurrency(item.dailyRate, item.currency)} ${t('common.perDay')} · ${item.ownerCompanyName}`,
+      })),
+    [data, t],
+  )
+  const userPoint = useMemo(
+    () => (location.isFallback ? null : { latitude, longitude }),
+    [location.isFallback, latitude, longitude],
+  )
+
   if (!area) return <LoadingView label={t('map.locating')} />
 
   const equipment = data?.content ?? []
@@ -97,42 +126,62 @@ export default function MapScreen() {
       location.requestAccess()
       return
     }
-    mapRef.current?.animateToRegion(regionFor({ ...location.coords, radiusKm: 10 }), 500)
+    const here = { ...location.coords, radiusKm: 10 }
+    if (USE_NATIVE_MAP) mapRef.current?.animateToRegion(regionFor(here), 500)
+    else leafletRef.current?.flyTo(here)
+  }
+
+  function openEquipment(id: number) {
+    const item = equipment.find((candidate) => candidate.id === id)
+    navigation.navigate('EquipmentDetail', { equipmentId: id, name: item?.name })
   }
 
   return (
     <View style={styles.container}>
-      <MapView
-        ref={mapRef}
-        style={StyleSheet.absoluteFill}
-        initialRegion={regionFor(area)}
-        showsUserLocation={!location.isFallback}
-        showsMyLocationButton={false}
-        onRegionChangeComplete={setVisibleRegion}
-        userInterfaceStyle={scheme}
-        accessibilityLabel={t('map.label')}
-      >
-        {equipment.map((item) => (
-          <Marker
-            key={item.id}
-            coordinate={{ latitude: item.latitude, longitude: item.longitude }}
-            pinColor={PIN_COLORS[item.status]}
-            title={item.name}
-          >
-            <Callout onPress={() => navigation.navigate('EquipmentDetail', { equipmentId: item.id, name: item.name })}>
-              <View style={styles.callout}>
-                <Text style={styles.calloutTitle} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                <Text style={styles.calloutText}>
-                  {formatCurrency(item.dailyRate, item.currency)} {t('common.perDay')} · {item.ownerCompanyName}
-                </Text>
-                <Text style={styles.calloutLink}>{t('map.seeDetail')} ›</Text>
-              </View>
-            </Callout>
-          </Marker>
-        ))}
-      </MapView>
+      {USE_NATIVE_MAP ? (
+        <MapView
+          ref={mapRef}
+          style={StyleSheet.absoluteFill}
+          initialRegion={regionFor(area)}
+          showsUserLocation={!location.isFallback}
+          showsMyLocationButton={false}
+          onRegionChangeComplete={setVisibleRegion}
+          userInterfaceStyle={scheme}
+          accessibilityLabel={t('map.label')}
+        >
+          {equipment.map((item) => (
+            <Marker
+              key={item.id}
+              coordinate={{ latitude: item.latitude, longitude: item.longitude }}
+              pinColor={PIN_COLORS[item.status]}
+              title={item.name}
+            >
+              <Callout onPress={() => navigation.navigate('EquipmentDetail', { equipmentId: item.id, name: item.name })}>
+                <View style={styles.callout}>
+                  <Text style={styles.calloutTitle} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.calloutText}>
+                    {formatCurrency(item.dailyRate, item.currency)} {t('common.perDay')} · {item.ownerCompanyName}
+                  </Text>
+                  <Text style={styles.calloutLink}>{t('map.seeDetail')} ›</Text>
+                </View>
+              </Callout>
+            </Marker>
+          ))}
+        </MapView>
+      ) : (
+        <LeafletMap
+          ref={leafletRef}
+          initialRegion={area}
+          markers={leafletMarkers}
+          userLocation={userPoint}
+          linkLabel={t('map.seeDetail')}
+          accessibilityLabel={t('map.label')}
+          onSelect={openEquipment}
+          onRegionChange={(region) => setVisibleRegion(regionFor(region))}
+        />
+      )}
 
       <View style={styles.topBar} pointerEvents="box-none">
         <View style={styles.pill}>

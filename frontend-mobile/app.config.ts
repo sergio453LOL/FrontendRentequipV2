@@ -14,5 +14,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ...config.android,
       ...(googleMapsApiKey && { config: { ...config.android?.config, googleMaps: { apiKey: googleMapsApiKey } } }),
     },
+    // Without a key the Google Maps SDK closes the app as soon as a map is drawn, so the map screen checks this flag.
+    extra: { ...config.extra, googleMapsConfigured: Boolean(googleMapsApiKey) },
   }
 }

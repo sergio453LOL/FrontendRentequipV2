@@ -45,7 +45,17 @@
           "photosPermission": "RentEquip necesita acceder a tus fotos para adjuntar el estado de la maquinaria cuando no puedes usar la cámara."
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": false,
+            "enableShrinkResourcesInReleaseBuilds": false,
+            "extraProguardRules": "-keep class androidx.work.impl.WorkDatabase_Impl { *; }\n-keep class * extends androidx.room.RoomDatabase { <init>(); }\n-keep class androidx.startup.** { *; }"
+          }
+        }
+      ]
     ],
     "scheme": "rentequip",
     "extra": {

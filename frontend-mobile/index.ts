@@ -1,3 +1,4 @@
+import './src/crashReporter';
 import { registerRootComponent } from 'expo';
 
 import App from './App';
