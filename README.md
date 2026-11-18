@@ -18,7 +18,7 @@
 **Repositorio backend:** https://github.com/sergio453LOL/BackendRentequipV2<br>
 **Web en vivo:** https://sergio453lol.github.io/FrontendRentequipV2/<br>
 **API en vivo:** https://44-215-225-249.sslip.io/swagger-ui.html<br>
-**APK Android:** https://expo.dev/artifacts/eas/QH7AR-TD501LWy1cB-gsJXTZuKgADOlpPjiDtrTBv7U.apk<br>
+**APK Android:** https://expo.dev/artifacts/eas/-cx_hVkb8TPhNwv-WhEcOKyUC0gRDeDBkBefCE40H5c.apk<br>
 **Evidencias de Deployment AWS y Swagger:** https://drive.google.com/drive/u/3/folders/1xaAGR4s1PUR31v4fTu4G2omBxdpoc3hD
 
 ### Participación de los integrantes
@@ -173,7 +173,7 @@ Las dos apps siguen la misma separación en capas:
 | Pieza | Plataforma | Cómo se configura |
 |---|---|---|
 | Web | **GitHub Pages** — https://sergio453lol.github.io/FrontendRentequipV2/ | [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml) compila y publica en cada push a `main`. `VITE_API_URL` y `VITE_STRIPE_PUBLISHABLE_KEY` llegan como variables del repositorio. Copia `index.html` a `404.html` para que recargar una ruta profunda funcione. |
-| Móvil | **Expo / EAS Build** — proyecto `@sergiorojas/rentequip`, [descargar APK](https://expo.dev/artifacts/eas/QH7AR-TD501LWy1cB-gsJXTZuKgADOlpPjiDtrTBv7U.apk) | `EXPO_PUBLIC_API_URL` y `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` como variables de entorno de EAS. `eas build -p android --profile preview` genera el APK instalable. |
+| Móvil | **Expo / EAS Build** — proyecto `@sergiorojas/rentequip`, [descargar APK](https://expo.dev/artifacts/eas/-cx_hVkb8TPhNwv-WhEcOKyUC0gRDeDBkBefCE40H5c.apk) | `EXPO_PUBLIC_API_URL` y `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` como variables de entorno de EAS. `eas build -p android --profile preview` genera el APK instalable. |
 | API | **AWS EC2 + RDS** — https://44-215-225-249.sslip.io | Caddy con HTTPS (Let's Encrypt) y Elastic IP. Ver el [README del backend](https://github.com/sergio453LOL/BackendRentequipV2#evidencias-de-deployment). |
 
 Toda la cadena va por HTTPS, sin contenido mixto, y el backend permite el origen de GitHub Pages en CORS. Las URLs y claves llegan por variables de entorno; ninguna clave secreta vive en el código.
