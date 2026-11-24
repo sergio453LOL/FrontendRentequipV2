@@ -7,6 +7,8 @@ import { GuestRoute, PrivateRoute } from './PrivateRoute'
 import { ADMIN_ROLES, PUBLISHER_ROLES } from './roles'
 
 const LandingPage = lazy(() => import('../pages/LandingPage'))
+const BlogPage = lazy(() => import('../pages/BlogPage'))
+const BlogArticlePage = lazy(() => import('../pages/BlogArticlePage'))
 const OffersPage = lazy(() => import('../pages/OffersPage'))
 const LoginPage = lazy(() => import('../pages/LoginPage'))
 const RegisterPage = lazy(() => import('../pages/RegisterPage'))
@@ -26,6 +28,8 @@ export function AppRoutes() {
     <Suspense fallback={<FullPageSpinner />}>
       <Routes>
         <Route path={PATHS.landing} element={<LandingPage />} />
+        <Route path={PATHS.blog} element={<BlogPage />} />
+        <Route path={PATHS.blogArticle} element={<BlogArticlePage />} />
         <Route element={<GuestRoute />}>
           <Route path={PATHS.login} element={<LoginPage />} />
           <Route path={PATHS.register} element={<RegisterPage />} />

@@ -40,6 +40,8 @@ export interface Equipment {
   /** Who runs the machine when the rate includes an operator; null when not described. */
   operator: OperatorProfile | null
   ownerCompanyVerified: boolean
+  /** Usage and safety instructions as a PDF; null when the owner attached none. */
+  manualUrl: string | null
 }
 
 export interface OperatorProfile {

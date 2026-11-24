@@ -11,14 +11,33 @@ const MAX_DAYS = 90
  * Rough total before asking for dates: days × daily rate plus the refundable deposit, the same way the
  * backend bills a reservation.
  */
-export function QuickQuote({ equipment, selectedDays }: { equipment: Equipment; selectedDays?: number }) {
+export const DEFAULT_QUOTE_DAYS = 3
+
+export function QuickQuote({
+  equipment,
+  selectedDays,
+  days: controlledDays,
+  onDaysChange,
+}: {
+  equipment: Equipment
+  selectedDays?: number
+  /** Days on the stepper, when the page keeps them (e.g. to put the same quote in a PDF). */
+  days?: number
+  onDaysChange?: (days: number) => void
+}) {
   const { t } = useTranslation()
-  const [chosenDays, setDays] = useState(3)
+  const [ownDays, setOwnDays] = useState(DEFAULT_QUOTE_DAYS)
+  const chosenDays = controlledDays ?? ownDays
+  const setDays = (next: number) => {
+    const clamped = Math.min(MAX_DAYS, Math.max(MIN_DAYS, next))
+    setOwnDays(clamped)
+    onDaysChange?.(clamped)
+  }
   // Dates picked on the calendar win over the stepper, so the quote matches what will be booked.
   const days = selectedDays ?? chosenDays
   const rental = days * equipment.dailyRate
   const total = rental + equipment.securityDeposit
-  const change = (delta: number) => setDays((current) => Math.min(MAX_DAYS, Math.max(MIN_DAYS, current + delta)))
+  const change = (delta: number) => setDays(chosenDays + delta)
 
   return (
     <section aria-labelledby="quote-title" className="rounded-lg bg-slate-50 p-4 ring-1 ring-slate-200 ring-inset">
@@ -51,7 +70,7 @@ export function QuickQuote({ equipment, selectedDays }: { equipment: Equipment; 
             value={days}
             onChange={(event) => {
               const value = Number(event.target.value)
-              if (Number.isFinite(value)) setDays(Math.min(MAX_DAYS, Math.max(MIN_DAYS, Math.round(value))))
+              if (Number.isFinite(value)) setDays(Math.round(value))
             }}
             className="num h-8 w-10 border-x border-slate-200 text-center text-sm font-semibold text-ink [appearance:textfield] focus:outline-none [&::-webkit-inner-spin-button]:appearance-none"
           />

@@ -8,7 +8,7 @@ import { celebrate } from '../../utils/celebrate'
 import { downloadReceipt } from '../../utils/downloadReceipt'
 import { formatCurrency } from '../../utils/format'
 import { Button } from '../common/Button'
-import { ReceiptShareButtons } from '../receipts/ReceiptShareButtons'
+import { ReceiptDeliveryStatus } from '../receipts/ReceiptDeliveryStatus'
 
 interface PaymentSuccessProps {
   reservation: Reservation
@@ -36,7 +36,7 @@ export function PaymentSuccess({ reservation, payments, onDone, doneLabel }: Pay
   }
 
   return (
-    <div className="flex flex-col items-center gap-4 py-4 text-center">
+    <div className="flex flex-col items-center gap-5 py-2 text-center">
       <motion.span
         initial={{ scale: 0.4, opacity: 0, rotate: -12 }}
         animate={{ scale: 1, opacity: 1, rotate: 0 }}
@@ -45,23 +45,23 @@ export function PaymentSuccess({ reservation, payments, onDone, doneLabel }: Pay
       >
         <CheckCircle2 className="size-10 text-status-green" aria-hidden="true" />
       </motion.span>
-      <div className="space-y-1">
+      <div className="max-w-[44ch] space-y-1.5">
         <h3 className="text-lg font-semibold text-slate-900">{t('payment.confirmed')}</h3>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm leading-6 text-pretty text-slate-600">
           {t('payment.confirmedText', {
             rental: formatCurrency(reservation.rentalAmount, reservation.currency),
             deposit: formatCurrency(reservation.securityDeposit, reservation.currency),
           })}
         </p>
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <Button variant="secondary" onClick={handleDownload} isLoading={isGenerating} leftIcon={<FileDown className="size-4" />}>
+      <ReceiptDeliveryStatus reservationId={reservation.id} />
+      <div className="grid w-full gap-2 sm:grid-cols-2">
+        <Button variant="secondary" fullWidth onClick={handleDownload} isLoading={isGenerating} leftIcon={<FileDown className="size-4" />}>
           {t('payment.downloadPdf')}
         </Button>
-        <Button onClick={onDone}>{doneLabel ?? t('payment.done')}</Button>
-      </div>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <ReceiptShareButtons reservationId={reservation.id} size="sm" />
+        <Button fullWidth onClick={onDone}>
+          {doneLabel ?? t('payment.done')}
+        </Button>
       </div>
     </div>
   )

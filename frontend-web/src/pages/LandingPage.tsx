@@ -15,12 +15,13 @@ import {
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { BrandMark } from '../components/common/BrandMark'
-import { LanguageMenu } from '../components/common/LanguageMenu'
+import { ArticleRow, LeadArticle } from '../components/blog/BlogCards'
 import { EquipmentImage } from '../components/equipment/EquipmentImage'
 import { AiSearchShowcase } from '../components/landing/AiSearchShowcase'
 import { AnimatedNumber } from '../components/landing/AnimatedNumber'
 import { LandingHero } from '../components/landing/LandingHero'
+import { SiteFooter, SiteHeader } from '../components/landing/SiteChrome'
+import { BLOG_ARTICLES } from '../content/blog'
 import { useAuth } from '../hooks/useAuth'
 import { useFetch } from '../hooks/useFetch'
 import { buildPath, PATHS } from '../routes/paths'
@@ -38,18 +39,8 @@ const integer = (value: number) => formatNumber(Math.round(value))
 /** White card with a precision border: the one surface of the page. */
 const CARD = 'rounded-2xl border border-slate-200/80 bg-white shadow-sm'
 
-function ActionLink({ to, children }: { to: string; children: React.ReactNode }) {
-  return (
-    <motion.span whileHover={{ y: -1 }} whileTap={{ scale: 0.97 }} className="inline-flex">
-      <Link
-        to={to}
-        className="inline-flex h-11 items-center gap-2 rounded-lg bg-machine px-5 text-[15px] font-semibold whitespace-nowrap text-asphalt transition-colors hover:bg-machine-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asphalt"
-      >
-        {children}
-      </Link>
-    </motion.span>
-  )
-}
+/** The three newest guides: one leads the landing's guides section, two follow beside it. */
+const latestGuides = [...BLOG_ARTICLES].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3)
 
 export default function LandingPage() {
   const { t } = useTranslation()
@@ -97,40 +88,25 @@ export default function LandingPage() {
 
   return (
     <div className="theme-light min-h-screen bg-slate-50 text-ink">
-      <header className="border-b border-slate-200/80 bg-white">
-        <div className="mx-auto flex h-[68px] max-w-6xl items-center gap-6 px-4 sm:px-6">
-          <Link to={PATHS.landing} className="flex items-center gap-2" aria-label={t('landing.home')}>
-            <BrandMark className="size-7 text-machine" />
-            <span className="text-xl font-bold tracking-tight text-ink">RentEquip</span>
-          </Link>
-          <nav className="ml-3 hidden items-center gap-8 text-[17px] text-slate-500 md:flex" aria-label={t('landing.sections')}>
+      <SiteHeader
+        appHome={appHome}
+        nav={
+          <>
             <a href="#maquinaria" className="transition-colors hover:text-ink">
               {t('landing.navMachinery')}
             </a>
             <a href="#como-funciona" className="transition-colors hover:text-ink">
               {t('landing.navHowItWorks')}
             </a>
+            <a href="#guias" className="transition-colors hover:text-ink">
+              {t('blog.nav')}
+            </a>
             <a href="#buscador-ia" className="inline-flex items-center gap-1.5 font-medium text-ink underline decoration-machine decoration-[3px] underline-offset-[6px] transition-colors hover:decoration-asphalt">
               <Sparkles className="size-4" aria-hidden="true" /> {t('landing.navAi')}
             </a>
-          </nav>
-          <div className="ml-auto flex items-center gap-2">
-            <LanguageMenu />
-            {isAuthenticated ? (
-              <ActionLink to={appHome}>
-                {t('landing.goToPanel')} <ArrowRight className="size-4" aria-hidden="true" />
-              </ActionLink>
-            ) : (
-              <>
-                <Link to={PATHS.login} className="hidden h-10 items-center rounded-lg px-4 text-[17px] font-medium text-ink transition-colors hover:bg-slate-100 sm:inline-flex">
-                  {t('landing.login')}
-                </Link>
-                <ActionLink to={PATHS.register}>{t('landing.register')}</ActionLink>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <LandingHero
         mode={mode}
@@ -266,6 +242,47 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ------------------------------------------------------------- guides */}
+      {/* The newest guide large on the left, the next two as a list beside it: an editorial page, not a card row. */}
+      <section id="guias" aria-labelledby="guias-title" className="scroll-mt-8 bg-white py-20 lg:py-24">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="max-w-2xl">
+              <h2 id="guias-title" className="text-3xl font-bold tracking-tight text-[#0f172a]">
+                {t('blog.landingTitle')}
+              </h2>
+              <p className="mt-3 text-lg leading-8 text-slate-700">{t('blog.landingText')}</p>
+            </div>
+            <Link to={PATHS.blog} className="group inline-flex items-center gap-1.5 text-sm font-semibold text-ink underline decoration-machine decoration-2 underline-offset-4">
+              {t('blog.seeAll')} <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+            </Link>
+          </div>
+          <div className="mt-10 grid gap-12 lg:grid-cols-[1.35fr_1fr] lg:gap-14">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-60px' }}
+              transition={{ duration: 0.7, ease: EASE_OUT }}
+            >
+              <LeadArticle article={latestGuides[0]} />
+            </motion.div>
+            <ul className="space-y-8 lg:pt-1">
+              {latestGuides.slice(1).map((article, index) => (
+                <motion.li
+                  key={article.slug}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-60px' }}
+                  transition={{ duration: 0.6, delay: 0.1 + index * 0.08, ease: EASE_OUT }}
+                >
+                  <ArticleRow article={article} />
+                </motion.li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
       {/* --------------------------------------------------------------- CTA */}
       {/* Closing field in machine yellow, flat floor to edge: the page ends on the colour of the machines. */}
       <section className="bg-machine text-asphalt">
@@ -285,12 +302,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="bg-asphalt">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-6 text-sm text-[#a3a7ad] sm:px-6">
-          <span>{t('landing.footer')}</span>
-          <span>{t('landing.location')}</span>
-        </div>
-      </footer>
+      <SiteFooter />
       <ScrollToTopButton />
     </div>
   )

@@ -1,4 +1,4 @@
-import { CalendarX2, Check, CreditCard, FileDown, FilterX, Flag, Play, Search, ShoppingBag, Star, X } from 'lucide-react'
+import { BookOpen, CalendarX2, Check, CreditCard, FileDown, FilterX, Flag, Play, Search, ShoppingBag, Star, X } from 'lucide-react'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -197,6 +197,19 @@ export default function MyReservationsPage() {
           </Button>
         )}
         {role === 'RENTER' && reservation.paymentStatus === 'PAID' && <ReceiptShareButtons reservationId={reservation.id} size="sm" />}
+        {/* Once paid, the machine is on its way: the renter gets the guide to receive and use it. */}
+        {role === 'RENTER' && reservation.paymentStatus === 'PAID' && reservation.equipmentManualUrl && (
+          <a
+            href={reservation.equipmentManualUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={t('reservations.manualOf', { name: reservation.equipmentName })}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-ink transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          >
+            <BookOpen className="size-4" aria-hidden="true" />
+            {t('reservations.manual')}
+          </a>
+        )}
         {role === 'RENTER' && reservation.status === 'COMPLETED' && !reservation.reviewed && (
           <Button
             size="sm"

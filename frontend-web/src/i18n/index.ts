@@ -37,8 +37,12 @@ i18n.use(initReactI18next).init({
   returnNull: false,
 })
 
+// The tab title follows the language, like the rest of the copy (index.html carries the Spanish one).
+document.title = i18n.t('document.title')
+
 i18n.on('languageChanged', (language) => {
   document.documentElement.lang = isLanguage(language) ? LOCALES[language] : language
+  document.title = i18n.t('document.title')
   try {
     localStorage.setItem(STORAGE_KEY, language)
   } catch {

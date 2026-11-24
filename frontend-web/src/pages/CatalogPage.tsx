@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { ArrowDownUp, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, FilterX, LayoutGrid, LocateFixed, Map as MapIcon, MapPin, SearchX, Sparkles, Tag } from 'lucide-react'
+import { ArrowDownUp, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Columns2, FilterX, LayoutGrid, PanelRightClose, LocateFixed, Map as MapIcon, MapPin, SearchX, Sparkles, Tag } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
@@ -13,6 +13,7 @@ import { CatalogSearch } from '../components/common/TopBar'
 import { EquipmentCard } from '../components/equipment/EquipmentCard'
 import { useAuth } from '../hooks/useAuth'
 import { useFetch } from '../hooks/useFetch'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import { usePagination } from '../hooks/usePagination'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { useToast } from '../hooks/useToast'
@@ -38,18 +39,40 @@ const PILL_SPRING = { type: 'spring', stiffness: 420, damping: 34 } as const
 // Leaflet only downloads when someone opens the map.
 const EquipmentMap = lazy(() => import('../components/equipment/EquipmentMap'))
 
-type CatalogView = 'grid' | 'map'
+/** `split` is the map above the list; on a phone the map would trap the scroll, so narrow screens show the grid. */
+type CatalogView = 'split' | 'grid' | 'map'
+const CATALOG_VIEWS: readonly CatalogView[] = ['split', 'grid', 'map']
+/** The last view the renter picked, so a hidden map stays hidden on the next visit. */
+const VIEW_STORAGE_KEY = 'rentequip.catalog.view'
+
+function isCatalogView(value: string | null): value is CatalogView {
+  return value !== null && (CATALOG_VIEWS as readonly string[]).includes(value)
+}
+
+function readStoredView(): CatalogView | null {
+  try {
+    const stored = localStorage.getItem(VIEW_STORAGE_KEY)
+    return isCatalogView(stored) ? stored : null
+  } catch {
+    return null
+  }
+}
+
+function storeView(view: CatalogView) {
+  try {
+    localStorage.setItem(VIEW_STORAGE_KEY, view)
+  } catch {
+    // Private mode or blocked storage: the choice still holds through the URL for this visit.
+  }
+}
 
 function ViewToggle({ view, onChange }: { view: CatalogView; onChange: (view: CatalogView) => void }) {
   const { t } = useTranslation()
   return (
-    <div
-      role="radiogroup"
-      aria-label={t('catalog.view')}
-      className="relative grid h-9 grid-cols-2 rounded-lg border border-slate-200/80 bg-slate-100 p-0.5"
-    >
+    <div role="radiogroup" aria-label={t('catalog.view')} className="relative flex h-9 rounded-lg border border-slate-200/80 bg-slate-100 p-0.5">
       {(
         [
+          { value: 'split', label: t('catalog.split'), icon: Columns2 },
           { value: 'grid', label: t('catalog.grid'), icon: LayoutGrid },
           { value: 'map', label: t('catalog.map'), icon: MapIcon },
         ] as const
@@ -63,6 +86,7 @@ function ViewToggle({ view, onChange }: { view: CatalogView; onChange: (view: Ca
           className={cn(
             'relative flex items-center justify-center gap-1.5 rounded-md px-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
             view === value ? 'text-slate-900' : 'text-slate-500 hover:text-slate-900',
+            value === 'split' && 'hidden lg:flex',
           )}
         >
           {view === value && (
@@ -414,7 +438,17 @@ export default function CatalogPage() {
   const [endDate] = useQueryParam('endDate')
   const [sortParam, setSortParam] = useQueryParam('sort')
   const sort: CatalogSort = isCatalogSort(sortParam) ? sortParam : 'NEAREST'
-  const view: CatalogView = viewParam === 'map' ? 'map' : 'grid'
+  // The URL wins (shared links), then the renter's last choice, then the list with the map beside it.
+  const [storedView] = useState(readStoredView)
+  const chosenView: CatalogView = isCatalogView(viewParam) ? viewParam : (storedView ?? 'split')
+  const isWide = useMediaQuery('(min-width: 1024px)')
+  const view: CatalogView = chosenView === 'split' && !isWide ? 'grid' : chosenView
+  function changeView(next: CatalogView) {
+    storeView(next)
+    setViewParam(next)
+  }
+  // Card under the pointer, lit on the map beside the list.
+  const [hoveredId, setHoveredId] = useState<number | null>(null)
   const { page, size, setPage, setSize } = usePagination()
 
   const categories = useFetch<EquipmentCategory[]>(ENDPOINTS.categories)
@@ -540,86 +574,90 @@ export default function CatalogPage() {
             </span>
           )}
         </p>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           {hasFilters && (
             <Button variant="ghost" size="sm" onClick={clearFilters} leftIcon={<FilterX className="size-4" />}>
               {t('catalog.clear')}
             </Button>
           )}
-          <label className="relative">
-            <span className="sr-only">{t('catalog.city')}</span>
-            <MapPin className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
-            <select
-              value={city}
-              onChange={(event) => setCity(event.target.value)}
-              className={cn(
-                'h-9 w-48 appearance-none rounded-lg border bg-white pr-9 pl-9 text-sm text-slate-900 transition-colors hover:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
-                city ? 'border-ink font-semibold' : 'border-slate-200/80',
-              )}
-            >
-              <option value="">{t('catalog.allCities')}</option>
-              {PERU_CITIES.map((item) => (
-                <option key={item.name} value={item.name}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
-          </label>
-          {(brands.data?.length ?? 0) > 0 && (
-            <label className="relative">
-              <span className="sr-only">{t('catalog.brand')}</span>
-              <Tag className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
-              <select
-                value={brand}
-                onChange={(event) => setBrand(event.target.value)}
-                className={cn(
-                  'h-9 w-44 appearance-none rounded-lg border bg-white pr-9 pl-9 text-sm text-slate-900 transition-colors hover:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
-                  brand ? 'border-ink font-semibold' : 'border-slate-200/80',
-                )}
-              >
-                <option value="">{t('catalog.allBrands')}</option>
-                {brands.data?.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
-            </label>
-          )}
-          <Button
-            variant={location.coords ? 'primary' : 'secondary'}
-            size="sm"
-            isLoading={location.status === 'locating'}
-            aria-pressed={location.coords !== null}
-            title={location.status === 'denied' ? t('catalog.locationDenied') : location.coords ? t('catalog.nearMeOn') : undefined}
-            onClick={location.coords ? location.clear : location.request}
-            leftIcon={<LocateFixed className="size-4" />}
-          >
-            {location.status === 'locating' ? t('catalog.locating') : t('catalog.nearMe')}
-          </Button>
-          <label className="relative">
-            <span className="sr-only">{t('catalog.sort')}</span>
-            <ArrowDownUp className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
-            <select
-              value={sort}
-              onChange={(event) => setSortParam(event.target.value === 'NEAREST' ? '' : event.target.value)}
-              className={cn(
-                'h-9 w-48 appearance-none rounded-lg border bg-white pr-9 pl-9 text-sm text-slate-900 transition-colors hover:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
-                sort !== 'NEAREST' ? 'border-ink font-semibold' : 'border-slate-200/80',
-              )}
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {t(`catalog.sortOptions.${option}`)}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
-          </label>
-          <ViewToggle view={view} onChange={(next) => setViewParam(next === 'map' ? 'map' : '')} />
+          <ViewToggle view={view} onChange={changeView} />
         </div>
+      </div>
+
+      {/* Filters get a row of their own and the selects stretch, so the row is full at every width. */}
+      <div className="-mt-2 flex flex-wrap items-center gap-2">
+        <label className="relative min-w-44 flex-1">
+          <span className="sr-only">{t('catalog.city')}</span>
+          <MapPin className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+          <select
+            value={city}
+            onChange={(event) => setCity(event.target.value)}
+            className={cn(
+              'h-9 w-full appearance-none rounded-lg border bg-white pr-9 pl-9 text-sm text-slate-900 transition-colors hover:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+              city ? 'border-ink font-semibold' : 'border-slate-200/80',
+            )}
+          >
+            <option value="">{t('catalog.allCities')}</option>
+            {PERU_CITIES.map((item) => (
+              <option key={item.name} value={item.name}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+        </label>
+        {(brands.data?.length ?? 0) > 0 && (
+          <label className="relative min-w-44 flex-1">
+            <span className="sr-only">{t('catalog.brand')}</span>
+            <Tag className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+            <select
+              value={brand}
+              onChange={(event) => setBrand(event.target.value)}
+              className={cn(
+                'h-9 w-full appearance-none rounded-lg border bg-white pr-9 pl-9 text-sm text-slate-900 transition-colors hover:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+                brand ? 'border-ink font-semibold' : 'border-slate-200/80',
+              )}
+            >
+              <option value="">{t('catalog.allBrands')}</option>
+              {brands.data?.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+          </label>
+        )}
+        <Button
+          variant={location.coords ? 'primary' : 'secondary'}
+          size="sm"
+          isLoading={location.status === 'locating'}
+          aria-pressed={location.coords !== null}
+          title={location.status === 'denied' ? t('catalog.locationDenied') : location.coords ? t('catalog.nearMeOn') : undefined}
+          onClick={location.coords ? location.clear : location.request}
+          leftIcon={<LocateFixed className="size-4" />}
+        >
+          {location.status === 'locating' ? t('catalog.locating') : t('catalog.nearMe')}
+        </Button>
+        <label className="relative min-w-44 flex-1">
+          <span className="sr-only">{t('catalog.sort')}</span>
+          <ArrowDownUp className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+          <select
+            value={sort}
+            onChange={(event) => setSortParam(event.target.value === 'NEAREST' ? '' : event.target.value)}
+            className={cn(
+              'h-9 w-full appearance-none rounded-lg border bg-white pr-9 pl-9 text-sm text-slate-900 transition-colors hover:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+              sort !== 'NEAREST' ? 'border-ink font-semibold' : 'border-slate-200/80',
+            )}
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {t(`catalog.sortOptions.${option}`)}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+        </label>
       </div>
 
       {results.error && <ErrorState error={results.error} onRetry={results.refetch} />}
@@ -665,6 +703,49 @@ export default function CatalogPage() {
           </ul>
           <Pagination pageData={results.data} onPageChange={setPage} onSizeChange={setSize} isDisabled={results.isLoading} />
         </>
+      )}
+
+      {!results.error && results.data && results.data.totalElements > 0 && view === 'split' && (
+        <div className="space-y-5">
+          <aside aria-label={t('catalog.map')} className="relative">
+            <Suspense
+              fallback={<div className="h-[420px] rounded-2xl border border-slate-200/80 bg-white" aria-busy="true" aria-label={t('catalog.loadingMap')} />}
+            >
+              <EquipmentMap machines={results.data.content} activeId={hoveredId} className="h-[420px]" />
+            </Suspense>
+            <button
+              type="button"
+              onClick={() => changeView('grid')}
+              className="absolute top-3 right-3 z-[500] flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-semibold text-slate-900 shadow-md ring-1 ring-slate-200/80 transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            >
+              <PanelRightClose className="size-4" aria-hidden="true" />
+              {t('catalog.hideMap')}
+            </button>
+          </aside>
+          <ul
+            aria-busy={results.isLoading}
+            onMouseLeave={() => setHoveredId(null)}
+            className={cn('grid gap-5 transition-opacity sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4', results.isLoading && 'opacity-60')}
+          >
+            {results.data.content.map((equipment) => (
+              <li key={equipment.id} onMouseEnter={() => setHoveredId(equipment.id)} onFocus={() => setHoveredId(equipment.id)}>
+                <EquipmentCard equipment={equipment} suggestedByAi={aiSuggested.has(equipment.id)} availableToday={freeTodayIds.has(equipment.id)} />
+              </li>
+            ))}
+          </ul>
+          <Pagination pageData={results.data} onPageChange={setPage} onSizeChange={setSize} isDisabled={results.isLoading} />
+        </div>
+      )}
+
+      {!results.error && results.data && results.data.totalElements > 0 && view === 'grid' && isWide && (
+        <button
+          type="button"
+          onClick={() => changeView('split')}
+          className="fixed bottom-6 left-1/2 z-30 flex h-11 -translate-x-1/2 items-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-sheet shadow-lg transition-colors hover:bg-ink-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+        >
+          <MapIcon className="size-4" aria-hidden="true" />
+          {t('catalog.showMap')}
+        </button>
       )}
     </div>
   )

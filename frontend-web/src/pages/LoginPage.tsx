@@ -111,7 +111,8 @@ export default function LoginPage() {
 
         <p className="mt-6 text-sm text-slate-600">
           {t('login.noAccount')}{' '}
-          <Link to={PATHS.register} className="font-medium text-ink underline underline-offset-2">
+          {/* Carries `from` along, so a visitor who switches to signing up still lands where they were going. */}
+          <Link to={PATHS.register} state={locationState.from ? { from: locationState.from } : undefined} className="font-medium text-ink underline underline-offset-2">
             {t('login.createAccount')}
           </Link>
         </p>

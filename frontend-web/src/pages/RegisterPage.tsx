@@ -2,7 +2,8 @@ import { ArrowLeft, ArrowRight, BadgeCheck, Building2, Check, IdCard, LocateFixe
 import { useEffect, useState } from 'react'
 import type { Path } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import type { LoginLocationState } from '../contexts/AuthContextDefinition'
 import { z } from 'zod'
 import { Button } from '../components/common/Button'
 import { Input } from '../components/common/Input'
@@ -98,6 +99,8 @@ type LocationStatus = 'idle' | 'locating' | 'detected' | 'denied' | 'unsupported
 
 export default function RegisterPage() {
   const { t } = useTranslation()
+  // Where the visitor was going (for example the AI advisor with their question); kept if they switch to login.
+  const returnTo = (useLocation().state as LoginLocationState | null)?.from
   const { register: registerAccount } = useAuth()
   const toast = useToast()
   const [step, setStep] = useState(0)
@@ -578,7 +581,7 @@ export default function RegisterPage() {
 
           <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
             {step === 0 ? (
-              <Link to={PATHS.login} className="text-center text-sm font-medium text-slate-600 hover:text-slate-900 sm:self-center">
+              <Link to={PATHS.login} state={returnTo ? { from: returnTo } : undefined} className="text-center text-sm font-medium text-slate-600 hover:text-slate-900 sm:self-center">
                 {t('register.haveAccount')}
               </Link>
             ) : (

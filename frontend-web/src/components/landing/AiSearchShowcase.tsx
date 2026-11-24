@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useInView, useReducedMotion, type Variants } from 'framer-motion'
 import { ArrowRight, BadgeCheck, Clock, MapPin, MessageSquareText, Sparkles } from 'lucide-react'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useFetch } from '../../hooks/useFetch'
@@ -12,6 +12,7 @@ import { cn } from '../../utils/cn'
 import { formatCurrency } from '../../utils/format'
 import { storeMode } from '../../utils/workspaceMode'
 import { EquipmentImage } from '../equipment/EquipmentImage'
+import { AuthGateDialog } from './AuthGateDialog'
 
 const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1]
 const stagger: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } }
@@ -20,6 +21,11 @@ const rise: Variants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.65, ease: EASE_OUT } },
 }
 const MAX_QUESTION_LENGTH = 300
+
+/** The renter catalogue with the advisor open and the question already asked. */
+function assistantPath(question: string) {
+  return `${PATHS.catalog}?${ASSISTANT_PARAM}=${encodeURIComponent(question)}`
+}
 const TYPE_MS = 32
 const SEARCH_MS = 1100
 const HOLD_MS = 4800
@@ -201,6 +207,8 @@ export function AiSearchShowcase({ isAuthenticated }: { isAuthenticated: boolean
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [question, setQuestion] = useState('')
+  const [gatedQuestion, setGatedQuestion] = useState<string | null>(null)
+  const closeGate = useCallback(() => setGatedQuestion(null), [])
   const suggestions = t('landing.ai.suggestions', { returnObjects: true }) as string[]
   const suggestionLabels = t('landing.ai.suggestionLabels', { returnObjects: true }) as string[]
 
@@ -209,7 +217,12 @@ export function AiSearchShowcase({ isAuthenticated }: { isAuthenticated: boolean
     const text = question.trim()
     if (!text) return
     storeMode('renter')
-    navigate(`${PATHS.catalog}?${ASSISTANT_PARAM}=${encodeURIComponent(text)}`)
+    // Without a session the advisor cannot answer yet: offer the two ways in, keeping the question.
+    if (!isAuthenticated) {
+      setGatedQuestion(text)
+      return
+    }
+    navigate(assistantPath(text))
   }
 
   const features = [
@@ -304,6 +317,13 @@ export function AiSearchShowcase({ isAuthenticated }: { isAuthenticated: boolean
           <DemoChat />
         </motion.div>
       </div>
+
+      <AuthGateDialog
+        isOpen={gatedQuestion !== null}
+        question={gatedQuestion ?? ''}
+        returnTo={assistantPath(gatedQuestion ?? '')}
+        onClose={closeGate}
+      />
     </section>
   )
 }

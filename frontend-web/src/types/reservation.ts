@@ -34,6 +34,8 @@ export interface Reservation {
   reviewed: boolean
   /** Sale price when the owner also sells this machine (rent with an option to buy); else null. */
   equipmentSalePrice: number | null
+  /** Usage instructions PDF of the machine; null when its owner attached none. */
+  equipmentManualUrl: string | null
 }
 
 export interface ReservationCreateRequest {

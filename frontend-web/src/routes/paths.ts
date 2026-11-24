@@ -12,8 +12,11 @@ export const PATHS = {
   profile: '/profile',
   purchases: '/purchases',
   offers: '/offers',
+  blog: '/blog',
+  blogArticle: '/blog/:slug',
 } as const
 
 export const buildPath = {
   equipmentDetail: (id: number) => `/equipment/${id}`,
+  blogArticle: (slug: string) => `/blog/${slug}`,
 }

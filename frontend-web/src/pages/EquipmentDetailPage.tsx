@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarPlus, HandCoins, MapPin, SearchX, ShieldCheck, Star } from 'lucide-react'
+import { ArrowLeft, CalendarPlus, FileDown, HandCoins, MapPin, SearchX, ShieldCheck, Star } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
@@ -7,13 +7,15 @@ import { EmptyState } from '../components/common/EmptyState'
 import { ErrorState } from '../components/common/ErrorState'
 import { PageHeader } from '../components/common/PageHeader'
 import { StatusBadge } from '../components/common/StatusBadge'
+import { EquipmentManual } from '../components/equipment/EquipmentManual'
 import { EquipmentVideo } from '../components/equipment/EquipmentVideo'
 import { OfferModal } from '../components/offers/OfferModal'
 import { ImageGallery } from '../components/equipment/ImageGallery'
 import { OperatorSheet } from '../components/equipment/OperatorSheet'
 import { AvailabilityCalendar } from '../components/equipment/AvailabilityCalendar'
 import { EMPTY_SELECTION, type DateSelection } from '../components/equipment/dateSelection'
-import { QuickQuote } from '../components/equipment/QuickQuote'
+import { DEFAULT_QUOTE_DAYS, QuickQuote } from '../components/equipment/QuickQuote'
+import { RelatedEquipment } from '../components/equipment/RelatedEquipment'
 import { SpecificationList } from '../components/equipment/SpecificationList'
 import { ReservationRequestModal } from '../components/reservations/ReservationRequestModal'
 import { Avatar } from '../components/profile/Avatar'
@@ -23,6 +25,8 @@ import { useAuth } from '../hooks/useAuth'
 import { useFetch } from '../hooks/useFetch'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { useRefreshSignal } from '../hooks/useRefreshSignal'
+import { useToast } from '../hooks/useToast'
+import { downloadQuote } from '../utils/downloadQuote'
 import { PATHS } from '../routes/paths'
 import { ENDPOINTS } from '../services/endpoints'
 import type { Equipment, EquipmentRating, PageResponse, PriceOffer, WithLinks } from '../types'
@@ -75,6 +79,10 @@ export default function EquipmentDetailPage() {
   const [reserveParam, setReserveParam] = useQueryParam('reservar')
   const [dates, setDates] = useState<DateSelection>(EMPTY_SELECTION)
   const [isOffering, setIsOffering] = useState(false)
+  const [quoteDays, setQuoteDays] = useState(DEFAULT_QUOTE_DAYS)
+  const [isQuoting, setIsQuoting] = useState(false)
+  const penPerUsd = useExchangeRate()
+  const toast = useToast()
   const [offerParam] = useQueryParam('offer')
   const offers = useFetch<PageResponse<PriceOffer>>(offerParam ? ENDPOINTS.offers : null, { role: 'RENTER', size: 50 })
 
@@ -104,6 +112,27 @@ export default function EquipmentDetailPage() {
   const agreedOffer = acceptedOffer ? { id: acceptedOffer.id, dailyRate: acceptedOffer.agreedDailyRate! } : undefined
   const hasDates = dates.startDate !== null && dates.endDate !== null
   const selectedDays = hasDates ? rentalDays(dates.startDate!, dates.endDate!) : undefined
+
+  /** The same quote as the box beside it, with every spec and the usage instructions, as a PDF. */
+  async function handleQuotePdf() {
+    if (!equipment) return
+    setIsQuoting(true)
+    try {
+      await downloadQuote({
+        equipment,
+        days: selectedDays ?? quoteDays,
+        startDate: hasDates ? dates.startDate : null,
+        endDate: hasDates ? dates.endDate : null,
+        penPerUsd,
+        preparedFor: user ? { company: user.companyName, person: user.email } : null,
+        issuedAt: new Date(),
+      })
+    } catch {
+      toast.error(t('quote.pdfFailed'), t('quote.pdfRetry'))
+    } finally {
+      setIsQuoting(false)
+    }
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6">
@@ -151,6 +180,8 @@ export default function EquipmentDetailPage() {
               <p className="text-sm text-slate-500">{t('equipment.noSpecs')}</p>
             )}
           </section>
+
+          {equipment.manualUrl && <EquipmentManual url={equipment.manualUrl} equipmentName={equipment.name} />}
 
           {equipment.videoUrl && <EquipmentVideo url={equipment.videoUrl} title={equipment.name} />}
 
@@ -230,7 +261,9 @@ export default function EquipmentDetailPage() {
               </p>
             )}
 
-            {reserveBlockedReason === null && <QuickQuote equipment={equipment} selectedDays={selectedDays} />}
+            {reserveBlockedReason === null && (
+              <QuickQuote equipment={equipment} selectedDays={selectedDays} days={quoteDays} onDaysChange={setQuoteDays} />
+            )}
 
             <Button
               size="lg"
@@ -249,6 +282,15 @@ export default function EquipmentDetailPage() {
                 {t('offers.negotiate')}
               </Button>
             )}
+            <Button
+              variant="ghost"
+              fullWidth
+              isLoading={isQuoting}
+              onClick={() => void handleQuotePdf()}
+              leftIcon={<FileDown className="size-4" />}
+            >
+              {t('quote.downloadPdf')}
+            </Button>
 
             {equipment.salePrice !== null && equipment.status !== 'SOLD' && (
               <div className="space-y-1 border-t border-slate-100 pt-4 text-sm">
@@ -266,6 +308,8 @@ export default function EquipmentDetailPage() {
           </div>
         </aside>
       </div>
+
+      <RelatedEquipment key={equipment.id} equipment={equipment} />
 
       <ReservationRequestModal
         equipment={equipment}

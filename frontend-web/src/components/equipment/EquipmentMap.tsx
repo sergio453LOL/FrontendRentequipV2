@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom'
 import i18n from '../../i18n'
 import { buildPath } from '../../routes/paths'
 import type { EquipmentSummary } from '../../types'
+import { cn } from '../../utils/cn'
 import { formatCurrency } from '../../utils/format'
 
 /** Lima's Plaza Mayor: the backend's default search centre, used when there is nothing to show. */
@@ -24,10 +25,13 @@ function groupByPlace(machines: EquipmentSummary[]): EquipmentSummary[][] {
   return [...groups.values()]
 }
 
-/** Price tag as the pin, so the map reads like a list of offers; a shared yard shows its count. */
-function pinFor(group: EquipmentSummary[]) {
+/**
+ * Price tag as the pin, so the map reads like a list of offers; a shared yard shows its count. The pin of
+ * the card under the pointer is lit, so the list and the map point at the same machine.
+ */
+function pinFor(group: EquipmentSummary[], isActive: boolean) {
   const label = group.length === 1 ? shortPrice(group[0]) : i18n.t('catalog.pinCount', { count: group.length })
-  return divIcon({ className: '', iconSize: [0, 0], html: `<span class="re-pin">${label}</span>` })
+  return divIcon({ className: '', iconSize: [0, 0], html: `<span class="re-pin${isActive ? ' re-pin--active' : ''}">${label}</span>` })
 }
 
 function FitToMachines({ machines }: { machines: EquipmentSummary[] }) {
@@ -41,21 +45,34 @@ function FitToMachines({ machines }: { machines: EquipmentSummary[] }) {
 }
 
 /** The catalogue on a map: one pin per yard, a card with each machine's photo and price when a pin opens. */
-export default function EquipmentMap({ machines }: { machines: EquipmentSummary[] }) {
+export default function EquipmentMap({
+  machines,
+  activeId = null,
+  className = 'h-[560px]',
+}: {
+  machines: EquipmentSummary[]
+  /** Machine whose pin is lit, e.g. the card under the pointer in the list beside the map. */
+  activeId?: number | null
+  /** Height of the map; the split view stretches it to the window. */
+  className?: string
+}) {
   const { t } = useTranslation()
   return (
-    <div className="relative isolate h-[560px] overflow-hidden rounded-2xl border border-slate-200/80 shadow-sm">
+    <div className={cn('relative isolate overflow-hidden rounded-2xl border border-slate-200/80 shadow-sm', className)}>
       <MapContainer center={LIMA} zoom={6} scrollWheelZoom className="h-full w-full">
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <FitToMachines machines={machines} />
-        {groupByPlace(machines).map((group) => (
+        {groupByPlace(machines).map((group) => {
+          const isActive = group.some((machine) => machine.id === activeId)
+          return (
           <Marker
             key={group.map((machine) => machine.id).join('-')}
             position={[group[0].latitude, group[0].longitude]}
-            icon={pinFor(group)}
+            icon={pinFor(group, isActive)}
+            zIndexOffset={isActive ? 1000 : 0}
             title={group.map((machine) => machine.name).join(', ')}
           >
             <Popup minWidth={230} maxWidth={250}>
@@ -77,7 +94,8 @@ export default function EquipmentMap({ machines }: { machines: EquipmentSummary[
               </ul>
             </Popup>
           </Marker>
-        ))}
+          )
+        })}
       </MapContainer>
     </div>
   )

@@ -10,6 +10,7 @@ export const ENDPOINTS = {
   equipmentSearch: '/equipment/search',
   equipmentBrands: '/equipment/brands',
   exchangeRate: '/exchange-rate',
+  newsletterSubscriptions: '/newsletter/subscriptions',
   notifications: '/notifications',
   notificationsUnread: '/notifications/unread-count',
   notificationsReadAll: '/notifications/read-all',
