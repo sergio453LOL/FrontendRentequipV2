@@ -22,15 +22,23 @@ push a `main`, con `VITE_API_URL` y `VITE_STRIPE_PUBLISHABLE_KEY` como variables
 
 1. En Vercel: **Add New > Project**, importa el repositorio y en **Root Directory** elige `frontend-web`.
    El resto lo toma de `vercel.json` (framework Vite, `npm run build`, carpeta `dist`).
-2. En **Settings > Environment Variables** agrega `VITE_API_URL` con la URL **HTTPS** del backend
-   (la imprime `deploy/deploy-aws.sh`, p. ej. `https://44-215-225-249.sslip.io/api/v1`).
-   Vite la inserta al compilar, así que si cambia hay que volver a desplegar (**Redeploy**).
-3. Despliega. La URL `https://<proyecto>.vercel.app` ya está permitida por el CORS del backend
-   (`https://*.vercel.app`). Para un dominio propio, agrégalo a `CORS_ALLOWED_ORIGINS` en el backend.
+2. En **Settings > Environment Variables** agrega:
+   - `VITE_API_URL` = `/api/v1`
+   - `VITE_BACKEND_ORIGIN` = `https://44-215-225-249.sslip.io` (la URL que imprime `deploy/deploy-aws.sh`)
+   - `VITE_STRIPE_PUBLISHABLE_KEY` = la clave `pk_test_...`
 
-`vercel.json` redirige todas las rutas a `index.html`, de modo que recargar `/catalog` o
-`/reservations` no da 404. Si `VITE_API_URL` usa `http://`, la consola lo avisa: el navegador
-bloquearía las peticiones por contenido mixto.
+   Vite las inserta al compilar, así que si cambian hay que volver a desplegar (**Redeploy**).
+3. Despliega.
+
+`vercel.json` reenvía `/api`, `/demo-images` y `/uploads` al backend en AWS, así que el navegador solo habla
+con `<proyecto>.vercel.app`. Eso hace que la web funcione en redes que bloquean `sslip.io`, como la de la
+universidad. El backend arma las URLs de las fotos con su propio dominio; con `VITE_BACKEND_ORIGIN`
+definido, `services/api.ts` las convierte en rutas del mismo dominio. **Si cambia la IP del backend,
+actualiza el destino en `vercel.json` y `VITE_BACKEND_ORIGIN`.**
+
+El resto de rutas van a `index.html`, de modo que recargar `/catalog` o `/reservations` no da 404.
+Si `VITE_API_URL` usa `http://`, la consola lo avisa: el navegador bloquearía las peticiones por contenido
+mixto.
 
 ## Comandos
 

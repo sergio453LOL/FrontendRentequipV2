@@ -10,6 +10,26 @@ if (window.location.protocol === 'https:' && API_BASE_URL.startsWith('http://'))
   console.error(`VITE_API_URL (${API_BASE_URL}) usa http:// y el navegador bloqueará las peticiones. Usa la URL https:// del backend.`)
 }
 
+/**
+ * Behind the Vercel proxy (VITE_API_URL=/api/v1) the backend still builds photo URLs with its own host,
+ * which some networks block. VITE_BACKEND_ORIGIN names that host so responses can use same-origin paths
+ * instead, served by the same proxy.
+ */
+const BACKEND_ORIGIN = API_BASE_URL.startsWith('/') ? import.meta.env.VITE_BACKEND_ORIGIN?.replace(/\/$/, '') : undefined
+
+function toSameOrigin(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return BACKEND_ORIGIN && value.startsWith(`${BACKEND_ORIGIN}/`) ? value.slice(BACKEND_ORIGIN.length) : value
+  }
+  if (Array.isArray(value)) {
+    return value.map(toSameOrigin)
+  }
+  if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, toSameOrigin(entry)]))
+  }
+  return value
+}
+
 const REQUEST_TIMEOUT_MS = 15_000
 const AUTH_PATH_PREFIX = '/auth/'
 
@@ -75,7 +95,12 @@ interface RetriableRequestConfig extends InternalAxiosRequestConfig {
 }
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (BACKEND_ORIGIN) {
+      response.data = toSameOrigin(response.data)
+    }
+    return response
+  },
   async (error: unknown) => {
     if (axios.isCancel(error) || !(error instanceof AxiosError)) {
       return Promise.reject(error)

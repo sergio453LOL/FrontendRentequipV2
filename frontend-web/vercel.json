@@ -4,7 +4,12 @@
   "installCommand": "npm ci",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://44-215-225-249.sslip.io/api/:path*" },
+    { "source": "/demo-images/:path*", "destination": "https://44-215-225-249.sslip.io/demo-images/:path*" },
+    { "source": "/uploads/:path*", "destination": "https://44-215-225-249.sslip.io/uploads/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",
