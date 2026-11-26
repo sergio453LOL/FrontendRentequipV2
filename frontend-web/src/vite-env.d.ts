@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_BACKEND_ORIGIN?: string
   /** Google Cloud OAuth web client id for "Continuar con Google"; without it the button is hidden. */
   readonly VITE_GOOGLE_CLIENT_ID?: string
+  /** reCAPTCHA v3 site key (public) for the login; without it no reCAPTCHA is loaded. */
+  readonly VITE_RECAPTCHA_SITE_KEY?: string
 }
 
 interface ImportMeta {

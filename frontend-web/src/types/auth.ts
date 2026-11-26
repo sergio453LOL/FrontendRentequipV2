@@ -4,6 +4,8 @@ import type { UserRole } from './user'
 export interface LoginRequest {
   email: string
   password: string
+  /** reCAPTCHA v3 token for the "login" action; absent when reCAPTCHA is not configured. */
+  recaptchaToken?: string
 }
 
 export interface RegisterRequest {

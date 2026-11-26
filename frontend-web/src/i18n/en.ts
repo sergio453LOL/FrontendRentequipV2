@@ -264,6 +264,7 @@ export const en: Translations = {
       http429: 'Too many requests. Wait a moment and try again.',
     },
     code: {
+      RECAPTCHA_FAILED: 'We could not verify that you are a person. Reload the page and try again.',
       GOOGLE_NOT_CONFIGURED: 'Google sign-in is not available on this server.',
       INVALID_GOOGLE_TOKEN: 'Your Google sign-in expired or is not valid. Continue with Google again.',
       GOOGLE_EMAIL_NOT_VERIFIED: 'Your Google account has no verified email.',
@@ -427,6 +428,9 @@ export const en: Translations = {
   login: {
     orDivider: 'or',
     googleFailed: 'Google sign-in could not open. Please try again.',
+    recaptchaProtected: 'Protected by Google reCAPTCHA:',
+    recaptchaPrivacy: 'Privacy',
+    recaptchaTerms: 'Terms',
     title: 'Log in to RentEquip',
     description: 'Rent machinery and tools between construction companies in Peru, or put yours to work.',
     wrongCredentials: 'Incorrect email or password.',

@@ -1,5 +1,5 @@
 import { KeyRound, Lock, Mail } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
@@ -17,6 +17,7 @@ import { PATHS } from '../routes/paths'
 import i18n from '../i18n'
 import { ApiError } from '../utils/apiError'
 import { continueWithGoogle, isGoogleSignInEnabled } from '../utils/googleSignIn'
+import { isRecaptchaEnabled, loadRecaptcha, recaptchaToken } from '../utils/recaptcha'
 
 const loginSchema = z.object({
   email: z.string().trim().min(1, 'validation.emailRequired').pipe(z.email('validation.emailInvalid')),
@@ -44,6 +45,11 @@ export default function LoginPage() {
   const [pending, setPending] = useState<{ challenge: TwoFactorChallenge; resend: () => Promise<TwoFactorChallenge | null> } | null>(null)
   const [isGoogleBusy, setIsGoogleBusy] = useState(false)
 
+  // reCAPTCHA v3 scores the visitor while they type, so it loads as soon as the page opens.
+  useEffect(() => {
+    void loadRecaptcha().catch(() => undefined)
+  }, [])
+
   const {
     register,
     handleSubmit,
@@ -53,8 +59,10 @@ export default function LoginPage() {
   async function onSubmit(values: LoginFormValues) {
     setFormError(null)
     try {
-      const challenge = await login(values)
-      if (challenge) setPending({ challenge, resend: () => login(values) })
+      // Each attempt (and each resent code) asks for its own token: they work once and last two minutes.
+      const attempt = async () => login({ ...values, recaptchaToken: await recaptchaToken('login') })
+      const challenge = await attempt()
+      if (challenge) setPending({ challenge, resend: attempt })
     } catch (error) {
       setFormError(loginErrorMessage(error))
     }
@@ -145,6 +153,19 @@ export default function LoginPage() {
               />
             </div>
           </>
+        )}
+
+        {isRecaptchaEnabled && (
+          <p className="mt-4 text-center text-xs text-slate-500">
+            {t('login.recaptchaProtected')}{' '}
+            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-ink">
+              {t('login.recaptchaPrivacy')}
+            </a>
+            {' · '}
+            <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-ink">
+              {t('login.recaptchaTerms')}
+            </a>
+          </p>
         )}
 
         <p className="mt-6 text-sm text-slate-600">

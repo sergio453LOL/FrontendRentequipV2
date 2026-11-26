@@ -266,6 +266,7 @@ export const es = {
       http429: 'Demasiadas solicitudes. Espera un momento e inténtalo otra vez.',
     },
     code: {
+      RECAPTCHA_FAILED: 'No pudimos verificar que eres una persona. Recarga la página e inténtalo otra vez.',
       GOOGLE_NOT_CONFIGURED: 'El acceso con Google no está disponible en este servidor.',
       INVALID_GOOGLE_TOKEN: 'Tu sesión de Google venció o no es válida. Vuelve a continuar con Google.',
       GOOGLE_EMAIL_NOT_VERIFIED: 'Tu cuenta de Google no tiene un correo verificado.',
@@ -429,6 +430,9 @@ export const es = {
   login: {
     orDivider: 'o',
     googleFailed: 'No se pudo abrir el acceso con Google. Inténtalo otra vez.',
+    recaptchaProtected: 'Protegido por reCAPTCHA de Google:',
+    recaptchaPrivacy: 'Privacidad',
+    recaptchaTerms: 'Términos',
     title: 'Inicia sesión en RentEquip',
     description: 'Alquila maquinaria y herramientas entre constructoras del Perú, o pon a trabajar las tuyas.',
     wrongCredentials: 'Correo o contraseña incorrectos.',

@@ -265,6 +265,7 @@ export const zh: Translations = {
       http429: '请求过多，请稍后再试。',
     },
     code: {
+      RECAPTCHA_FAILED: '无法验证您是真人。请刷新页面后重试。',
       GOOGLE_NOT_CONFIGURED: '此服务器未启用 Google 登录。',
       INVALID_GOOGLE_TOKEN: '您的 Google 登录已过期或无效，请重新使用 Google 继续。',
       GOOGLE_EMAIL_NOT_VERIFIED: '您的 Google 账户没有已验证的电子邮箱。',
@@ -415,6 +416,9 @@ export const zh: Translations = {
   login: {
     orDivider: '或',
     googleFailed: '无法打开 Google 登录，请重试。',
+    recaptchaProtected: '受 Google reCAPTCHA 保护：',
+    recaptchaPrivacy: '隐私权',
+    recaptchaTerms: '条款',
     title: '登录 RentEquip',
     description: '在秘鲁建筑公司之间租赁机械和工具，或让您闲置的设备创造收益。',
     wrongCredentials: '电子邮箱或密码错误。',

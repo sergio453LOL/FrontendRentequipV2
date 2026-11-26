@@ -349,3 +349,11 @@
 .dark .leaflet-container a.leaflet-popup-close-button:hover {
   color: var(--color-slate-900);
 }
+
+/*
+ * reCAPTCHA v3's floating badge would sit on top of the assistant button. Google allows hiding it when the
+ * page says it is protected by reCAPTCHA and links its privacy policy and terms, which the login does.
+ */
+.grecaptcha-badge {
+  visibility: hidden;
+}
