@@ -38,6 +38,8 @@ export const es = {
       '429': 'Demasiadas solicitudes. Espera un momento.',
     },
     code: {
+      EQUIPMENT_HAS_HISTORY: 'Esta máquina tiene reservas, ofertas o compras en su historial y no se puede eliminar. Para sacarla del catálogo, cámbiala a Inactiva.',
+      TOO_MANY_REQUESTS: 'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.',
       DUPLICATE_RESOURCE: 'Ya existe una empresa o usuario con esos datos (RUC o correo).',
       EQUIPMENT_NOT_AVAILABLE: 'La máquina ya está reservada en esas fechas. Prueba otro rango.',
       EQUIPMENT_UNAVAILABLE: 'Esta máquina no está disponible para alquiler en este momento.',

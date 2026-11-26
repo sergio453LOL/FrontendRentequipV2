@@ -18,6 +18,8 @@ export interface User {
   createdAt: IsoDateTime
   /** Where the sign-in code goes; null when the two-step verification is off. */
   twoFactorChannel: TwoFactorChannel | null
+  /** False for an account created with Google that never set a password: it confirms changes with an email code. */
+  passwordSet: boolean
 }
 
 export interface UserCreateRequest {
@@ -40,7 +42,20 @@ export interface ProfileUpdateRequest {
   avatarUrl?: string
 }
 
+/**
+ * With the current password; an account without one (created with Google) sends instead the code that
+ * `profileService.sendAccountCode` mailed to it.
+ */
 export interface PasswordChangeRequest {
-  currentPassword: string
+  currentPassword?: string
   newPassword: string
+  challengeId?: string
+  code?: string
+}
+
+/** Turning the two-step verification off: the password, or an email code for an account without one. */
+export interface TwoFactorDisableRequest {
+  password?: string
+  challengeId?: string
+  code?: string
 }

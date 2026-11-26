@@ -36,6 +36,8 @@ export const zh: Translations = {
       '429': '请求过多。请稍候。',
     },
     code: {
+      EQUIPMENT_HAS_HISTORY: '这台设备有预订、报价或购买记录，无法删除。要将其下架，请设为停用。',
+      TOO_MANY_REQUESTS: '尝试次数过多。请等几分钟后再试。',
       DUPLICATE_RESOURCE: '已存在使用该数据（RUC 或邮箱）的公司或用户。',
       EQUIPMENT_NOT_AVAILABLE: '该设备在这些日期已被预订。请换一个日期范围。',
       EQUIPMENT_UNAVAILABLE: '该设备目前无法出租。',

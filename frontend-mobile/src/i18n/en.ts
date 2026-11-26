@@ -36,6 +36,8 @@ export const en: Translations = {
       '429': 'Too many requests. Please wait a moment.',
     },
     code: {
+      EQUIPMENT_HAS_HISTORY: 'This machine has reservations, offers or purchases in its history and cannot be deleted. To take it off the catalogue, set it to Inactive.',
+      TOO_MANY_REQUESTS: 'Too many attempts. Wait a few minutes and try again.',
       DUPLICATE_RESOURCE: 'A company or user with that data already exists (RUC or email).',
       EQUIPMENT_NOT_AVAILABLE: 'The machine is already booked on those dates. Try another range.',
       EQUIPMENT_UNAVAILABLE: 'This machine is not available for rent right now.',

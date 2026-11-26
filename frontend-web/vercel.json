@@ -8,6 +8,7 @@
     { "source": "/api/:path*", "destination": "https://44-215-225-249.sslip.io/api/:path*" },
     { "source": "/demo-images/:path*", "destination": "https://44-215-225-249.sslip.io/demo-images/:path*" },
     { "source": "/uploads/:path*", "destination": "https://44-215-225-249.sslip.io/uploads/:path*" },
+    { "source": "/demo-manuals/:path*", "destination": "https://44-215-225-249.sslip.io/demo-manuals/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

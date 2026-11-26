@@ -69,9 +69,21 @@ const securitySchema = z
     message: 'validation.passwordMismatch',
   })
 
+/** First password of an account created with Google: no current one to confirm, an email code instead. */
+const firstPasswordSchema = z
+  .object({
+    newPassword: z.string().refine(meetsPasswordRules, 'validation.passwordRules'),
+    confirmPassword: z.string().min(1, 'validation.confirmRequired'),
+  })
+  .refine((values) => values.newPassword === values.confirmPassword, {
+    path: ['confirmPassword'],
+    message: 'validation.passwordMismatch',
+  })
+
 type AccountValues = z.infer<typeof accountSchema>
 type CompanyValues = z.infer<typeof companySchema>
 type SecurityValues = z.infer<typeof securitySchema>
+type FirstPasswordValues = z.infer<typeof firstPasswordSchema>
 
 /**
  * The signed-in account: who you are, how your company looks to renters, and your password. Each area is
@@ -165,7 +177,7 @@ export default function ProfilePage() {
           ))}
         {activeTab === 'security' && (
           <div className="space-y-10">
-            <SecuritySection />
+            {me.data && !me.data.passwordSet ? <FirstPasswordSection onCreated={me.refetch} /> : <SecuritySection />}
             {me.data && <TwoFactorSection key={`${me.data.id}-${me.data.twoFactorChannel}`} me={me.data} onChanged={me.refetch} />}
           </div>
         )}
@@ -364,6 +376,128 @@ function CompanySection({ company, canEdit, onVerified }: { company: Company; ca
   )
 }
 
+/** The password rules, ticked off as the new password meets them. */
+function PasswordRules({ password }: { password: string }) {
+  const { t } = useTranslation()
+  return (
+    <ul className="space-y-2 text-sm" aria-label={t('register.passwordRules')}>
+      {PASSWORD_RULES.map((rule) => {
+        const passes = rule.test(password)
+        return (
+          <li key={rule.label} className={cn('flex items-center gap-2', passes ? 'text-positive' : 'text-slate-600')}>
+            <Check className="size-4" aria-hidden="true" />
+            {t(`register.rules.${rule.label}`)}
+            <span className="sr-only">{passes ? t('register.rulePasses') : t('register.rulePending')}</span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+/** Six-digit code field shared by the code forms of this page. */
+function CodeField({ label, value, onChange }: { label: string; value: string; onChange: (code: string) => void }) {
+  return (
+    <Input
+      label={label}
+      inputMode="numeric"
+      autoComplete="one-time-code"
+      required
+      maxLength={6}
+      placeholder="000000"
+      value={value}
+      onChange={(event) => onChange(event.target.value.replace(/\D/g, '').slice(0, 6))}
+      className="max-w-48 [&_input]:tracking-[0.4em] [&_input]:tabular-nums"
+    />
+  )
+}
+
+/**
+ * An account created with Google has no password it knows. It creates its first one with a code sent to its
+ * email (the address Google verified), since there is no current password to confirm.
+ */
+function FirstPasswordSection({ onCreated }: { onCreated: () => void }) {
+  const { t } = useTranslation()
+  const toast = useToast()
+  const [challenge, setChallenge] = useState<TwoFactorChallenge | null>(null)
+  const [code, setCode] = useState('')
+  const [sending, setSending] = useState(false)
+  const [codeError, setCodeError] = useState<string | null>(null)
+  const { register, handleSubmit, watch, setError, formState } = useZodForm(firstPasswordSchema, {
+    defaultValues: { newPassword: '', confirmPassword: '' },
+  })
+  const { errors, isSubmitting } = formState
+  const newPassword = watch('newPassword')
+
+  async function sendCode() {
+    setCodeError(null)
+    setSending(true)
+    try {
+      setChallenge(await profileService.sendAccountCode())
+      setCode('')
+    } catch (error) {
+      setCodeError(ApiError.from(error).message)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  async function onSubmit(values: FirstPasswordValues) {
+    if (!challenge) return
+    setCodeError(null)
+    try {
+      await profileService.changePassword({ newPassword: values.newPassword, challengeId: challenge.challengeId, code })
+      toast.success(t('profile.security.created'))
+      onCreated()
+    } catch (error) {
+      const apiError = ApiError.from(error)
+      if (apiError.code?.includes('VERIFICATION_CODE')) {
+        setCodeError(apiError.message)
+      } else if (!applyServerFieldErrors(error, setError)) {
+        toast.error(t('profile.saveFailed'), apiError.message)
+      }
+    }
+  }
+
+  return (
+    <SettingsRow
+      title={t('profile.security.title')}
+      description={t('profile.security.noPasswordDescription')}
+      aside={<PasswordRules password={newPassword} />}
+    >
+      {codeError && (
+        <p role="alert" className="mb-4 rounded-md bg-[#ffedea] px-4 py-3 text-sm text-[#831c1e]">
+          {codeError}
+        </p>
+      )}
+      {challenge ? (
+        <form noValidate onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
+          <p className="text-sm text-slate-700">{t('profile.security.codeSentTo', { destination: challenge.destination })}</p>
+          <CodeField label={t('profile.security.code')} value={code} onChange={setCode} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input label={t('profile.security.new')} type="password" required autoComplete="new-password" error={errors.newPassword?.message} {...register('newPassword')} />
+            <Input label={t('register.confirmPassword')} type="password" required autoComplete="new-password" error={errors.confirmPassword?.message} {...register('confirmPassword')} />
+          </div>
+          <div className="flex flex-wrap justify-end gap-3">
+            <Button type="button" variant="secondary" isLoading={sending} onClick={() => void sendCode()}>
+              {t('profile.twoFactor.resend')}
+            </Button>
+            <Button type="submit" variant="primary" isLoading={isSubmitting} disabled={code.length !== 6}>
+              {t('profile.security.create')}
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <div className="flex justify-end">
+          <Button type="button" variant="primary" isLoading={sending} onClick={() => void sendCode()}>
+            {t('profile.security.sendCode')}
+          </Button>
+        </div>
+      )}
+    </SettingsRow>
+  )
+}
+
 function SecuritySection() {
   const { t } = useTranslation()
   const toast = useToast()
@@ -396,20 +530,7 @@ function SecuritySection() {
     <SettingsRow
       title={t('profile.security.title')}
       description={t('profile.security.description')}
-      aside={
-        <ul className="space-y-2 text-sm" aria-label={t('register.passwordRules')}>
-          {PASSWORD_RULES.map((rule) => {
-            const passes = rule.test(newPassword)
-            return (
-              <li key={rule.label} className={cn('flex items-center gap-2', passes ? 'text-positive' : 'text-slate-600')}>
-                <Check className="size-4" aria-hidden="true" />
-                {t(`register.rules.${rule.label}`)}
-                <span className="sr-only">{passes ? t('register.rulePasses') : t('register.rulePending')}</span>
-              </li>
-            )
-          })}
-        </ul>
-      }
+      aside={<PasswordRules password={newPassword} />}
     >
       <form noValidate onSubmit={handleSubmit(onSubmit)}>
         <div className="grid gap-4">
@@ -449,7 +570,8 @@ const TWO_FACTOR_CHANNELS: { id: TwoFactorChannel; icon: LucideIcon }[] = [
 
 /**
  * Turns the two-step verification on (a test code to the chosen channel must come back first, so nobody
- * locks themselves out) or off (with the password).
+ * locks themselves out) or off (with the password, or with an email code for an account created with Google,
+ * which has none).
  */
 function TwoFactorSection({ me, onChanged }: { me: User; onChanged: () => void }) {
   const { t } = useTranslation()
@@ -459,10 +581,12 @@ function TwoFactorSection({ me, onChanged }: { me: User; onChanged: () => void }
   const [code, setCode] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState<'send' | 'confirm' | 'disable' | null>(null)
+  const [accountChallenge, setAccountChallenge] = useState<TwoFactorChallenge | null>(null)
+  const [busy, setBusy] = useState<'send' | 'confirm' | 'disable' | 'accountCode' | null>(null)
   const isOn = me.twoFactorChannel !== null
+  const withCode = !me.passwordSet
 
-  async function run(action: 'send' | 'confirm' | 'disable', task: () => Promise<void>) {
+  async function run(action: 'send' | 'confirm' | 'disable' | 'accountCode', task: () => Promise<void>) {
     setError(null)
     setBusy(action)
     try {
@@ -493,7 +617,9 @@ function TwoFactorSection({ me, onChanged }: { me: User; onChanged: () => void }
   function disable(event: FormEvent) {
     event.preventDefault()
     void run('disable', async () => {
-      await profileService.disableTwoFactor(password)
+      await profileService.disableTwoFactor(
+        withCode && accountChallenge ? { challengeId: accountChallenge.challengeId, code } : { password },
+      )
       toast.success(t('profile.twoFactor.disabled'))
       onChanged()
     })
@@ -526,17 +652,48 @@ function TwoFactorSection({ me, onChanged }: { me: User; onChanged: () => void }
               destination: me.twoFactorChannel === 'SMS' ? me.phone : me.email,
             })}
           </p>
-          <Input
-            label={t('profile.security.current')}
-            hint={t('profile.twoFactor.disableHint')}
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-          <div className="flex justify-end">
-            <Button type="submit" variant="danger" isLoading={busy === 'disable'} disabled={!password}>
+          {withCode ? (
+            accountChallenge ? (
+              <>
+                <p className="text-sm text-slate-700">{t('profile.security.codeSentTo', { destination: accountChallenge.destination })}</p>
+                <CodeField label={t('profile.security.code')} value={code} onChange={setCode} />
+              </>
+            ) : (
+              <p className="text-sm text-slate-600">{t('profile.twoFactor.disableHintNoPassword')}</p>
+            )
+          ) : (
+            <Input
+              label={t('profile.security.current')}
+              hint={t('profile.twoFactor.disableHint')}
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          )}
+          <div className="flex flex-wrap justify-end gap-3">
+            {withCode && (
+              <Button
+                type="button"
+                variant="secondary"
+                isLoading={busy === 'accountCode'}
+                onClick={() =>
+                  void run('accountCode', async () => {
+                    setAccountChallenge(await profileService.sendAccountCode())
+                    setCode('')
+                  })
+                }
+              >
+                {t(accountChallenge ? 'profile.twoFactor.resend' : 'profile.security.sendCode')}
+              </Button>
+            )}
+            <Button
+              type="submit"
+              variant="danger"
+              isLoading={busy === 'disable'}
+              disabled={withCode ? !accountChallenge || code.length !== 6 : !password}
+            >
               {t('profile.twoFactor.disable')}
             </Button>
           </div>
@@ -544,18 +701,7 @@ function TwoFactorSection({ me, onChanged }: { me: User; onChanged: () => void }
       ) : challenge ? (
         <form noValidate onSubmit={confirm} className="grid gap-4">
           <p className="text-sm text-slate-700">{t('profile.twoFactor.sentTo', { destination: challenge.destination })}</p>
-          <Input
-            label={t('profile.twoFactor.code')}
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            autoFocus
-            required
-            maxLength={6}
-            placeholder="000000"
-            value={code}
-            onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-            className="max-w-48 [&_input]:tracking-[0.4em] [&_input]:tabular-nums"
-          />
+          <CodeField label={t('profile.twoFactor.code')} value={code} onChange={setCode} />
           <div className="flex flex-wrap justify-end gap-3">
             <Button type="button" variant="ghost" onClick={() => setChallenge(null)}>
               {t('profile.twoFactor.cancel')}
