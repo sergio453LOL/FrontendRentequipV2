@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useTheme } from '../../hooks/useTheme'
 import { GOOGLE_CLIENT_ID as CLIENT_ID } from '../../utils/googleSignIn'
 
 const SCRIPT_URL = 'https://accounts.google.com/gsi/client'
@@ -76,6 +77,7 @@ export function GoogleSignInButton({
   onLoadError?: () => void
 }) {
   const { i18n } = useTranslation()
+  const { theme } = useTheme()
   const container = useRef<HTMLDivElement>(null)
   const handler = useRef(onCredential)
   const loadError = useRef(onLoadError)
@@ -101,7 +103,8 @@ export function GoogleSignInButton({
         parent.replaceChildren()
         google.renderButton(parent, {
           type: 'standard',
-          theme: 'outline',
+          // Google's dark variant on the dark palette; its outline button would be a white slab there.
+          theme: theme === 'dark' ? 'filled_black' : 'outline',
           size: 'large',
           text,
           shape: 'rectangular',
@@ -116,7 +119,7 @@ export function GoogleSignInButton({
     return () => {
       cancelled = true
     }
-  }, [text, i18n.language])
+  }, [text, i18n.language, theme])
 
   if (!CLIENT_ID) return null
   // Google's iframe is 40px tall; the box keeps the layout still while it loads.

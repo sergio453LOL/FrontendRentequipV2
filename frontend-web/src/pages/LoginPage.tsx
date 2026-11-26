@@ -98,12 +98,12 @@ export default function LoginPage() {
     >
 
         {(locationState.sessionExpired || locationState.sessionIdle) && !formError && (
-          <p role="alert" className="mb-4 rounded-md border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-sm text-[#92400e]">
+          <p role="alert" className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             {locationState.sessionIdle ? t('login.sessionIdle', { minutes: IDLE_TIMEOUT_MINUTES }) : t('login.sessionExpired')}
           </p>
         )}
         {formError && (
-          <p role="alert" className="mb-4 rounded-md bg-[#ffedea] px-4 py-3 text-sm text-[#831c1e]">
+          <p role="alert" className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
             {formError}
           </p>
         )}
@@ -219,7 +219,7 @@ export function TwoFactorStep({
       })}
     >
       {error && (
-        <p role="alert" className="mb-4 rounded-md bg-[#ffedea] px-4 py-3 text-sm text-[#831c1e]">
+        <p role="alert" className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
       )}

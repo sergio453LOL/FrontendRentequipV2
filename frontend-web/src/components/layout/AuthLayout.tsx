@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BrandWordmark } from '../common/BrandMark'
 import { LanguageMenu } from '../common/LanguageMenu'
+import { ThemeToggle } from '../common/ThemeToggle'
 
 interface AuthLayoutProps {
   title: string
@@ -21,12 +22,13 @@ const CLIP_CLASSES =
 
 /**
  * Login and registration: a looping clip of a construction worker over the city on the left half, the form on
- * white on the right. With "reduce motion" on, the clip's first frame stands still instead.
+ * right, in the light or dark palette the visitor chose. With "reduce motion" on, the clip's first frame stands
+ * still instead. The clip keeps its own pale sky in both palettes: it is a photograph, not a surface.
  */
 export function AuthLayout({ title, description, width = 'narrow', children }: AuthLayoutProps) {
   const { t } = useTranslation()
   return (
-    <main className="theme-light min-h-screen bg-sheet lg:grid lg:grid-cols-2">
+    <main className="min-h-screen bg-sheet lg:grid lg:grid-cols-2">
       <figure className="relative hidden overflow-hidden bg-gradient-to-b from-[#eef8fa] to-[#d2eaee] lg:block">
         <video
           src={`${import.meta.env.BASE_URL}videos/login.mp4`}
@@ -44,7 +46,10 @@ export function AuthLayout({ title, description, width = 'narrow', children }: A
       <div className="flex min-h-screen flex-col px-4 py-6 sm:px-10 lg:px-16">
         <div className="flex items-center justify-between">
           <BrandWordmark />
-          <LanguageMenu />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <LanguageMenu />
+          </div>
         </div>
         <div className={`m-auto w-full py-10 ${width === 'wide' ? 'max-w-[560px]' : 'max-w-[380px]'}`}>
           <h1 className="text-[22px] leading-7 font-semibold text-ink">{title}</h1>

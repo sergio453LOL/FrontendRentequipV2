@@ -504,7 +504,7 @@ export default function RegisterPage() {
               )
             })}
             {typeMissing && (
-              <p id="account-type-error" role="alert" className="text-sm text-red-600">
+              <p id="account-type-error" role="alert" className="text-sm text-negative">
                 {t('register.typeRequired')}
               </p>
             )}
