@@ -266,6 +266,10 @@ export const es = {
       http429: 'Demasiadas solicitudes. Espera un momento e inténtalo otra vez.',
     },
     code: {
+      GOOGLE_NOT_CONFIGURED: 'El acceso con Google no está disponible en este servidor.',
+      INVALID_GOOGLE_TOKEN: 'Tu sesión de Google venció o no es válida. Vuelve a continuar con Google.',
+      GOOGLE_EMAIL_NOT_VERIFIED: 'Tu cuenta de Google no tiene un correo verificado.',
+      GOOGLE_UNAVAILABLE: 'No pudimos comprobar tu cuenta con Google. Inténtalo en unos minutos.',
       MACHINE_HAS_OTHER_RENTALS: 'La máquina tiene otras reservas pendientes o en curso. Podrás venderla cuando terminen o las rechaces.',
       DUPLICATE_RESOURCE: 'Ya existe un registro con esos datos (RUC o correo).',
       EQUIPMENT_NOT_AVAILABLE: 'La maquinaria ya está reservada en esas fechas. Prueba con otro rango.',
@@ -423,6 +427,8 @@ export const es = {
     weeklyTooHigh: 'La tarifa semanal no debería superar 7 días de tarifa diaria.',
   },
   login: {
+    orDivider: 'o',
+    googleFailed: 'No se pudo abrir el acceso con Google. Inténtalo otra vez.',
     title: 'Inicia sesión en RentEquip',
     description: 'Alquila maquinaria y herramientas entre constructoras del Perú, o pon a trabajar las tuyas.',
     wrongCredentials: 'Correo o contraseña incorrectos.',
@@ -605,6 +611,12 @@ export const es = {
     footerLink: 'Guías para alquilar maquinaria',
   },
   register: {
+    google: {
+      banner: 'Te registras con tu cuenta de Google {{email}}. Entrarás con Google, sin contraseña.',
+      emailLocked: 'Verificado por Google',
+      useOther: 'Registrarme con correo y contraseña',
+      expired: 'Tu sesión de Google venció. Vuelve a continuar con Google para terminar el registro.',
+    },
     title: 'Registra tu empresa',
     description: 'Publica tu maquinaria y alquila equipos de otras constructoras.',
     rules: {

@@ -1,13 +1,14 @@
 import { KeyRound, Lock, Mail } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
+import { AuthDivider, GoogleSignInButton } from '../components/auth/GoogleSignInButton'
 import { Button } from '../components/common/Button'
 import { Input } from '../components/common/Input'
 import { AuthLayout } from '../components/layout/AuthLayout'
 import type { LoginLocationState } from '../contexts/AuthContextDefinition'
-import type { LoginRequest, TwoFactorChallenge } from '../types'
+import type { TwoFactorChallenge } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import { IDLE_TIMEOUT_MINUTES } from '../hooks/useSessionTimeout'
@@ -15,6 +16,7 @@ import { useZodForm } from '../hooks/useZodForm'
 import { PATHS } from '../routes/paths'
 import i18n from '../i18n'
 import { ApiError } from '../utils/apiError'
+import { continueWithGoogle, isGoogleSignInEnabled } from '../utils/googleSignIn'
 
 const loginSchema = z.object({
   email: z.string().trim().min(1, 'validation.emailRequired').pipe(z.email('validation.emailInvalid')),
@@ -30,12 +32,17 @@ function loginErrorMessage(error: unknown): string {
 
 export default function LoginPage() {
   const { t } = useTranslation()
-  const { login } = useAuth()
+  const { login, loginWithGoogle } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const locationState = (location.state ?? {}) as LoginLocationState
   const [formError, setFormError] = useState<string | null>(null)
-  /** Set when the account has the two-step verification on: the password was right and a code was sent. */
-  const [pending, setPending] = useState<{ challenge: TwoFactorChallenge; credentials: LoginRequest } | null>(null)
+  /**
+   * Set when the account has the two-step verification on: the password (or Google) was right and a code was
+   * sent. `resend` repeats that same first step to send a new code.
+   */
+  const [pending, setPending] = useState<{ challenge: TwoFactorChallenge; resend: () => Promise<TwoFactorChallenge | null> } | null>(null)
+  const [isGoogleBusy, setIsGoogleBusy] = useState(false)
 
   const {
     register,
@@ -47,9 +54,27 @@ export default function LoginPage() {
     setFormError(null)
     try {
       const challenge = await login(values)
-      if (challenge) setPending({ challenge, credentials: values })
+      if (challenge) setPending({ challenge, resend: () => login(values) })
     } catch (error) {
       setFormError(loginErrorMessage(error))
+    }
+  }
+
+  async function onGoogleCredential(credential: string) {
+    setFormError(null)
+    setIsGoogleBusy(true)
+    try {
+      const outcome = await continueWithGoogle(credential, loginWithGoogle)
+      if (outcome.kind === 'challenge') {
+        setPending({ challenge: outcome.challenge, resend: () => loginWithGoogle(credential) })
+      } else if (outcome.kind === 'signup') {
+        // No account has this Google email: the sign-up form takes over, pre-filled and without a password.
+        navigate(PATHS.register, { state: { from: locationState.from, google: outcome.signup } })
+      }
+    } catch (error) {
+      setFormError(ApiError.from(error).message)
+    } finally {
+      setIsGoogleBusy(false)
     }
   }
 
@@ -58,8 +83,8 @@ export default function LoginPage() {
       <TwoFactorStep
         challenge={pending.challenge}
         onResend={async () => {
-          const challenge = await login(pending.credentials)
-          if (challenge) setPending({ challenge, credentials: pending.credentials })
+          const challenge = await pending.resend()
+          if (challenge) setPending({ challenge, resend: pending.resend })
         }}
         onBack={() => setPending(null)}
       />
@@ -109,6 +134,19 @@ export default function LoginPage() {
           </Button>
         </form>
 
+        {isGoogleSignInEnabled && (
+          <>
+            <AuthDivider label={t('login.orDivider')} />
+            <div aria-busy={isGoogleBusy} className={isGoogleBusy ? 'pointer-events-none opacity-60' : undefined}>
+              <GoogleSignInButton
+                text="continue_with"
+                onCredential={(credential) => void onGoogleCredential(credential)}
+                onLoadError={() => setFormError(t('login.googleFailed'))}
+              />
+            </div>
+          </>
+        )}
+
         <p className="mt-6 text-sm text-slate-600">
           {t('login.noAccount')}{' '}
           {/* Carries `from` along, so a visitor who switches to signing up still lands where they were going. */}
@@ -122,8 +160,8 @@ export default function LoginPage() {
 
 const CODE_PATTERN = /^\d{6}$/
 
-/** Second step of a protected login: the six-digit code sent by email or SMS. */
-function TwoFactorStep({
+/** Second step of a protected login: the six-digit code sent by email or SMS. Also used by the sign-up page. */
+export function TwoFactorStep({
   challenge,
   onResend,
   onBack,
