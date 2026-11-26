@@ -1,4 +1,4 @@
-import { BookOpen, CalendarX2, Check, CreditCard, FileDown, FilterX, Flag, Play, Search, ShoppingBag, Star, X } from 'lucide-react'
+import { BookOpen, CalendarPlus, CalendarX2, Check, CreditCard, FileDown, FilterX, Flag, Play, Search, ShoppingBag, Star, X } from 'lucide-react'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -30,6 +30,7 @@ import type { PageResponse, Reservation, ReservationRole, ReservationStatus } fr
 import { cn } from '../utils/cn'
 import { downloadReceipt } from '../utils/downloadReceipt'
 import { formatNumber } from '../utils/format'
+import { googleCalendarUrl } from '../utils/googleCalendar'
 import { RESERVATION_STATUSES } from '../utils/labels'
 
 /** The checkout (and Stripe.js with it) loads only when someone pays a reservation. */
@@ -86,6 +87,8 @@ const ALL = 'ALL'
 
 /** A renter can ask to buy the machine once the owner has confirmed the rental, and keeps the option after returning it. */
 const PURCHASABLE_FROM: ReservationStatus[] = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED']
+/** Reservations the renter can still put on their calendar: confirmed and not finished. */
+const ON_CALENDAR: ReservationStatus[] = ['CONFIRMED', 'IN_PROGRESS']
 
 /** Reservations per status for the current side (renter or owner): the totals behind the filter cards. */
 function useStatusCounts(role: ReservationRole, reloadKey: number): Record<string, number> | null {
@@ -208,6 +211,26 @@ export default function MyReservationsPage() {
           >
             <BookOpen className="size-4" aria-hidden="true" />
             {t('reservations.manual')}
+          </a>
+        )}
+        {/* Confirmed rentals go to the renter's calendar (the confirmation email also carries the invitation). */}
+        {role === 'RENTER' && ON_CALENDAR.includes(reservation.status) && (
+          <a
+            href={googleCalendarUrl(reservation, {
+              title: t('reservations.calendarTitle', { name: reservation.equipmentName }),
+              details: t('reservations.calendarDetails', {
+                id: reservation.id,
+                days: reservation.totalDays,
+                url: new URL(PATHS.reservations.slice(1), new URL(import.meta.env.BASE_URL, window.location.origin)).href,
+              }),
+            })}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={t('reservations.addToCalendarOf', { name: reservation.equipmentName })}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-ink transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          >
+            <CalendarPlus className="size-4" aria-hidden="true" />
+            {t('reservations.addToCalendar')}
           </a>
         )}
         {role === 'RENTER' && reservation.status === 'COMPLETED' && !reservation.reviewed && (

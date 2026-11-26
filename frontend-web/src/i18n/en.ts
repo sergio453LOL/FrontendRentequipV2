@@ -264,6 +264,11 @@ export const en: Translations = {
       http429: 'Too many requests. Wait a moment and try again.',
     },
     code: {
+      RECAPTCHA_FAILED: 'We could not verify that you are a person. Reload the page and try again.',
+      GOOGLE_NOT_CONFIGURED: 'Google sign-in is not available on this server.',
+      INVALID_GOOGLE_TOKEN: 'Your Google sign-in expired or is not valid. Continue with Google again.',
+      GOOGLE_EMAIL_NOT_VERIFIED: 'Your Google account has no verified email.',
+      GOOGLE_UNAVAILABLE: 'We could not check your account with Google. Try again in a few minutes.',
       MACHINE_HAS_OTHER_RENTALS: 'The machine has other pending or active reservations. You can sell it once they end or you reject them.',
       DUPLICATE_RESOURCE: 'A record with that data already exists (RUC or email).',
       EQUIPMENT_NOT_AVAILABLE: 'The equipment is already booked on those dates. Try another range.',
@@ -421,6 +426,11 @@ export const en: Translations = {
     weeklyTooHigh: 'The weekly rate should not exceed 7 days of the daily rate.',
   },
   login: {
+    orDivider: 'or',
+    googleFailed: 'Google sign-in could not open. Please try again.',
+    recaptchaProtected: 'Protected by Google reCAPTCHA:',
+    recaptchaPrivacy: 'Privacy',
+    recaptchaTerms: 'Terms',
     title: 'Log in to RentEquip',
     description: 'Rent machinery and tools between construction companies in Peru, or put yours to work.',
     wrongCredentials: 'Incorrect email or password.',
@@ -603,6 +613,12 @@ export const en: Translations = {
     footerLink: 'Guides to renting machinery',
   },
   register: {
+    google: {
+      banner: 'You are signing up with your Google account {{email}}. You will log in with Google, no password.',
+      emailLocked: 'Verified by Google',
+      useOther: 'Sign up with email and password',
+      expired: 'Your Google sign-in expired. Continue with Google again to finish signing up.',
+    },
     title: 'Register your company',
     description: 'List your machinery and rent equipment from other construction companies.',
     rules: {
@@ -897,6 +913,10 @@ export const en: Translations = {
     pay: 'Pay',
     downloadReceiptOf: 'Download PDF receipt for {{name}}',
     receiptPdf: 'PDF receipt',
+    addToCalendar: 'Google Calendar',
+    addToCalendarOf: 'Add the {{name}} rental to Google Calendar',
+    calendarTitle: 'Rental: {{name}} (RentEquip)',
+    calendarDetails: 'Reservation #{{id}} on RentEquip, {{days}} days. Details: {{url}}',
     manual: 'Instructions for use',
     manualOf: 'Instructions for use of {{name}} (PDF, opens in a new tab)',
     renterDescription: 'Your rentals by date: pay, download the receipt and follow each request.',

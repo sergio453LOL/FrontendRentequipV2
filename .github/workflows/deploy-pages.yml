@@ -3,6 +3,8 @@
 # Optional repository variables (Settings > Secrets and variables > Actions > Variables):
 #   VITE_API_URL                 HTTPS URL of the backend (default: the EC2 backend below)
 #   VITE_STRIPE_PUBLISHABLE_KEY  Stripe publishable key (pk_test_...); without it card payments are disabled
+#   VITE_GOOGLE_CLIENT_ID        Google OAuth web client id; without it the "Continue with Google" button is hidden
+#   VITE_RECAPTCHA_SITE_KEY      reCAPTCHA v3 site key for the login; without it no reCAPTCHA is loaded
 name: Deploy web to GitHub Pages
 
 on:
@@ -39,6 +41,8 @@ jobs:
           VITE_BASE: /${{ github.event.repository.name }}/
           VITE_API_URL: ${{ vars.VITE_API_URL || 'https://44-215-225-249.sslip.io/api/v1' }}
           VITE_STRIPE_PUBLISHABLE_KEY: ${{ vars.VITE_STRIPE_PUBLISHABLE_KEY }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          VITE_RECAPTCHA_SITE_KEY: ${{ vars.VITE_RECAPTCHA_SITE_KEY }}
       # Pages has no SPA rewrites: serving index.html as 404.html lets deep links like /catalogo load the app.
       - run: cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3

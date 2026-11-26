@@ -4,6 +4,8 @@ import type { UserRole } from './user'
 export interface LoginRequest {
   email: string
   password: string
+  /** reCAPTCHA v3 token for the "login" action; absent when reCAPTCHA is not configured. */
+  recaptchaToken?: string
 }
 
 export interface RegisterRequest {
@@ -48,3 +50,20 @@ export interface TwoFactorVerifyRequest {
 
 /** Profile of the logged-in user: the `AuthResponse` without its tokens. */
 export type AuthUser = Pick<AuthResponse, 'userId' | 'email' | 'role' | 'companyId' | 'companyName'>
+
+/** Sign-up after "Continuar con Google": the email and the proof of it travel inside the Google credential. */
+export interface GoogleRegisterRequest {
+  credential: string
+  company: CompanyCreateRequest
+  firstName: string
+  lastName: string
+  phone?: string
+}
+
+/** A Google login that found no account: what the sign-up form starts from. */
+export interface GoogleSignup {
+  credential: string
+  email: string
+  firstName: string
+  lastName: string
+}

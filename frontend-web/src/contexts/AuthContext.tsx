@@ -4,7 +4,14 @@ import { useSessionTimeout, type SessionEndReason } from '../hooks/useSessionTim
 import { PATHS } from '../routes/paths'
 import { setUnauthorizedHandler } from '../services/api'
 import { authService } from '../services/authService'
-import type { AuthResponse, AuthUser, LoginRequest, RegisterRequest, TwoFactorVerifyRequest } from '../types'
+import type {
+  AuthResponse,
+  AuthUser,
+  GoogleRegisterRequest,
+  LoginRequest,
+  RegisterRequest,
+  TwoFactorVerifyRequest,
+} from '../types'
 import { toAuthUser, tokenStorage } from '../utils/tokenStorage'
 import { AuthContext, type AuthContextValue } from './AuthContextDefinition'
 
@@ -42,6 +49,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [startSession],
   )
 
+  const loginWithGoogle = useCallback(
+    async (credential: string) => {
+      const result = await authService.loginWithGoogle(credential)
+      if ('challengeId' in result) return result
+      startSession(result)
+      return null
+    },
+    [startSession],
+  )
+
+  const registerWithGoogle = useCallback(
+    async (request: GoogleRegisterRequest) => startSession(await authService.registerWithGoogle(request)),
+    [startSession],
+  )
+
   const verifyLogin = useCallback(
     async (request: TwoFactorVerifyRequest) => startSession(await authService.verifyLogin(request)),
     [startSession],
@@ -67,8 +89,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isAuthenticated: user !== null, sessionEnd, login, verifyLogin, register, logout, updateUser }),
-    [user, sessionEnd, login, verifyLogin, register, logout, updateUser],
+    () => ({
+      user,
+      isAuthenticated: user !== null,
+      sessionEnd,
+      login,
+      loginWithGoogle,
+      verifyLogin,
+      register,
+      registerWithGoogle,
+      logout,
+      updateUser,
+    }),
+    [user, sessionEnd, login, loginWithGoogle, verifyLogin, register, registerWithGoogle, logout, updateUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

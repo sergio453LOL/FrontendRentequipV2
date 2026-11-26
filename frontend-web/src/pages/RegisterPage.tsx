@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router-dom'
 import type { LoginLocationState } from '../contexts/AuthContextDefinition'
 import { z } from 'zod'
+import { AuthDivider, GoogleSignInButton } from '../components/auth/GoogleSignInButton'
 import { Button } from '../components/common/Button'
 import { Input } from '../components/common/Input'
 import { Select } from '../components/common/Select'
@@ -14,39 +15,45 @@ import { useToast } from '../hooks/useToast'
 import { useZodForm } from '../hooks/useZodForm'
 import { PATHS } from '../routes/paths'
 import { ApiError } from '../utils/apiError'
+import { continueWithGoogle, isGoogleSignInEnabled } from '../utils/googleSignIn'
 import { findCity, PERU_CITIES } from '../utils/cities'
 import { cn } from '../utils/cn'
 import { applyServerFieldErrors } from '../utils/formErrors'
 import { PASSWORD_RULES } from '../utils/passwordRules'
 import { identityService, type RucInfo } from '../services/identityService'
+import type { GoogleSignup, TwoFactorChallenge } from '../types'
+import { TwoFactorStep } from './LoginPage'
 import { isValidRuc } from '../utils/ruc'
 
 const optionalPhone = z.string().trim().max(20, 'validation.max20').regex(/^[\d\s+()-]*$/, 'validation.phoneChars')
 
-const registerSchema = z
-  .object({
-    companyName: z.string().trim().min(2, 'validation.min2').max(150, 'validation.max150'),
-    taxId: z.string().trim().regex(/^\d{11}$/, 'validation.taxId').refine(isValidRuc, 'validation.rucCheck'),
-    dni: z.string().trim().regex(/^(\d{8})?$/, 'validation.dni'),
-    companyEmail: z.string().trim().pipe(z.email('validation.emailInvalid')),
-    companyPhone: optionalPhone,
-    city: z.string().min(1, 'validation.cityRequired'),
-    address: z.string().trim().max(255, 'validation.max255'),
-    latitude: z.string(),
-    longitude: z.string(),
-    firstName: z.string().trim().min(1, 'validation.firstNameRequired').max(80, 'validation.max80'),
-    lastName: z.string().trim().min(1, 'validation.lastNameRequired').max(80, 'validation.max80'),
-    email: z.string().trim().pipe(z.email('validation.emailInvalid')),
-    phone: optionalPhone,
-    password: z
-      .string()
-      .refine((value) => PASSWORD_RULES.every((rule) => rule.test(value)), 'validation.passwordRules'),
-    confirmPassword: z.string().min(1, 'validation.confirmRequired'),
-  })
-  .refine((values) => values.password === values.confirmPassword, {
-    path: ['confirmPassword'],
-    message: 'validation.passwordMismatch',
-  })
+const registerFields = z.object({
+  companyName: z.string().trim().min(2, 'validation.min2').max(150, 'validation.max150'),
+  taxId: z.string().trim().regex(/^\d{11}$/, 'validation.taxId').refine(isValidRuc, 'validation.rucCheck'),
+  dni: z.string().trim().regex(/^(\d{8})?$/, 'validation.dni'),
+  companyEmail: z.string().trim().pipe(z.email('validation.emailInvalid')),
+  companyPhone: optionalPhone,
+  city: z.string().min(1, 'validation.cityRequired'),
+  address: z.string().trim().max(255, 'validation.max255'),
+  latitude: z.string(),
+  longitude: z.string(),
+  firstName: z.string().trim().min(1, 'validation.firstNameRequired').max(80, 'validation.max80'),
+  lastName: z.string().trim().min(1, 'validation.lastNameRequired').max(80, 'validation.max80'),
+  email: z.string().trim().pipe(z.email('validation.emailInvalid')),
+  phone: optionalPhone,
+  password: z
+    .string()
+    .refine((value) => PASSWORD_RULES.every((rule) => rule.test(value)), 'validation.passwordRules'),
+  confirmPassword: z.string().min(1, 'validation.confirmRequired'),
+})
+
+const registerSchema = registerFields.refine((values) => values.password === values.confirmPassword, {
+  path: ['confirmPassword'],
+  message: 'validation.passwordMismatch',
+})
+
+/** Signing up with Google: the email comes from Google and there is no password to choose. */
+const googleRegisterSchema = registerFields.extend({ password: z.string(), confirmPassword: z.string() })
 
 type RegisterFormValues = z.infer<typeof registerSchema>
 
@@ -99,9 +106,15 @@ type LocationStatus = 'idle' | 'locating' | 'detected' | 'denied' | 'unsupported
 
 export default function RegisterPage() {
   const { t } = useTranslation()
+  const locationState = useLocation().state as LoginLocationState | null
   // Where the visitor was going (for example the AI advisor with their question); kept if they switch to login.
-  const returnTo = (useLocation().state as LoginLocationState | null)?.from
-  const { register: registerAccount } = useAuth()
+  const returnTo = locationState?.from
+  const { register: registerAccount, registerWithGoogle, loginWithGoogle } = useAuth()
+  /** Set when the visitor came through "Continuar con Google" and has no account yet. */
+  const [google, setGoogle] = useState<GoogleSignup | null>(locationState?.google ?? null)
+  /** "Continuar con Google" here found an account with the two-step verification on. */
+  const [googleChallenge, setGoogleChallenge] = useState<{ challenge: TwoFactorChallenge; credential: string } | null>(null)
+  const [isGoogleBusy, setIsGoogleBusy] = useState(false)
   const toast = useToast()
   const [step, setStep] = useState(0)
   const [formError, setFormError] = useState<string | null>(null)
@@ -119,7 +132,7 @@ export default function RegisterPage() {
     getValues,
     watch,
     formState: { errors, isSubmitting },
-  } = useZodForm(registerSchema, {
+  } = useZodForm(google ? googleRegisterSchema : registerSchema, {
     defaultValues: {
       companyName: '',
       taxId: '',
@@ -130,9 +143,9 @@ export default function RegisterPage() {
       latitude: '',
       longitude: '',
       dni: '',
-      firstName: '',
-      lastName: '',
-      email: '',
+      firstName: locationState?.google?.firstName ?? '',
+      lastName: locationState?.google?.lastName ?? '',
+      email: locationState?.google?.email ?? '',
       phone: '',
       password: '',
       confirmPassword: '',
@@ -288,6 +301,34 @@ export default function RegisterPage() {
     )
   }
 
+  /** Google names fill in only what is still empty, so nothing RENIEC or the visitor wrote is overwritten. */
+  function startGoogleSignup(signup: GoogleSignup) {
+    setGoogle(signup)
+    setValue('email', signup.email, { shouldValidate: Boolean(signup.email) })
+    if (!getValues('firstName') && signup.firstName) setValue('firstName', signup.firstName)
+    if (!getValues('lastName') && signup.lastName) setValue('lastName', signup.lastName)
+  }
+
+  function leaveGoogleSignup() {
+    setGoogle(null)
+    setValue('email', '')
+  }
+
+  async function onGoogleCredential(credential: string) {
+    setFormError(null)
+    setIsGoogleBusy(true)
+    try {
+      const outcome = await continueWithGoogle(credential, loginWithGoogle)
+      // A Google email that already has an account just signs in; the guest route then moves on.
+      if (outcome.kind === 'challenge') setGoogleChallenge({ challenge: outcome.challenge, credential })
+      else if (outcome.kind === 'signup') startGoogleSignup(outcome.signup)
+    } catch (error) {
+      setFormError(ApiError.from(error).message)
+    } finally {
+      setIsGoogleBusy(false)
+    }
+  }
+
   async function onSubmit(values: RegisterFormValues) {
     setFormError(null)
     const city = findCity(values.city)
@@ -299,31 +340,62 @@ export default function RegisterPage() {
       return
     }
 
+    const company = {
+      name: values.companyName,
+      taxId: values.taxId,
+      email: values.companyEmail,
+      phone: values.companyPhone || undefined,
+      address: values.address || undefined,
+      city: values.city,
+      latitude,
+      longitude,
+    }
     try {
-      await registerAccount({
-        company: {
-          name: values.companyName,
-          taxId: values.taxId,
-          email: values.companyEmail,
-          phone: values.companyPhone || undefined,
-          address: values.address || undefined,
-          city: values.city,
-          latitude,
-          longitude,
-        },
-        firstName: values.firstName,
-        lastName: values.lastName,
-        email: values.email,
-        phone: values.phone || undefined,
-        password: values.password,
-      })
+      if (google) {
+        await registerWithGoogle({
+          credential: google.credential,
+          company,
+          firstName: values.firstName,
+          lastName: values.lastName,
+          phone: values.phone || undefined,
+        })
+      } else {
+        await registerAccount({
+          company,
+          firstName: values.firstName,
+          lastName: values.lastName,
+          email: values.email,
+          phone: values.phone || undefined,
+          password: values.password,
+        })
+      }
       toast.success(t('register.welcomeTitle'), t('register.welcomeText', { company: values.companyName }))
     } catch (error) {
+      // Google's credential lasts an hour: past that, a new one is needed, and what was typed stays.
+      if (google && ApiError.from(error).code === 'INVALID_GOOGLE_TOKEN') {
+        setGoogle(null)
+        setStep(0)
+        setFormError(t('register.google.expired'))
+        return
+      }
       const appliedToFields = applyServerFieldErrors(error, setError, SERVER_FIELD_MAP)
       const companyFieldFailed = ApiError.from(error).details.some((detail) => detail.field.startsWith('company.'))
       if (companyFieldFailed) setStep(1)
       setFormError(appliedToFields ? t('register.checkFields') : ApiError.from(error).message)
     }
+  }
+
+  if (googleChallenge) {
+    return (
+      <TwoFactorStep
+        challenge={googleChallenge.challenge}
+        onResend={async () => {
+          const challenge = await loginWithGoogle(googleChallenge.credential)
+          if (challenge) setGoogleChallenge({ challenge, credential: googleChallenge.credential })
+        }}
+        onBack={() => setGoogleChallenge(null)}
+      />
+    )
   }
 
   return (
@@ -364,6 +436,28 @@ export default function RegisterPage() {
           <p role="alert" className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
             {formError}
           </p>
+        )}
+
+        {google && (
+          <div className="mb-6 flex flex-col items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <p className="text-pretty">{t('register.google.banner', { email: google.email })}</p>
+            <button type="button" onClick={leaveGoogleSignup} className="font-medium text-slate-600 underline underline-offset-2 hover:text-ink">
+              {t('register.google.useOther')}
+            </button>
+          </div>
+        )}
+
+        {step === 0 && !google && isGoogleSignInEnabled && (
+          <>
+            <div aria-busy={isGoogleBusy} className={cn('mx-auto max-w-[400px]', isGoogleBusy && 'pointer-events-none opacity-60')}>
+              <GoogleSignInButton
+                text="signup_with"
+                onCredential={(credential) => void onGoogleCredential(credential)}
+                onLoadError={() => setFormError(t('login.googleFailed'))}
+              />
+            </div>
+            <AuthDivider label={t('login.orDivider')} />
+          </>
         )}
 
         <form
@@ -410,7 +504,7 @@ export default function RegisterPage() {
               )
             })}
             {typeMissing && (
-              <p id="account-type-error" role="alert" className="text-sm text-red-600">
+              <p id="account-type-error" role="alert" className="text-sm text-negative">
                 {t('register.typeRequired')}
               </p>
             )}
@@ -561,22 +655,36 @@ export default function RegisterPage() {
               error={errors.lastName?.message}
               {...register('lastName')}
             />
-            <Input label={t('register.email')} type="email" required autoComplete="email" hint={t('register.emailHint')} error={errors.email?.message} {...register('email')} />
+            <Input
+              label={t('register.email')}
+              type="email"
+              required
+              autoComplete="email"
+              readOnly={Boolean(google)}
+              leftIcon={google ? <Lock className="size-4" /> : undefined}
+              hint={t(google ? 'register.google.emailLocked' : 'register.emailHint')}
+              error={errors.email?.message}
+              {...register('email')}
+            />
             <Input label={t('register.phone')} type="tel" autoComplete="tel" placeholder="987 654 321" error={errors.phone?.message} {...register('phone')} />
-            <Input label={t('register.password')} type="password" required autoComplete="new-password" error={errors.password?.message} {...register('password')} />
-            <Input label={t('register.confirmPassword')} type="password" required autoComplete="new-password" error={errors.confirmPassword?.message} {...register('confirmPassword')} />
-            <ul className="grid grid-cols-2 gap-1.5 text-xs sm:col-span-2" aria-label={t('register.passwordRules')}>
-              {PASSWORD_RULES.map((rule) => {
-                const passes = rule.test(password)
-                return (
-                  <li key={rule.label} className={cn('flex items-center gap-1.5', passes ? 'text-positive' : 'text-slate-500')}>
-                    <Check className="size-3.5" aria-hidden="true" />
-                    {t(`register.rules.${rule.label}`)}
-                    <span className="sr-only">{passes ? t('register.rulePasses') : t('register.rulePending')}</span>
-                  </li>
-                )
-              })}
-            </ul>
+            {!google && (
+              <>
+                <Input label={t('register.password')} type="password" required autoComplete="new-password" error={errors.password?.message} {...register('password')} />
+                <Input label={t('register.confirmPassword')} type="password" required autoComplete="new-password" error={errors.confirmPassword?.message} {...register('confirmPassword')} />
+                <ul className="grid grid-cols-2 gap-1.5 text-xs sm:col-span-2" aria-label={t('register.passwordRules')}>
+                  {PASSWORD_RULES.map((rule) => {
+                    const passes = rule.test(password)
+                    return (
+                      <li key={rule.label} className={cn('flex items-center gap-1.5', passes ? 'text-positive' : 'text-slate-500')}>
+                        <Check className="size-3.5" aria-hidden="true" />
+                        {t(`register.rules.${rule.label}`)}
+                        <span className="sr-only">{passes ? t('register.rulePasses') : t('register.rulePending')}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </>
+            )}
           </fieldset>
 
           <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">

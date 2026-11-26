@@ -265,6 +265,11 @@ export const zh: Translations = {
       http429: '请求过多，请稍后再试。',
     },
     code: {
+      RECAPTCHA_FAILED: '无法验证您是真人。请刷新页面后重试。',
+      GOOGLE_NOT_CONFIGURED: '此服务器未启用 Google 登录。',
+      INVALID_GOOGLE_TOKEN: '您的 Google 登录已过期或无效，请重新使用 Google 继续。',
+      GOOGLE_EMAIL_NOT_VERIFIED: '您的 Google 账户没有已验证的电子邮箱。',
+      GOOGLE_UNAVAILABLE: '暂时无法通过 Google 验证您的账户，请几分钟后再试。',
       MACHINE_HAS_OTHER_RENTALS: '该设备还有其他待处理或进行中的预订。结束或拒绝后即可出售。',
       DUPLICATE_RESOURCE: '已存在相同信息的记录（RUC 或电子邮箱）。',
       EQUIPMENT_NOT_AVAILABLE: '该设备在这些日期已被预订，请换一个时间段。',
@@ -409,6 +414,11 @@ export const zh: Translations = {
     weeklyTooHigh: '周租金不应超过 7 天的日租金。',
   },
   login: {
+    orDivider: '或',
+    googleFailed: '无法打开 Google 登录，请重试。',
+    recaptchaProtected: '受 Google reCAPTCHA 保护：',
+    recaptchaPrivacy: '隐私权',
+    recaptchaTerms: '条款',
     title: '登录 RentEquip',
     description: '在秘鲁建筑公司之间租赁机械和工具，或让您闲置的设备创造收益。',
     wrongCredentials: '电子邮箱或密码错误。',
@@ -577,6 +587,12 @@ export const zh: Translations = {
     footerLink: '机械租赁指南',
   },
   register: {
+    google: {
+      banner: '您正在使用 Google 账户 {{email}} 注册。之后将通过 Google 登录，无需密码。',
+      emailLocked: '已由 Google 验证',
+      useOther: '使用电子邮箱和密码注册',
+      expired: '您的 Google 登录已过期，请重新使用 Google 继续以完成注册。',
+    },
     title: '注册您的公司',
     description: '发布您的设备，并向其他建筑公司租用设备。',
     rules: {
@@ -871,6 +887,10 @@ export const zh: Translations = {
     pay: '付款',
     downloadReceiptOf: '下载 {{name}} 的 PDF 收据',
     receiptPdf: 'PDF 收据',
+    addToCalendar: 'Google 日历',
+    addToCalendarOf: '将 {{name}} 的租赁添加到 Google 日历',
+    calendarTitle: '租赁：{{name}}（RentEquip）',
+    calendarDetails: 'RentEquip 预订 #{{id}}，共 {{days}} 天。详情：{{url}}',
     manual: '使用说明',
     manualOf: '{{name}} 的使用说明（PDF，在新标签页中打开）',
     renterDescription: '按日期排列的租赁：付款、下载收据并跟踪每个申请。',

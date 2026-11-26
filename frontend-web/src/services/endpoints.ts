@@ -4,6 +4,8 @@ export const ENDPOINTS = {
     login: '/auth/login',
     loginVerify: '/auth/login/verify',
     register: '/auth/register',
+    google: '/auth/google',
+    googleRegister: '/auth/google/register',
   },
   categories: '/equipment-categories',
   category: (id: number) => `/equipment-categories/${id}`,
