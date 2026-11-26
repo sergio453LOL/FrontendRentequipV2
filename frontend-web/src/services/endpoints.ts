@@ -43,6 +43,7 @@ export const ENDPOINTS = {
   twoFactorSetup: '/users/me/two-factor/setup',
   twoFactorConfirm: '/users/me/two-factor/confirm',
   twoFactorDisable: '/users/me/two-factor/disable',
+  accountCode: '/users/me/account-code',
   company: (id: number) => `/companies/${id}`,
   assistantChat: '/assistant/chat',
   equipmentRating: '/reviews/ratings',

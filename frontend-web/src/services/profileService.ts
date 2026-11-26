@@ -5,6 +5,7 @@ import type {
   ProfileUpdateRequest,
   TwoFactorChallenge,
   TwoFactorChannel,
+  TwoFactorDisableRequest,
   TwoFactorVerifyRequest,
   UploadedImage,
   User,
@@ -37,8 +38,14 @@ export const profileService = {
     return data
   },
 
-  async disableTwoFactor(password: string): Promise<User> {
-    const { data } = await api.post<User>(ENDPOINTS.twoFactorDisable, { password })
+  async disableTwoFactor(request: TwoFactorDisableRequest): Promise<User> {
+    const { data } = await api.post<User>(ENDPOINTS.twoFactorDisable, request)
+    return data
+  },
+
+  /** Accounts without a password (created with Google): a code to their email confirms a security change. */
+  async sendAccountCode(): Promise<TwoFactorChallenge> {
+    const { data } = await api.post<TwoFactorChallenge>(ENDPOINTS.accountCode)
     return data
   },
 

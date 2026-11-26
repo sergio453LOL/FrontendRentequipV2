@@ -69,7 +69,9 @@ export class ApiError extends Error {
 
     const { status, data } = response
     const codeMessage =
-      data?.code && USER_FACING_CODES.has(data.code) && data.message
+      data?.code === 'TOO_MANY_REQUESTS'
+        ? tooManyRequestsMessage(response.headers?.['retry-after'])
+        : data?.code && USER_FACING_CODES.has(data.code) && data.message
         ? data.message
         : data?.code && isMessageCode(data.code)
           ? i18n.t(`errors.code.${data.code}`)
@@ -94,6 +96,13 @@ export class ApiError extends Error {
     if (error instanceof AxiosError) return ApiError.fromAxios(error)
     return new ApiError(i18n.t('errors.unknown'), { status: -1 })
   }
+}
+
+/** Rate limits (login attempts, lookups, receipts): the wait comes in the Retry-After header, in seconds. */
+function tooManyRequestsMessage(retryAfter: unknown): string {
+  const seconds = Number(retryAfter)
+  if (!Number.isFinite(seconds) || seconds <= 0) return i18n.t('errors.code.TOO_MANY_REQUESTS')
+  return i18n.t('errors.tooManyRequestsIn', { minutes: Math.max(1, Math.ceil(seconds / 60)) })
 }
 
 export function getErrorMessage(error: unknown): string {
