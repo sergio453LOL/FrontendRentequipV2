@@ -1,5 +1,5 @@
-import { Check, MessageCircle, Plus, Send, TicketPercent } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { Check, FileText, Mail, MessageCircle, Phone, Plus, Send, TicketPercent, UserRound, type LucideIcon } from 'lucide-react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import { AdminPageHeader, Bar, BlockError, EmptyBlock, Panel, PanelHeader, Pill, Segmented, SelectField, SourceBadge, type PillTone } from '../../components/admin/AdminUi'
@@ -251,8 +251,8 @@ function Newsletters() {
   )
 }
 
-function whatsappLink(quote: AbandonedQuote, message: string): string {
-  return `https://wa.me/${quote.phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`
+function whatsappLink(phone: string, message: string): string {
+  return `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`
 }
 
 function Quotes() {
@@ -326,7 +326,7 @@ function Quotes() {
                           {couponSent ? t('admin.marketing.quotes.couponDone') : t('admin.marketing.quotes.coupon')}
                         </Button>
                         <a
-                          href={whatsappLink(quote, t('admin.marketing.quotes.whatsappText', { name: quote.contact.split(' ')[0], equipment: quote.equipment }))}
+                          href={whatsappLink(quote.phone, t('admin.marketing.quotes.whatsappText', { name: quote.contact.split(' ')[0], equipment: quote.equipment }))}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 hover:bg-slate-50"
@@ -350,6 +350,21 @@ function Quotes() {
   )
 }
 
+/** One fact the company left in the form: an icon, its label for screen readers, the value. */
+function ContactFact({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <dt className="shrink-0">
+        <Icon className="size-3.5 text-slate-400" strokeWidth={1.75} aria-hidden="true" />
+        <span className="sr-only">{label}</span>
+      </dt>
+      <dd className="min-w-0 truncate text-[13px] text-slate-700">{children}</dd>
+    </div>
+  )
+}
+
+const contactLink = 'text-slate-800 underline-offset-2 hover:text-slate-950 hover:underline'
+
 function Signups() {
   const { t } = useTranslation()
   const toast = useToast()
@@ -358,7 +373,7 @@ function Signups() {
 
   function followUp(signup: AbandonedSignup) {
     setData((current) => (current ?? []).map((item) => (item.id === signup.id ? { ...item, followedUp: true } : item)))
-    toast.success(t('admin.marketing.signups.followToast', { name: signup.company }))
+    toast.success(t('admin.marketing.signups.followToast', { name: signup.contactName }))
   }
 
   return (
@@ -366,48 +381,97 @@ function Signups() {
       <PanelHeader id="signups-title" title={t('admin.marketing.tabs.signups')} meta={t('admin.marketing.signups.meta', { count: data?.length ?? 0 })} />
       {error && <BlockError message={error.message} onRetry={reload} />}
       {isLoading && !data ? (
-        <div className="space-y-2 px-4 pb-4 sm:px-5">{Array.from({ length: 5 }, (_, index) => <Bar key={index} className="h-14" />)}</div>
+        <div className="space-y-2 px-4 pb-4 sm:px-5">{Array.from({ length: 5 }, (_, index) => <Bar key={index} className="h-24" />)}</div>
       ) : (data ?? []).length === 0 ? (
         <EmptyBlock>{t('admin.marketing.signups.empty')}</EmptyBlock>
       ) : (
-        <ul className="divide-y divide-slate-100 border-t border-slate-200/80">
-          {(data ?? []).map((signup) => {
-            const next = ONBOARDING_STEPS[signup.completed]
-            return (
-              <li key={signup.id} className="grid gap-x-6 gap-y-2 px-4 py-3 sm:px-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_180px] lg:items-center">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-900">{signup.company}</p>
-                  <p className="truncate text-[13px] text-slate-600">
-                    {signup.email} · {signup.city} · {timeAgo(signup.lastSeenAt)}
-                  </p>
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-baseline justify-between gap-3 text-[13px]">
-                    <span className="truncate text-slate-700">{next ? t('admin.marketing.signups.stoppedAt', { step: t(`admin.marketing.signups.steps.${next}`) }) : ''}</span>
-                    <span className="num shrink-0 text-slate-500">{t('admin.marketing.signups.stepCount', { done: signup.completed, total })}</span>
+        <>
+          <div className="hidden grid-cols-[minmax(0,0.8fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_232px] gap-x-6 border-t border-slate-200/80 px-5 py-2 text-xs text-slate-500 xl:grid">
+            <span>{t('admin.marketing.signups.columns.company')}</span>
+            <span>{t('admin.marketing.signups.columns.data')}</span>
+            <span>{t('admin.marketing.signups.columns.progress')}</span>
+            <span className="text-right">{t('admin.marketing.signups.columns.actions')}</span>
+          </div>
+          <ul className="divide-y divide-slate-100 border-t border-slate-200/80 xl:border-slate-100">
+            {(data ?? []).map((signup) => {
+              const next = ONBOARDING_STEPS[signup.completed]
+              const firstName = signup.contactName.split(' ')[0]
+              const stepName = next ? t(`admin.marketing.signups.steps.${next}`) : ''
+              const message = t('admin.marketing.signups.messageText', { name: firstName, company: signup.company, step: stepName })
+              const mailto = `mailto:${signup.email}?subject=${encodeURIComponent(t('admin.marketing.signups.emailSubject'))}&body=${encodeURIComponent(message)}`
+              return (
+                <li key={signup.id} className="grid gap-x-6 gap-y-3 px-4 py-3.5 sm:px-5 md:grid-cols-2 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_232px] xl:items-center">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-900">{signup.company}</p>
+                    <p className="mt-0.5 text-[13px] text-slate-600">
+                      {signup.city} · {t(`admin.marketing.signups.channels.${signup.channel}`)}
+                    </p>
+                    <p className="text-xs text-slate-500">{t('admin.marketing.signups.lastSeen', { when: timeAgo(signup.lastSeenAt) })}</p>
                   </div>
-                  <div className="mt-1.5 grid gap-1" style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }} role="img" aria-label={t('admin.marketing.signups.stepCount', { done: signup.completed, total })}>
-                    {ONBOARDING_STEPS.map((step, index) => (
-                      <span key={step} title={t(`admin.marketing.signups.steps.${step}`)} className={cn('h-1.5 rounded-full', index < signup.completed ? 'bg-brand' : 'bg-slate-200')} />
-                    ))}
+
+                  <dl className="grid min-w-0 gap-1" aria-label={t('admin.marketing.signups.columns.data')}>
+                    <ContactFact icon={UserRound} label={t('admin.marketing.signups.fields.contact')}>
+                      <span className="font-medium text-slate-900">{signup.contactName}</span>
+                      <span className="text-slate-500"> · {signup.contactRole}</span>
+                    </ContactFact>
+                    <ContactFact icon={Phone} label={t('admin.marketing.signups.fields.phone')}>
+                      <a href={`tel:${signup.phone.replace(/\s/g, '')}`} className={cn('num', contactLink)}>
+                        {signup.phone}
+                      </a>
+                    </ContactFact>
+                    <ContactFact icon={Mail} label={t('admin.marketing.signups.fields.email')}>
+                      <a href={`mailto:${signup.email}`} className={contactLink} title={signup.email}>
+                        {signup.email}
+                      </a>
+                    </ContactFact>
+                    <ContactFact icon={FileText} label={t('admin.marketing.signups.fields.ruc')}>
+                      {signup.ruc ? <span className="num">{signup.ruc}</span> : <span className="text-slate-500">{t('admin.marketing.signups.rucMissing')}</span>}
+                    </ContactFact>
+                  </dl>
+
+                  <div className="min-w-0">
+                    <div className="flex items-baseline justify-between gap-3 text-[13px]">
+                      <span className="truncate text-slate-700">{next ? t('admin.marketing.signups.stoppedAt', { step: stepName }) : ''}</span>
+                      <span className="num shrink-0 text-slate-500">{t('admin.marketing.signups.stepCount', { done: signup.completed, total })}</span>
+                    </div>
+                    <div className="mt-1.5 grid gap-1" style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }} role="img" aria-label={t('admin.marketing.signups.stepCount', { done: signup.completed, total })}>
+                      {ONBOARDING_STEPS.map((step, index) => (
+                        <span key={step} title={t(`admin.marketing.signups.steps.${step}`)} className={cn('h-1.5 rounded-full', index < signup.completed ? 'bg-brand' : 'bg-slate-200')} />
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div className="lg:text-right">
-                  {signup.followedUp ? (
-                    <span className="inline-flex h-8 items-center gap-1.5 text-sm text-slate-600">
-                      <Check className="size-4 text-positive" aria-hidden="true" />
-                      {t('admin.marketing.signups.followedUp')}
-                    </span>
-                  ) : (
-                    <Button variant="secondary" size="sm" leftIcon={<Send className="size-4" />} onClick={() => followUp(signup)}>
-                      {t('admin.marketing.signups.followUp')}
-                    </Button>
-                  )}
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+
+                  <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                    <a
+                      href={whatsappLink(signup.phone, message)}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => !signup.followedUp && followUp(signup)}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                    >
+                      <MessageCircle className="size-4" aria-hidden="true" />
+                      {t('admin.marketing.signups.whatsapp')}
+                    </a>
+                    <a
+                      href={mailto}
+                      onClick={() => !signup.followedUp && followUp(signup)}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                    >
+                      <Mail className="size-4" aria-hidden="true" />
+                      {t('admin.marketing.signups.email')}
+                    </a>
+                    {signup.followedUp && (
+                      <span className="inline-flex h-8 basis-full items-center gap-1.5 text-xs text-slate-600 xl:justify-end">
+                        <Check className="size-3.5 text-positive" aria-hidden="true" />
+                        {t('admin.marketing.signups.followedUp')}
+                      </span>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </>
       )}
     </Panel>
   )
