@@ -877,6 +877,10 @@ export const es = {
     notes: 'Notas para el propietario',
     notesPlaceholder: 'Ej.: dirección de la obra, horario de entrega, operador requerido…',
     rentalLine: '{{rate}} × {{days}}',
+    pickDates: '{{rate}} por día · elige las fechas',
+    howLong: '¿Por cuánto tiempo?',
+    durations: { d1: '1 día', d3: '3 días', d7: '1 semana', d14: '2 semanas', d30: '1 mes' },
+    rangeSummary: 'Del {{from}} al {{to}} · {{days}}',
     deposit: 'Garantía (reembolsable)',
     estimatedTotal: 'Total estimado',
     tracker: {

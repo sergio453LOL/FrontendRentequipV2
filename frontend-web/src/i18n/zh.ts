@@ -848,6 +848,10 @@ export const zh: Translations = {
     notes: '给出租方的备注',
     notesPlaceholder: '例如：工地地址、交付时间、是否需要操作员…',
     rentalLine: '{{rate}} × {{days}}',
+    pickDates: '每天 {{rate}} · 请选择日期',
+    howLong: '租用多久？',
+    durations: { d1: '1 天', d3: '3 天', d7: '1 周', d14: '2 周', d30: '1 个月' },
+    rangeSummary: '{{from}} 至 {{to}} · {{days}}',
     deposit: '押金（可退）',
     estimatedTotal: '预估总额',
     tracker: {
