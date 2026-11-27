@@ -767,6 +767,8 @@ export const en: Translations = {
     previous: 'Previous photo',
     next: 'Next photo',
     noPhoto: '{{name}} (no photo)',
+    video: 'Video',
+    showVideo: 'Watch the video',
   },
   equipment: {
     notFoundTitle: 'We could not find this equipment',

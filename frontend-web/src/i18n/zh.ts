@@ -741,6 +741,8 @@ export const zh: Translations = {
     previous: '上一张',
     next: '下一张',
     noPhoto: '{{name}}（无照片）',
+    video: '视频',
+    showVideo: '观看视频',
   },
   equipment: {
     notFoundTitle: '找不到该设备',

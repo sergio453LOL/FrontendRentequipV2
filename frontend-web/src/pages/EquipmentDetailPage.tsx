@@ -32,6 +32,7 @@ import { ENDPOINTS } from '../services/endpoints'
 import type { Equipment, EquipmentRating, PageResponse, PriceOffer, WithLinks } from '../types'
 import { categoryName } from '../utils/categoryName'
 import { formatCurrency, formatDateRange, formatNumber, rentalDays } from '../utils/format'
+import { videoSource } from '../utils/video'
 import { convertCurrency, useExchangeRate } from '../hooks/useExchangeRate'
 
 function parseId(value: string | undefined): number | null {
@@ -144,7 +145,7 @@ export default function EquipmentDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="min-w-0 space-y-8 lg:col-span-3">
-          <ImageGallery images={equipment.imageUrls} alt={equipment.name} />
+          <ImageGallery images={equipment.imageUrls} alt={equipment.name} videoUrl={equipment.videoUrl} />
 
           <AvailabilityCalendar
             equipmentId={equipment.id}
@@ -183,7 +184,8 @@ export default function EquipmentDetailPage() {
 
           {equipment.manualUrl && <EquipmentManual url={equipment.manualUrl} equipmentName={equipment.name} />}
 
-          {equipment.videoUrl && <EquipmentVideo url={equipment.videoUrl} title={equipment.name} />}
+          {/* Playable videos are the gallery's last slide; any other link keeps its own section. */}
+          {equipment.videoUrl && videoSource(equipment.videoUrl).kind === 'link' && <EquipmentVideo url={equipment.videoUrl} title={equipment.name} />}
 
           {equipment.operatorIncluded && equipment.operator && <OperatorSheet operator={equipment.operator} />}
 

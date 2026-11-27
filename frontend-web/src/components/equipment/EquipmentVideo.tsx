@@ -1,19 +1,11 @@
 import { ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { videoSource } from '../../utils/video'
 
-type VideoSource = { kind: 'embed'; src: string } | { kind: 'file'; src: string } | { kind: 'link'; src: string }
-
-/** YouTube and Vimeo play embedded (YouTube without tracking cookies); a direct file plays in the page. */
-export function videoSource(url: string): VideoSource {
-  const youtube = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/)
-  if (youtube) return { kind: 'embed', src: `https://www.youtube-nocookie.com/embed/${youtube[1]}?rel=0` }
-  const vimeo = url.match(/vimeo\.com\/(?:video\/)?(\d+)/)
-  if (vimeo) return { kind: 'embed', src: `https://player.vimeo.com/video/${vimeo[1]}` }
-  if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url)) return { kind: 'file', src: url }
-  return { kind: 'link', src: url }
-}
-
-/** The machine at work: one short clip the owner linked. */
+/**
+ * The machine at work: one short clip the owner linked. Embeddable videos and files play as the last slide
+ * of the photo gallery; this section is for any other link, shown as a button that opens it.
+ */
 export function EquipmentVideo({ url, title }: { url: string; title: string }) {
   const { t } = useTranslation()
   const source = videoSource(url)
