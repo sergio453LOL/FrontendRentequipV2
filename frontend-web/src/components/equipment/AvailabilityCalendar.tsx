@@ -6,7 +6,7 @@ import { ENDPOINTS } from '../../services/endpoints'
 import type { BlockedWindow, IsoDate } from '../../types'
 import { cn } from '../../utils/cn'
 import { addDays, formatDateRange, parseIsoDate, rentalDays, toIsoDate, todayIso } from '../../utils/format'
-import { EMPTY_SELECTION, type DateSelection } from './dateSelection'
+import { crossesBlockedDays, EMPTY_SELECTION, type DateSelection } from './dateSelection'
 
 const MONTHS_SHOWN = 2
 
@@ -42,9 +42,6 @@ function stateOf(day: Date, today: Date, windows: BlockedWindow[]): DayState {
 }
 
 /** A range cannot jump over days that are booked or waiting for the owner. */
-function crossesBlockedDays(start: IsoDate, end: IsoDate, windows: BlockedWindow[]): boolean {
-  return windows.some((window) => window.startDate <= end && window.endDate >= start)
-}
 
 function dayLabel(day: Date): string {
   return day.toLocaleDateString(currentLocale(), { weekday: 'long', day: 'numeric', month: 'long' })

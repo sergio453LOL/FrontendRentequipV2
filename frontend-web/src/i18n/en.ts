@@ -874,6 +874,10 @@ export const en: Translations = {
     notes: 'Notes for the owner',
     notesPlaceholder: 'E.g.: site address, delivery time, operator required…',
     rentalLine: '{{rate}} × {{days}}',
+    pickDates: '{{rate}} per day · pick the dates',
+    howLong: 'For how long?',
+    durations: { d1: '1 day', d3: '3 days', d7: '1 week', d14: '2 weeks', d30: '1 month' },
+    rangeSummary: 'From {{from}} to {{to}} · {{days}}',
     deposit: 'Deposit (refundable)',
     estimatedTotal: 'Estimated total',
     tracker: {

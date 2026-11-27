@@ -323,6 +323,7 @@ export default function EquipmentDetailPage() {
         }}
         initialDates={dates}
         agreedOffer={agreedOffer}
+        suggestedDays={quoteDays}
       />
       <OfferModal equipment={equipment} isOpen={isOffering} onClose={() => setIsOffering(false)} dates={dates} />
     </div>

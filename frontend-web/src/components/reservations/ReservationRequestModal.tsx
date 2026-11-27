@@ -1,5 +1,5 @@
 import { CalendarCheck, CalendarX } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
@@ -10,12 +10,14 @@ import { useZodForm } from '../../hooks/useZodForm'
 import { PATHS } from '../../routes/paths'
 import { ENDPOINTS } from '../../services/endpoints'
 import { reservationService } from '../../services/reservationService'
-import type { Availability, Equipment, Payment, Reservation } from '../../types'
+import type { Availability, BlockedWindow, Equipment, Payment, Reservation } from '../../types'
+import { currentLocale } from '../../i18n'
 import { celebrate } from '../../utils/celebrate'
 import { applyServerFieldErrors } from '../../utils/formErrors'
-import { formatCurrency, rentalDays, todayIso } from '../../utils/format'
+import { addDays, formatCurrency, parseIsoDate, rentalDays, toIsoDate, todayIso } from '../../utils/format'
+import { cn } from '../../utils/cn'
 import { Button } from '../common/Button'
-import type { DateSelection } from '../equipment/dateSelection'
+import { crossesBlockedDays, firstFreeRange, rangeEnd, type DateSelection } from '../equipment/dateSelection'
 import { Input } from '../common/Input'
 import { Modal } from '../common/Modal'
 import { Spinner } from '../common/Spinner'
@@ -24,6 +26,15 @@ import { ReservationPaymentForm } from '../payments/ReservationPaymentForm'
 import { PaymentSuccess } from '../payments/PaymentSuccess'
 
 const MAX_RENTAL_DAYS = 365
+/** One-tap durations: a day, a few days, a week, two weeks and a month cover most site jobs. */
+const DURATIONS = [1, 3, 7, 14, 30] as const
+/** How far ahead the form looks for free days when it suggests dates (the backend serves up to 120 days). */
+const LOOKAHEAD_DAYS = 119
+
+/** "vie 28 nov" in the active language. */
+function dayLabel(iso: string): string {
+  return parseIsoDate(iso).toLocaleDateString(currentLocale(), { weekday: 'short', day: 'numeric', month: 'short' }).replace(/[.,]/g, '')
+}
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 const reservationSchema = z
@@ -61,9 +72,11 @@ interface ReservationRequestModalProps {
   initialDates?: DateSelection
   /** A price agreed in a negotiation: it replaces the published daily rate. */
   agreedOffer?: { id: number; dailyRate: number }
+  /** Days on the page's quick quote: without calendar dates the form proposes the first free stretch this long. */
+  suggestedDays?: number
 }
 
-export function ReservationRequestModal({ equipment, isOpen, onClose, initialDates, agreedOffer }: ReservationRequestModalProps) {
+export function ReservationRequestModal({ equipment, isOpen, onClose, initialDates, agreedOffer, suggestedDays = 3 }: ReservationRequestModalProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [step, setStep] = useState<CheckoutStep>({ name: 'details' })
@@ -73,17 +86,53 @@ export function ReservationRequestModal({ equipment, isOpen, onClose, initialDat
     watch,
     reset,
     getValues,
+    setValue,
     setError,
     formState: { errors },
   } = useZodForm(reservationSchema, { defaultValues: { startDate: '', endDate: '', notes: '' } })
 
-  // Each time the form opens it takes the dates chosen on the calendar, keeping any note already typed.
+  // Booked and pending days of the next months, to propose dates that are really free.
+  const today = todayIso()
+  const blocked = useFetch<BlockedWindow[]>(isOpen ? ENDPOINTS.equipmentBlockedDates(equipment.id) : null, {
+    from: today,
+    until: toIsoDate(addDays(parseIsoDate(today), LOOKAHEAD_DAYS)),
+  })
+  // If the calendar feed fails the form still proposes dates; the availability check below has the last word.
+  const blockedFailed = blocked.error !== null
+  const windows = useMemo(() => blocked.data ?? (blockedFailed ? [] : null), [blocked.data, blockedFailed])
+
+  // Each time the form opens it takes the dates chosen on the calendar, keeping any note already typed. Without
+  // them it proposes the first free stretch as long as the page's quote, from tomorrow (delivery takes a day).
   const initialStart = initialDates?.startDate ?? ''
   const initialEnd = initialDates?.endDate ?? ''
+  // Proposed once per opening, so the visitor's own changes are never overwritten.
+  const hasProposed = useRef(false)
   useEffect(() => {
-    if (!isOpen || (!initialStart && !initialEnd)) return
-    reset({ startDate: initialStart, endDate: initialEnd, notes: getValues('notes') })
-  }, [isOpen, initialStart, initialEnd, reset, getValues])
+    if (!isOpen) {
+      hasProposed.current = false
+      return
+    }
+    if (initialStart && initialEnd) {
+      reset({ startDate: initialStart, endDate: initialEnd, notes: getValues('notes') })
+      return
+    }
+    if (!windows || hasProposed.current) return
+    const tomorrow = toIsoDate(addDays(parseIsoDate(todayIso()), 1))
+    const proposal = firstFreeRange(suggestedDays, windows, initialStart || tomorrow)
+    if (proposal) reset({ ...proposal, notes: getValues('notes') })
+    hasProposed.current = true
+  }, [isOpen, initialStart, initialEnd, windows, suggestedDays, reset, getValues])
+
+  /** A duration chip: keeps the start when the stretch fits there, else moves to the first free one. */
+  function chooseDuration(length: number) {
+    const tomorrow = toIsoDate(addDays(parseIsoDate(todayIso()), 1))
+    const currentStart = ISO_DATE.test(getValues('startDate')) && getValues('startDate') >= todayIso() ? getValues('startDate') : null
+    const fitsHere = currentStart !== null && !crossesBlockedDays(currentStart, rangeEnd(currentStart, length), windows ?? [])
+    const range = fitsHere ? { startDate: currentStart, endDate: rangeEnd(currentStart, length) } : firstFreeRange(length, windows ?? [], currentStart ?? tomorrow)
+    if (!range) return
+    setValue('startDate', range.startDate, { shouldValidate: true, shouldDirty: true })
+    setValue('endDate', range.endDate, { shouldValidate: true, shouldDirty: true })
+  }
 
   const startDate = watch('startDate')
   const endDate = watch('endDate')
@@ -189,6 +238,29 @@ export function ReservationRequestModal({ equipment, isOpen, onClose, initialDat
           />
         </p>
 
+        <fieldset>
+          <legend className="text-sm font-medium text-slate-800">{t('reservation.howLong')}</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {DURATIONS.map((length) => (
+              <button
+                key={length}
+                type="button"
+                onClick={() => chooseDuration(length)}
+                aria-pressed={datesAreValid && days === length}
+                className={cn(
+                  'h-9 rounded-full px-3.5 text-sm font-semibold transition-colors',
+                  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
+                  datesAreValid && days === length
+                    ? 'bg-ink text-white'
+                    : 'bg-white text-slate-700 ring-1 ring-slate-300 hover:ring-slate-400',
+                )}
+              >
+                {t(`reservation.durations.d${length}`)}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <Input label={t('reservation.startDate')} type="date" min={todayIso()} required error={errors.startDate?.message} {...register('startDate')} />
           <Input
@@ -202,7 +274,10 @@ export function ReservationRequestModal({ equipment, isOpen, onClose, initialDat
         </div>
 
         {datesAreValid && (
-          <div aria-live="polite" className="text-sm">
+          <div aria-live="polite" className="space-y-1.5 text-sm">
+            <p className="font-semibold text-slate-900">
+              {t('reservation.rangeSummary', { from: dayLabel(startDate), to: dayLabel(endDate), days: t('common.day', { count: days }) })}
+            </p>
             {isCheckingAvailability && (
               <p className="flex items-center gap-2 text-slate-500">
                 <Spinner size="sm" label={t('reservation.checking')} /> {t('reservation.checkingDots')}
@@ -236,9 +311,11 @@ export function ReservationRequestModal({ equipment, isOpen, onClose, initialDat
         <dl className="space-y-2 rounded-lg bg-slate-50 p-4 text-sm">
           <div className="flex justify-between">
             <dt className="text-slate-500">
-              {t('reservation.rentalLine', { rate: formatCurrency(dailyRate, equipment.currency), days: t('common.day', { count: days }) })}
+              {datesAreValid
+                ? t('reservation.rentalLine', { rate: formatCurrency(dailyRate, equipment.currency), days: t('common.day', { count: days }) })
+                : t('reservation.pickDates', { rate: formatCurrency(dailyRate, equipment.currency) })}
             </dt>
-            <dd className="font-medium text-slate-900">{formatCurrency(rentalAmount, equipment.currency)}</dd>
+            <dd className="font-medium text-slate-900">{datesAreValid ? formatCurrency(rentalAmount, equipment.currency) : '—'}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-slate-500">{t('reservation.deposit')}</dt>
@@ -247,7 +324,7 @@ export function ReservationRequestModal({ equipment, isOpen, onClose, initialDat
           <div className="flex justify-between border-t border-slate-200 pt-2 text-base">
             <dt className="font-semibold text-slate-900">{t('reservation.estimatedTotal')}</dt>
             <dd className="font-semibold text-slate-900">
-              {formatCurrency(rentalAmount + equipment.securityDeposit, equipment.currency)}
+              {datesAreValid ? formatCurrency(rentalAmount + equipment.securityDeposit, equipment.currency) : '—'}
             </dd>
           </div>
         </dl>
