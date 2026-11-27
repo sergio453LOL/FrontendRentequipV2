@@ -1,6 +1,8 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import type { LoginLocationState } from '../contexts/AuthContextDefinition'
+import { FullPageSpinner } from '../components/common/Spinner'
 import { useAuth } from '../hooks/useAuth'
+import { usePlatformAdmin } from '../hooks/usePlatformAdmin'
 import type { UserRole } from '../types'
 import { MODE_HOME, readStoredMode } from '../utils/workspaceMode'
 import { PATHS } from './paths'
@@ -27,6 +29,16 @@ export function PrivateRoute({ allowedRoles }: PrivateRouteProps) {
   }
 
   return <Outlet />
+}
+
+/**
+ * The platform panel: only for operators of the marketplace (`platformAdmin` in `/users/me`). Every company
+ * that signs up gets an ADMIN of its own, so the role alone does not open it. Goes inside a PrivateRoute.
+ */
+export function PlatformAdminRoute() {
+  const { isPlatformAdmin, isLoading } = usePlatformAdmin()
+  if (isLoading) return <FullPageSpinner />
+  return isPlatformAdmin ? <Outlet /> : <Navigate to={PATHS.home} replace />
 }
 
 /**
