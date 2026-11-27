@@ -1,4 +1,4 @@
-import { LogOut, PanelLeftClose, PanelLeftOpen, X, type LucideIcon } from 'lucide-react'
+import { LogOut, PanelLeftClose, PanelLeftOpen, ShieldCheck, X, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
@@ -133,6 +133,22 @@ export function Sidebar({ items, mode, onModeChange, isOpen, onClose, isCollapse
         })}
       </nav>
 
+      {/* Only the marketplace's operators (platformAdmin in /users/me) see the way into the platform panel. */}
+      {me.data?.platformAdmin && (
+        <Link
+          to={PATHS.admin}
+          onClick={onClose}
+          title={isCollapsed ? t('admin.menuLink') : undefined}
+          className={cn(
+            'mx-3 mt-auto flex h-9 items-center gap-3 rounded-md px-3 text-sm font-medium text-slate-300 transition-colors duration-200 hover:bg-white/5 hover:text-white',
+            isCollapsed && 'lg:justify-center lg:px-0',
+          )}
+        >
+          <ShieldCheck className="size-[18px] shrink-0 text-brand" strokeWidth={1.75} aria-hidden="true" />
+          <span className={cn('truncate', isCollapsed && 'lg:sr-only')}>{t('admin.menuLink')}</span>
+        </Link>
+      )}
+
       <button
         type="button"
         onClick={onToggleCollapsed}
@@ -140,7 +156,8 @@ export function Sidebar({ items, mode, onModeChange, isOpen, onClose, isCollapse
         aria-expanded={!isCollapsed}
         title={collapseLabel}
         className={cn(
-          'mx-3 mt-auto mb-2 hidden h-9 items-center gap-3 rounded-md px-3 text-sm text-slate-400 transition-colors duration-200 hover:bg-white/5 hover:text-white lg:flex',
+          !me.data?.platformAdmin && 'mt-auto',
+          'mx-3 mb-2 hidden h-9 items-center gap-3 rounded-md px-3 text-sm text-slate-400 transition-colors duration-200 hover:bg-white/5 hover:text-white lg:flex',
           isCollapsed && 'lg:justify-center lg:px-0',
         )}
       >
@@ -151,7 +168,8 @@ export function Sidebar({ items, mode, onModeChange, isOpen, onClose, isCollapse
       {user && (
         <div
           className={cn(
-            'mt-auto flex items-center gap-2 border-t border-white/10 px-5 py-4 lg:mt-0',
+            'flex items-center gap-2 border-t border-white/10 px-5 py-4 lg:mt-0',
+            me.data?.platformAdmin ? 'mt-2' : 'mt-auto',
             isCollapsed && 'lg:flex-col lg:justify-center lg:gap-1 lg:px-0',
           )}
         >

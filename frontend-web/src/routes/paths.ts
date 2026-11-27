@@ -14,6 +14,13 @@ export const PATHS = {
   offers: '/offers',
   blog: '/blog',
   blogArticle: '/blog/:slug',
+  admin: '/admin',
+  adminCompanies: '/admin/empresas',
+  adminMovements: '/admin/movimientos',
+  adminCatalog: '/admin/catalogo',
+  adminMarketing: '/admin/marketing',
+  adminAi: '/admin/ia-analytics',
+  adminFinance: '/admin/finanzas',
 } as const
 
 export const buildPath = {

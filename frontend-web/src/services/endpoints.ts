@@ -45,6 +45,10 @@ export const ENDPOINTS = {
   twoFactorDisable: '/users/me/two-factor/disable',
   accountCode: '/users/me/account-code',
   company: (id: number) => `/companies/${id}`,
+  companies: '/companies',
+  companyUsers: (id: number) => `/companies/${id}/users`,
+  /** Platform admins only: POST grants the verified badge, DELETE withdraws it. */
+  companyBadge: (id: number) => `/companies/${id}/verification`,
   assistantChat: '/assistant/chat',
   equipmentRating: '/reviews/ratings',
   reviews: '/reviews', 

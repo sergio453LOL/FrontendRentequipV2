@@ -20,6 +20,11 @@ export interface User {
   twoFactorChannel: TwoFactorChannel | null
   /** False for an account created with Google that never set a password: it confirms changes with an email code. */
   passwordSet: boolean
+  /**
+   * Operator of the marketplace (an ADMIN listed in the backend's PLATFORM_ADMIN_EMAILS), not only of its own
+   * company: only they see the platform panel. Optional while an older backend does not send it.
+   */
+  platformAdmin?: boolean
 }
 
 export interface UserCreateRequest {
