@@ -215,10 +215,22 @@ export interface AbandonedQuote {
 
 export type OnboardingStep = 'ACCOUNT' | 'RUC' | 'REPRESENTATIVE' | 'DOCUMENTS' | 'FIRST_LISTING'
 
+/** Where the sign-up started: the web form, "Continuar con Google" or the Android app. */
+export type SignupChannel = 'WEB' | 'GOOGLE' | 'MOBILE'
+
 export interface AbandonedSignup {
   id: string
+  /** Company name as typed in the first step (SUNAT's legal name once the RUC step is done). */
   company: string
+  /** Who filled in the form, and the job title they gave. */
+  contactName: string
+  contactRole: string
+  /** Mobile number with country code, as typed; it is what the follow-up by WhatsApp uses. */
+  phone: string
   email: string
+  /** Null until the RUC step is done. */
+  ruc: string | null
+  channel: SignupChannel
   city: AdminCity
   /** Steps finished, out of `ONBOARDING_STEPS.length`. */
   completed: number
