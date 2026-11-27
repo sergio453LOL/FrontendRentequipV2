@@ -25,6 +25,8 @@ export interface User {
    * company: only they see the platform panel. Optional while an older backend does not send it.
    */
   platformAdmin?: boolean
+  /** The shared account of "Probar la demo": the app shows a banner and its settings are read-only. */
+  demoAccount?: boolean
 }
 
 export interface UserCreateRequest {

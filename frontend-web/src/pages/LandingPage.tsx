@@ -114,7 +114,7 @@ export default function LandingPage() {
         mode={mode}
         onModeChange={changeMode}
         categories={categories.data ?? []}
-        cities={cities}
+        cities={allPagesLoaded ? cities : []}
         isAuthenticated={isAuthenticated}
       />
 

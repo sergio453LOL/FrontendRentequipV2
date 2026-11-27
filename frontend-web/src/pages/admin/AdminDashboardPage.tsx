@@ -1,12 +1,15 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, BadgeCheck, FileWarning, Landmark, SearchX, type LucideIcon } from 'lucide-react'
+import { ArrowRight, BadgeCheck, FileWarning, Landmark, RotateCcw, SearchX, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ColumnChart, Sparkline, type ColumnDatum } from '../../components/admin/AdminCharts'
 import { AdminPageHeader, Bar, BlockError, Panel, PanelHeader, Pill, Segmented, SourceBadge, type PillTone } from '../../components/admin/AdminUi'
 import { currentLocale } from '../../i18n'
+import { Button } from '../../components/common/Button'
 import { useAdminQuery } from '../../hooks/useAdminQuery'
+import { useMutation } from '../../hooks/useMutation'
+import { adminDemoService } from '../../services/adminDemoService'
 import { PATHS } from '../../routes/paths'
 import { adminInsightsService } from '../../services/adminInsightsService'
 import type { AdminAlertKind, AdminKpi, AdminWorkType, DailyRentals, LiveBooking, LiveBookingStage } from '../../types'
@@ -326,6 +329,10 @@ function LiveFeed({ bookings }: { bookings: LiveBooking[] | null }) {
 export default function AdminDashboardPage() {
   const { t } = useTranslation()
   const { data, error, reload } = useAdminQuery(adminInsightsService.dashboard)
+  const resetDemo = useMutation(adminDemoService.reset, {
+    successMessage: (result) => t('admin.dashboard.resetDone', { ...result }),
+    errorTitle: t('admin.dashboard.resetFailed'),
+  })
   const gmv = data?.kpis.find((kpi) => kpi.id === 'gmv')
   const change = gmv ? percentChange(gmv.value, gmv.previous) : null
 
@@ -339,6 +346,12 @@ export default function AdminDashboardPage() {
             : t('admin.dashboard.subtitleLoading')
         }
         source={<SourceBadge kind="demo" />}
+        actions={
+          // Real endpoint: cancels what visitors left open in the shared demo account, e.g. before presenting.
+          <Button variant="secondary" size="sm" isLoading={resetDemo.isLoading} leftIcon={<RotateCcw className="size-4" />} onClick={() => void resetDemo.mutate()}>
+            {t('admin.dashboard.resetDemo')}
+          </Button>
+        }
       />
       {error && (
         <Panel className="mb-4 pt-4">

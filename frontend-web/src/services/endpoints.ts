@@ -51,6 +51,8 @@ export const ENDPOINTS = {
   companyUsers: (id: number) => `/companies/${id}/users`,
   /** Platform admins only: POST grants the verified badge, DELETE withdraws it. */
   companyBadge: (id: number) => `/companies/${id}/verification`,
+  /** Platform admins only: cancels what visitors left open in the shared demo account. */
+  adminDemoReset: '/admin/demo/reset',
   assistantChat: '/assistant/chat',
   equipmentRating: '/reviews/ratings',
   reviews: '/reviews', 

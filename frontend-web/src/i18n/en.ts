@@ -28,6 +28,9 @@ export const en: Translations = {
     loginTitle: 'Just want to try RentEquip?',
     loginText: 'Enter as the demo company in one click, without creating an account.',
     failed: 'The demo could not be opened',
+    bannerTitle: 'Demo mode:',
+    bannerText: 'a shared account that resets every night. Test card',
+    bannerCta: 'Create my account',
   },
   language: {
     label: 'Language',
@@ -547,7 +550,7 @@ export const en: Translations = {
       chips: { excavator: 'Excavator', backhoe: 'Backhoe', skidSteer: 'Skid steer', crane: 'Crane', roller: 'Roller' },
       trust: {
         verified: 'Verified companies',
-        operator: 'Operator included',
+        operator: 'Operator available',
         delivery: 'On-site delivery',
         insurance: 'Deposit held on the card',
       },
@@ -1493,6 +1496,9 @@ export const en: Translations = {
       alertActions: { KYB_PENDING: 'Review', ABANDONED_QUOTES: 'Recover', DEMAND_GAP: 'See gap', PAYOUT_ON_HOLD: 'Review' },
       atStake: '{{amount}} at stake',
       waiting: 'Signed up in the last 72 hours',
+      resetDemo: 'Reset demo',
+      resetDone: 'Demo reset: {{reservations}} bookings, {{offers}} offers and {{purchases}} purchases cancelled',
+      resetFailed: 'The demo could not be reset',
     },
     companies: {
       title: 'Customers and companies',
