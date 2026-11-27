@@ -769,6 +769,8 @@ export const es = {
     previous: 'Foto anterior',
     next: 'Foto siguiente',
     noPhoto: '{{name}} (sin foto)',
+    video: 'Video',
+    showVideo: 'Ver el video',
   },
   equipment: {
     notFoundTitle: 'No encontramos esta maquinaria',
