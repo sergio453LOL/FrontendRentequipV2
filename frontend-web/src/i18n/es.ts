@@ -31,6 +31,9 @@ export const es = {
     loginTitle: '¿Solo quieres probar RentEquip?',
     loginText: 'Entra con la empresa de demostración en un clic, sin crear una cuenta.',
     failed: 'No pudimos abrir la demo',
+    bannerTitle: 'Modo demo:',
+    bannerText: 'cuenta compartida que se reinicia cada noche. Tarjeta de prueba',
+    bannerCta: 'Crear mi cuenta',
   },
   language: {
     label: 'Idioma',
@@ -550,7 +553,7 @@ export const es = {
       chips: { excavator: 'Excavadora', backhoe: 'Retroexcavadora', skidSteer: 'Minicargador', crane: 'Grúa', roller: 'Rodillo' },
       trust: {
         verified: 'Empresas verificadas',
-        operator: 'Operador incluido',
+        operator: 'Operador disponible',
         delivery: 'Entrega en obra',
         insurance: 'Garantía retenida en tarjeta',
       },
@@ -1497,6 +1500,9 @@ export const es = {
       alertActions: { KYB_PENDING: 'Revisar', ABANDONED_QUOTES: 'Recuperar', DEMAND_GAP: 'Ver brecha', PAYOUT_ON_HOLD: 'Revisar' },
       atStake: '{{amount}} en juego',
       waiting: 'Registradas en las últimas 72 horas',
+      resetDemo: 'Reiniciar demo',
+      resetDone: 'Demo reiniciada: {{reservations}} reservas, {{offers}} ofertas y {{purchases}} compras canceladas',
+      resetFailed: 'No se pudo reiniciar la demo',
     },
     companies: {
       title: 'Clientes y empresas',

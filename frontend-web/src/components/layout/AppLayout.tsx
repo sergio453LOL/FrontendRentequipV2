@@ -9,6 +9,7 @@ import { ADMIN_ROLES, PUBLISHER_ROLES } from '../../routes/roles'
 import { ASSISTANT_PARAM } from '../../utils/assistantLink'
 import { MODE_HOME, modeForLocation, readStoredMode, storeMode, type WorkspaceMode } from '../../utils/workspaceMode'
 import { ErrorBoundary } from '../common/ErrorBoundary'
+import { DemoBanner } from '../common/DemoBanner'
 import { OfflineBanner } from '../common/OfflineBanner'
 import { ScrollToTopButton } from '../common/ScrollToTopButton'
 import { Sidebar, type SidebarItem } from '../common/Sidebar'
@@ -119,6 +120,7 @@ export function AppLayout() {
       />
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <OfflineBanner />
+        <DemoBanner />
         <TopBar
           mode={mode}
           onModeChange={changeMode}

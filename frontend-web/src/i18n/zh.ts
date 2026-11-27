@@ -29,6 +29,9 @@ export const zh: Translations = {
     loginTitle: '只想试用 RentEquip？',
     loginText: '一键以演示公司身份进入，无需创建账户。',
     failed: '无法打开演示',
+    bannerTitle: '演示模式：',
+    bannerText: '共享账户，每晚重置。测试卡',
+    bannerCta: '创建我的账户',
   },
   language: {
     label: '语言',
@@ -522,7 +525,7 @@ export const zh: Translations = {
       chips: { excavator: '挖掘机', backhoe: '挖掘装载机', skidSteer: '滑移装载机', crane: '起重机', roller: '压路机' },
       trust: {
         verified: '认证企业',
-        operator: '含操作员',
+        operator: '可配操作员',
         delivery: '送货到工地',
         insurance: '押金冻结在银行卡上',
       },
@@ -1466,6 +1469,9 @@ export const zh: Translations = {
       alertActions: { KYB_PENDING: '审核', ABANDONED_QUOTES: '挽回', DEMAND_GAP: '查看缺口', PAYOUT_ON_HOLD: '审核' },
       atStake: '涉及 {{amount}}',
       waiting: '最近 72 小时内注册',
+      resetDemo: '重置演示',
+      resetDone: '演示已重置：取消了 {{reservations}} 笔预订、{{offers}} 份报价和 {{purchases}} 笔购买',
+      resetFailed: '无法重置演示',
     },
     companies: {
       title: '客户与公司',
