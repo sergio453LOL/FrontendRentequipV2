@@ -21,6 +21,7 @@ import type { EquipmentCategory, EquipmentSummary, PageResponse } from '../../ty
 import { formatCurrency, todayIso } from '../../utils/format'
 import { cn } from '../../utils/cn'
 import type { WorkspaceMode } from '../../utils/workspaceMode'
+import { DemoAccessButton } from '../common/DemoAccessButton'
 import { EquipmentImage } from '../equipment/EquipmentImage'
 
 const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1]
@@ -445,6 +446,12 @@ export function LandingHero({ mode, onModeChange, categories, cities, isAuthenti
               )}
             </motion.div>
           </AnimatePresence>
+
+          {!isAuthenticated && (
+            <motion.p variants={fadeUp} className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-[16px] text-slate-600">
+              {t('demo.heroLine')} <DemoAccessButton variant="link" />
+            </motion.p>
+          )}
 
           {/* Phones and tablets: the photo sits under the search instead of beside it. */}
           <img src={HERO_PHOTO} alt="" className="mt-8 h-56 w-full rounded-2xl object-cover sm:h-72 lg:hidden" />

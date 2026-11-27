@@ -83,7 +83,9 @@ export default function LandingPage() {
         },
       ]
     : []
-  const featured = machines.slice(0, 6)
+  // Six different machines in six different cities, heavy machinery with a photo first: the cards show at
+  // a glance that the catalogue covers the country and more than hand tools.
+  const featured = pickFeatured(machines)
   const appHome = MODE_HOME[mode]
 
   return (
@@ -306,4 +308,21 @@ export default function LandingPage() {
       <ScrollToTopButton />
     </div>
   )
+}
+
+function pickFeatured(machines: EquipmentSummary[]): EquipmentSummary[] {
+  const ranked = [...machines].sort(
+    (a, b) => Number(b.primaryImageUrl !== null) - Number(a.primaryImageUrl !== null) || b.dailyRate - a.dailyRate,
+  )
+  const cities = new Set<string>()
+  const names = new Set<string>()
+  const picked: EquipmentSummary[] = []
+  for (const machine of ranked) {
+    if (cities.has(machine.city) || names.has(machine.name)) continue
+    cities.add(machine.city)
+    names.add(machine.name)
+    picked.push(machine)
+    if (picked.length === 6) break
+  }
+  return picked
 }

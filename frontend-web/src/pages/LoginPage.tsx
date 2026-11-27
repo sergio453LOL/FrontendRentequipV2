@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { AuthDivider, GoogleSignInButton } from '../components/auth/GoogleSignInButton'
+import { DemoAccessButton } from '../components/common/DemoAccessButton'
 import { Button } from '../components/common/Button'
 import { Input } from '../components/common/Input'
 import { AuthLayout } from '../components/layout/AuthLayout'
@@ -115,6 +116,13 @@ export default function LoginPage() {
             {formError}
           </p>
         )}
+
+        {/* Visitors who only want to look around (the jury, the public) enter in one click. */}
+        <div className="mb-6 rounded-xl bg-amber-50 p-4 ring-1 ring-amber-200">
+          <p className="text-sm font-medium text-ink">{t('demo.loginTitle')}</p>
+          <p className="mt-0.5 text-sm text-slate-600">{t('demo.loginText')}</p>
+          <DemoAccessButton returnTo={locationState.from ?? PATHS.catalog} className="mt-3 w-full" />
+        </div>
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
           <Input
