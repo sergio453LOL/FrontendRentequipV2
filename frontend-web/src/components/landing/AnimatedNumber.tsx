@@ -9,7 +9,10 @@ interface AnimatedNumberProps {
   delay?: number
 }
 
-/** Counts up from zero to the real value the first time it scrolls into view. */
+/**
+ * Counts up from zero to the real value the first time it scrolls into view. Until then it shows the real
+ * value, never a 0: a screenshot, a crawler or a reader of the page above the fold sees the true figure.
+ */
 export function AnimatedNumber({ value, format, duration = 2.2, delay = 0 }: AnimatedNumberProps) {
   const ref = useRef<HTMLSpanElement>(null)
   const isInView = useInView(ref, { once: true, margin: '-40px' })
@@ -41,7 +44,7 @@ export function AnimatedNumber({ value, format, duration = 2.2, delay = 0 }: Ani
 
   return (
     <span ref={ref} className="num">
-      {format(0)}
+      {format(value)}
     </span>
   )
 }

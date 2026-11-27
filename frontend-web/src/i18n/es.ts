@@ -23,6 +23,15 @@ export const es = {
     showPassword: 'Mostrar contraseña',
     hidePassword: 'Ocultar contraseña',
   },
+  /** One-click demo for visitors who will not register a company (the jury, the public). */
+  demo: {
+    cta: 'Probar la demo',
+    ctaShort: 'Demo',
+    heroLine: '¿Solo quieres mirar? Entra sin registrarte:',
+    loginTitle: '¿Solo quieres probar RentEquip?',
+    loginText: 'Entra con la empresa de demostración en un clic, sin crear una cuenta.',
+    failed: 'No pudimos abrir la demo',
+  },
   language: {
     label: 'Idioma',
     change: 'Cambiar idioma',
@@ -273,6 +282,7 @@ export const es = {
       http429: 'Demasiadas solicitudes. Espera un momento e inténtalo otra vez.',
     },
     code: {
+      DEMO_ACCOUNT_LOCKED: 'Es la cuenta de demostración: no se pueden cambiar su contraseña, su perfil ni los datos de la empresa.',
       RECAPTCHA_FAILED: 'No pudimos verificar que eres una persona. Recarga la página e inténtalo otra vez.',
       GOOGLE_NOT_CONFIGURED: 'El acceso con Google no está disponible en este servidor.',
       INVALID_GOOGLE_TOKEN: 'Tu sesión de Google venció o no es válida. Vuelve a continuar con Google.',
@@ -542,7 +552,7 @@ export const es = {
         verified: 'Empresas verificadas',
         operator: 'Operador incluido',
         delivery: 'Entrega en obra',
-        insurance: 'Seguro todo riesgo',
+        insurance: 'Garantía retenida en tarjeta',
       },
     },
     heroTitle: 'Maquinaria pesada, al instante',
@@ -571,7 +581,7 @@ export const es = {
     },
     liveData: 'Datos en vivo del catálogo de RentEquip.',
     featuredTitle: 'Disponible para tu próxima obra',
-    featuredText: 'Maquinaria publicada por empresas de Lima, Callao y Arequipa.',
+    featuredText: 'Maquinaria publicada por empresas de todo el Perú, de Piura a Tacna.',
     seeCatalog: 'Ver todo el catálogo',
     perDay: 'por día',
     catalogError: 'No pudimos cargar el catálogo en este momento.',

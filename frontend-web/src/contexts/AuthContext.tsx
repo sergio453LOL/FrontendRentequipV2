@@ -64,6 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [startSession],
   )
 
+  const loginAsDemo = useCallback(async () => startSession(await authService.loginAsDemo()), [startSession])
+
   const verifyLogin = useCallback(
     async (request: TwoFactorVerifyRequest) => startSession(await authService.verifyLogin(request)),
     [startSession],
@@ -98,10 +100,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyLogin,
       register,
       registerWithGoogle,
+      loginAsDemo,
       logout,
       updateUser,
     }),
-    [user, sessionEnd, login, loginWithGoogle, verifyLogin, register, registerWithGoogle, logout, updateUser],
+    [user, sessionEnd, login, loginWithGoogle, verifyLogin, register, registerWithGoogle, loginAsDemo, logout, updateUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

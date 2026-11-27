@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import type { LoginLocationState } from '../../contexts/AuthContextDefinition'
 import { PATHS } from '../../routes/paths'
 import { BrandMark } from '../common/BrandMark'
+import { DemoAccessButton } from '../common/DemoAccessButton'
 
 const PHOTO = `${import.meta.env.BASE_URL}images/excavadora-cat-320.jpg`
 
@@ -118,11 +119,13 @@ export function AuthGateDialog({ isOpen, question, returnTo, onClose }: AuthGate
           </p>
 
           <div className="mt-8 flex flex-col gap-3">
+            {/* First the way in without an account: the advisor answers the question right away. */}
+            <DemoAccessButton returnTo={returnTo} className="h-13 rounded-xl px-6 text-lg font-bold" />
             <Link
               ref={firstActionRef}
               to={PATHS.register}
               state={state}
-              className="inline-flex h-13 items-center justify-center rounded-xl bg-machine px-6 text-lg font-bold text-asphalt transition-[background-color,transform] hover:bg-machine-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asphalt active:scale-[0.98]"
+              className="inline-flex h-13 items-center justify-center rounded-xl bg-slate-100 px-6 text-lg font-semibold text-asphalt transition-[background-color,transform] hover:bg-slate-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asphalt active:scale-[0.98]"
             >
               {t('landing.ai.gate.register')}
             </Link>

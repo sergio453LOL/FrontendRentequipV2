@@ -1,10 +1,15 @@
-# Builds frontend-web and publishes it to GitHub Pages on every push to main.
+# Publishes GitHub Pages on every push to main. By default Pages only redirects to the Vercel deployment
+# (PAGES_REDIRECT_URL, default https://rentequip-pe.vercel.app), keeping the path: Vercel reaches the API
+# through its own proxy, so it also works on networks that block sslip.io (UTEC). Set the repository variable
+# PAGES_MODE=app to build and publish the whole app here again instead.
 # One-time setup: Settings > Pages > Source: "GitHub Actions".
 # Optional repository variables (Settings > Secrets and variables > Actions > Variables):
 #   VITE_API_URL                 HTTPS URL of the backend (default: the EC2 backend below)
 #   VITE_STRIPE_PUBLISHABLE_KEY  Stripe publishable key (pk_test_...); without it card payments are disabled
 #   VITE_GOOGLE_CLIENT_ID        Google OAuth web client id; without it the "Continue with Google" button is hidden
 #   VITE_RECAPTCHA_SITE_KEY      reCAPTCHA v3 site key for the login; without it no reCAPTCHA is loaded
+#   PAGES_MODE                   "app" to publish the app; anything else publishes the redirect (default)
+#   PAGES_REDIRECT_URL           where the redirect points (default https://rentequip-pe.vercel.app)
 name: Deploy web to GitHub Pages
 
 on:
@@ -36,7 +41,9 @@ jobs:
           cache: npm
           cache-dependency-path: frontend-web/package-lock.json
       - run: npm ci
+        if: vars.PAGES_MODE == 'app'
       - run: npm run build
+        if: vars.PAGES_MODE == 'app'
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
           VITE_API_URL: ${{ vars.VITE_API_URL || 'https://44-215-225-249.sslip.io/api/v1' }}
@@ -45,6 +52,35 @@ jobs:
           VITE_RECAPTCHA_SITE_KEY: ${{ vars.VITE_RECAPTCHA_SITE_KEY }}
       # Pages has no SPA rewrites: serving index.html as 404.html lets deep links like /catalogo load the app.
       - run: cp dist/index.html dist/404.html
+        if: vars.PAGES_MODE == 'app'
+      # Redirect page: same path, query and hash on Vercel. 404.html makes deep links (/equipment/5) redirect too.
+      - name: Write the redirect to Vercel
+        if: vars.PAGES_MODE != 'app'
+        env:
+          TARGET: ${{ vars.PAGES_REDIRECT_URL || 'https://rentequip-pe.vercel.app' }}
+          BASE: /${{ github.event.repository.name }}
+        run: |
+          mkdir -p dist
+          cat > dist/index.html <<HTML
+          <!doctype html>
+          <html lang="es">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>RentEquip</title>
+            <meta http-equiv="refresh" content="0; url=${TARGET}/">
+            <link rel="canonical" href="${TARGET}/">
+            <script>
+              var path = location.pathname.indexOf("${BASE}") === 0 ? location.pathname.slice("${BASE}".length) : location.pathname;
+              location.replace("${TARGET}" + (path || "/") + location.search + location.hash);
+            </script>
+          </head>
+          <body style="font-family:system-ui,sans-serif;padding:2rem">
+            <p>RentEquip se mudó a <a href="${TARGET}/">${TARGET}</a>.</p>
+          </body>
+          </html>
+          HTML
+          cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: frontend-web/dist

@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { PATHS } from '../../routes/paths'
 import { MODE_HOME, readStoredMode } from '../../utils/workspaceMode'
 import { BrandMark } from '../common/BrandMark'
+import { DemoAccessButton } from '../common/DemoAccessButton'
 import { LanguageMenu } from '../common/LanguageMenu'
 import { NewsletterSignup } from './NewsletterSignup'
 
@@ -40,7 +41,7 @@ export function SiteHeader({ nav, appHome }: { nav?: ReactNode; appHome?: string
           <span className="text-xl font-bold tracking-tight text-ink">RentEquip</span>
         </Link>
         {nav && (
-          <nav className="ml-3 hidden items-center gap-8 text-[17px] text-slate-500 md:flex" aria-label={t('landing.sections')}>
+          <nav className="ml-3 hidden items-center gap-6 text-[17px] whitespace-nowrap text-slate-500 md:flex xl:gap-8" aria-label={t('landing.sections')}>
             {nav}
           </nav>
         )}
@@ -52,10 +53,15 @@ export function SiteHeader({ nav, appHome }: { nav?: ReactNode; appHome?: string
             </ActionLink>
           ) : (
             <>
-              <Link to={PATHS.login} className="hidden h-10 items-center rounded-lg px-4 text-[17px] font-medium text-ink transition-colors hover:bg-slate-100 sm:inline-flex">
+              <Link to={PATHS.login} className="hidden h-10 items-center rounded-lg px-3 text-[17px] font-medium whitespace-nowrap text-ink transition-colors hover:bg-slate-100 sm:inline-flex">
                 {t('landing.login')}
               </Link>
-              <ActionLink to={PATHS.register}>{t('landing.register')}</ActionLink>
+              <Link to={PATHS.register} className="hidden h-10 items-center rounded-lg px-3 text-[17px] font-medium whitespace-nowrap text-ink transition-colors hover:bg-slate-100 xl:inline-flex">
+                {t('landing.register')}
+              </Link>
+              {/* The yellow action for visitors: the product in one click, no company to register. */}
+              <DemoAccessButton short className="sm:hidden" />
+              <DemoAccessButton className="hidden sm:inline-flex" />
             </>
           )}
         </div>

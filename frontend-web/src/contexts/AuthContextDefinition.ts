@@ -22,6 +22,8 @@ export interface AuthContextValue {
   /** Second step of a protected login: the code that was sent. */
   verifyLogin: (request: TwoFactorVerifyRequest) => Promise<void>
   register: (request: RegisterRequest) => Promise<void>
+  /** Enters as the shared demo renter ("Probar la demo"), without a password. */
+  loginAsDemo: () => Promise<void>
   registerWithGoogle: (request: GoogleRegisterRequest) => Promise<void>
   logout: () => void
   /** Applies a change made on the profile screen to the signed-in user (the company name). */

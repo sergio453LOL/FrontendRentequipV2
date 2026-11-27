@@ -32,6 +32,11 @@ export const authService = {
     return data
   },
 
+  async loginAsDemo(): Promise<AuthResponse> {
+    const { data } = await api.post<AuthResponse>(ENDPOINTS.auth.demo)
+    return data
+  },
+
   async registerWithGoogle(request: GoogleRegisterRequest): Promise<AuthResponse> {
     const { data } = await api.post<AuthResponse>(ENDPOINTS.auth.googleRegister, request)
     return data

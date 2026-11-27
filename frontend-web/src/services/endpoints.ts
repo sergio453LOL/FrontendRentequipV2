@@ -6,6 +6,8 @@ export const ENDPOINTS = {
     register: '/auth/register',
     google: '/auth/google',
     googleRegister: '/auth/google/register',
+    /** One-click demo: tokens of the shared demo renter, no password (404 when the server closes it). */
+    demo: '/auth/demo',
   },
   categories: '/equipment-categories',
   category: (id: number) => `/equipment-categories/${id}`,
