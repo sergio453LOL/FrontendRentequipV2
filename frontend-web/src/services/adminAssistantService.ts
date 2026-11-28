@@ -8,7 +8,8 @@ const MAX_HISTORY_TURNS = 8
 /** Reading the figures and asking the model can take a while; more room than a normal request. */
 const COPILOT_TIMEOUT_MS = 60_000
 
-export type CopilotSource = 'gemini' | 'claude' | 'summary'
+/** `guardrail`: answered by the backend's filter (small talk, off-topic, contact data) without reading figures. */
+export type CopilotSource = 'gemini' | 'claude' | 'summary' | 'guardrail'
 
 export interface AdminCopilotAnswer {
   reply: string

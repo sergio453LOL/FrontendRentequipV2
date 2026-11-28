@@ -175,7 +175,8 @@ export function AdminCopilot({ isOpen, onClose }: { isOpen: boolean; onClose: ()
             >
               {message.content}
             </p>
-            {message.source && message.asOf && (
+            {/* A guard reply read no figures, so it has no source or time to show. */}
+            {message.source && message.source !== 'guardrail' && message.asOf && (
               <p className="px-1 text-xs text-slate-500">
                 {t('admin.copilot.asOf', { source: t(`admin.copilot.sources.${message.source}`), time: timeFormat.format(new Date(message.asOf)) })}
               </p>
