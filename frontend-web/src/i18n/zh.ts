@@ -1400,6 +1400,27 @@ export const zh: Translations = {
     topbar: {
       search: '搜索公司、RUC 或设备',
     },
+    copilot: {
+      open: 'AI 助手',
+      title: '平台助手',
+      subtitle: '根据 RentEquip 当前的实时数据回答。',
+      greeting: '你好。可以问我公司、认证、目录、预订、付款或评价。每个问题我都会读取平台的最新数据。',
+      tryAsking: '试试问',
+      prompts: [
+        '给我今天的平台概览',
+        '哪些公司等待认证的时间最长？',
+        '最近 30 天的预订金额是多少？',
+        '哪些城市的供给跟不上预订需求？',
+        '哪些设备预订最多，由谁发布？',
+      ],
+      placeholder: '询问平台情况',
+      inputLabel: '你要问助手的问题',
+      send: '提问',
+      thinking: '正在读取数据',
+      newChat: '新对话',
+      sources: { gemini: 'Gemini', claude: 'Claude', summary: '自动摘要，未使用 AI' },
+      asOf: '{{source}}，数据时间 {{time}}',
+    },
     nav: {
       label: '平台管理面板模块',
       groups: { operation: '运营', growth: '目录与增长', money: '资金' },

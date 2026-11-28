@@ -1431,6 +1431,28 @@ export const es = {
     topbar: {
       search: 'Buscar empresa, RUC o equipo',
     },
+    copilot: {
+      open: 'Copiloto IA',
+      title: 'Copiloto de la plataforma',
+      subtitle: 'Responde con las cifras de RentEquip en este momento.',
+      greeting:
+        'Hola. Pregúntame por empresas, verificaciones, catálogo, reservas, pagos o reseñas. Leo las cifras de la plataforma en cada pregunta.',
+      tryAsking: 'Prueba con',
+      prompts: [
+        'Dame un resumen de la plataforma hoy',
+        '¿Qué empresas llevan más tiempo esperando verificación?',
+        '¿Cuánto volumen se reservó en los últimos 30 días?',
+        '¿Qué ciudades tienen poca oferta para lo que se reserva?',
+        '¿Qué equipos se reservan más y quién los publica?',
+      ],
+      placeholder: 'Pregunta sobre la plataforma',
+      inputLabel: 'Tu pregunta para el copiloto',
+      send: 'Preguntar',
+      thinking: 'Leyendo las cifras',
+      newChat: 'Nueva conversación',
+      sources: { gemini: 'Gemini', claude: 'Claude', summary: 'Resumen automático, sin IA' },
+      asOf: '{{source}}, datos de las {{time}}',
+    },
     nav: {
       label: 'Módulos del panel de plataforma',
       groups: { operation: 'Operación', growth: 'Catálogo y crecimiento', money: 'Dinero' },

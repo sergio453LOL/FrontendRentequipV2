@@ -10,6 +10,7 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  Sparkles,
   Truck,
   Undo2,
   X,
@@ -33,6 +34,7 @@ import { RefreshButton } from '../common/RefreshButton'
 import { FullPageSpinner } from '../common/Spinner'
 import { ThemeToggle } from '../common/ThemeToggle'
 import { Avatar } from '../profile/Avatar'
+import { AdminCopilot } from './AdminCopilot'
 import { SearchField } from './AdminUi'
 
 type ModuleKey = 'dashboard' | 'companies' | 'movements' | 'catalog' | 'marketing' | 'ai' | 'finance'
@@ -204,7 +206,7 @@ function AdminSidebar({ isOpen, onClose, isCollapsed, onToggleCollapsed }: { isO
   )
 }
 
-function AdminTopBar({ onOpenMenu }: { onOpenMenu: () => void }) {
+function AdminTopBar({ onOpenMenu, onOpenCopilot }: { onOpenMenu: () => void; onOpenCopilot: () => void }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -249,6 +251,15 @@ function AdminTopBar({ onOpenMenu }: { onOpenMenu: () => void }) {
       <form role="search" onSubmit={handleSubmit} className="mx-auto w-full max-w-[420px] min-w-0 flex-1">
         <SearchField id="admin-search" value={query} onChange={setQuery} placeholder={t('admin.topbar.search')} />
       </form>
+      <button
+        type="button"
+        onClick={onOpenCopilot}
+        aria-label={t('admin.copilot.open')}
+        className="flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-ink px-2.5 text-sm font-semibold text-white transition-colors hover:bg-ink-hover sm:px-3"
+      >
+        <Sparkles className="size-4 text-brand" strokeWidth={1.75} aria-hidden="true" />
+        <span className="hidden sm:inline">{t('admin.copilot.open')}</span>
+      </button>
       <Link
         to={PATHS.home}
         className="hidden h-9 shrink-0 items-center gap-1.5 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 xl:flex"
@@ -273,13 +284,16 @@ export function AdminLayout() {
   const [isCollapsed, toggleCollapsed] = useSidebarCollapsed()
   const openMenu = useCallback(() => setIsMenuOpen(true), [])
   const closeMenu = useCallback(() => setIsMenuOpen(false), [])
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false)
+  const openCopilot = useCallback(() => setIsCopilotOpen(true), [])
+  const closeCopilot = useCallback(() => setIsCopilotOpen(false), [])
 
   return (
     <div className="min-h-screen bg-slate-50 lg:flex">
       <AdminSidebar isOpen={isMenuOpen} onClose={closeMenu} isCollapsed={isCollapsed} onToggleCollapsed={toggleCollapsed} />
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <OfflineBanner />
-        <AdminTopBar onOpenMenu={openMenu} />
+        <AdminTopBar onOpenMenu={openMenu} onOpenCopilot={openCopilot} />
         <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
           <ErrorBoundary key={pathname} inline>
             <Suspense fallback={<FullPageSpinner />}>
@@ -288,6 +302,7 @@ export function AdminLayout() {
           </ErrorBoundary>
         </main>
       </div>
+      <AdminCopilot isOpen={isCopilotOpen} onClose={closeCopilot} />
     </div>
   )
 }

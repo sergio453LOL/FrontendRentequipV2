@@ -53,6 +53,7 @@ export const ENDPOINTS = {
   companyBadge: (id: number) => `/companies/${id}/verification`,
   /** Platform admins only: cancels what visitors left open in the shared demo account. */
   adminDemoReset: '/admin/demo/reset',
+  adminAssistantChat: '/admin/assistant/chat',
   assistantChat: '/assistant/chat',
   equipmentRating: '/reviews/ratings',
   reviews: '/reviews', 

@@ -1427,6 +1427,28 @@ export const en: Translations = {
     topbar: {
       search: 'Search company, RUC or machine',
     },
+    copilot: {
+      open: 'AI copilot',
+      title: 'Platform copilot',
+      subtitle: "Answers with RentEquip's figures as they are right now.",
+      greeting:
+        'Hi. Ask me about companies, verifications, the catalogue, reservations, payments or reviews. I read the platform figures for every question.',
+      tryAsking: 'Try asking',
+      prompts: [
+        'Give me a summary of the platform today',
+        'Which companies have waited longest for verification?',
+        'How much was booked in the last 30 days?',
+        'Which cities have little supply for what gets booked?',
+        'Which machines are booked most, and who lists them?',
+      ],
+      placeholder: 'Ask about the platform',
+      inputLabel: 'Your question for the copilot',
+      send: 'Ask',
+      thinking: 'Reading the figures',
+      newChat: 'New conversation',
+      sources: { gemini: 'Gemini', claude: 'Claude', summary: 'Automatic summary, no AI' },
+      asOf: '{{source}}, figures as of {{time}}',
+    },
     nav: {
       label: 'Platform panel modules',
       groups: { operation: 'Operations', growth: 'Catalogue and growth', money: 'Money' },
