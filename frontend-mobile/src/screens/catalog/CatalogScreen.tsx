@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native'
 import { AppButton } from '../../components/AppButton'
 import { Chip } from '../../components/Chip'
+import { DemoBanner } from '../../components/DemoBanner'
 import { EquipmentCard } from '../../components/EquipmentCard'
 import { EmptyState, ErrorView, LoadingView } from '../../components/StateViews'
 import { WeatherCard } from '../../components/WeatherCard'
@@ -143,57 +144,61 @@ export default function CatalogScreen() {
   )
 
   return (
-    <FlatList
-      data={list.items}
-      keyExtractor={(item) => String(item.id)}
-      renderItem={renderItem}
-      ListHeaderComponent={header}
-      contentContainerStyle={styles.content}
-      style={styles.list}
-      ItemSeparatorComponent={() => <View style={{ height: spacing.lg }} />}
-      onEndReached={list.loadMore}
-      onEndReachedThreshold={0.4}
-      refreshControl={<RefreshControl refreshing={list.isRefreshing} onRefresh={list.refresh} tintColor={colors.brand} />}
-      ListEmptyComponent={
-        list.isLoading ? (
-          <LoadingView label={t('catalog.searching')} />
-        ) : list.error ? (
-          <ErrorView error={list.error} onRetry={list.retry} />
-        ) : (
-          <EmptyState
-            icon="search-outline"
-            title={debouncedQuery || categoryId !== null ? t('catalog.noResults') : t('catalog.nothingNearby')}
-            description={
-              debouncedQuery
-                ? t('catalog.noResultsFor', { query: debouncedQuery })
-                : categoryId !== null
-                  ? t('catalog.noResultsCategory')
-                  : t('catalog.widenRadius')
-            }
-            action={
-              debouncedQuery ? (
-                <AppButton title={t('catalog.clearSearch')} variant="secondary" onPress={() => setQuery('')} />
-              ) : categoryId !== null ? (
-                <AppButton title={t('catalog.allCategoriesAction')} variant="secondary" onPress={() => setCategoryId(null)} />
-              ) : radiusKm !== null ? (
-                <AppButton title={t('catalog.seeWholeCountry')} variant="secondary" onPress={() => setRadiusKm(null)} />
-              ) : undefined
-            }
-          />
-        )
-      }
-      ListFooterComponent={
-        list.isLoadingMore ? (
-          <ActivityIndicator style={styles.footer} color={colors.brand} />
-        ) : list.error && list.items.length > 0 ? (
-          <AppButton title={t('common.retry')} variant="secondary" icon="refresh" onPress={list.retry} style={styles.footer} />
-        ) : undefined
-      }
-    />
+    <View style={styles.screen}>
+      <DemoBanner />
+      <FlatList
+        data={list.items}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={renderItem}
+        ListHeaderComponent={header}
+        contentContainerStyle={styles.content}
+        style={styles.list}
+        ItemSeparatorComponent={() => <View style={{ height: spacing.lg }} />}
+        onEndReached={list.loadMore}
+        onEndReachedThreshold={0.4}
+        refreshControl={<RefreshControl refreshing={list.isRefreshing} onRefresh={list.refresh} tintColor={colors.brand} />}
+        ListEmptyComponent={
+          list.isLoading ? (
+            <LoadingView label={t('catalog.searching')} />
+          ) : list.error ? (
+            <ErrorView error={list.error} onRetry={list.retry} />
+          ) : (
+            <EmptyState
+              icon="search-outline"
+              title={debouncedQuery || categoryId !== null ? t('catalog.noResults') : t('catalog.nothingNearby')}
+              description={
+                debouncedQuery
+                  ? t('catalog.noResultsFor', { query: debouncedQuery })
+                  : categoryId !== null
+                    ? t('catalog.noResultsCategory')
+                    : t('catalog.widenRadius')
+              }
+              action={
+                debouncedQuery ? (
+                  <AppButton title={t('catalog.clearSearch')} variant="secondary" onPress={() => setQuery('')} />
+                ) : categoryId !== null ? (
+                  <AppButton title={t('catalog.allCategoriesAction')} variant="secondary" onPress={() => setCategoryId(null)} />
+                ) : radiusKm !== null ? (
+                  <AppButton title={t('catalog.seeWholeCountry')} variant="secondary" onPress={() => setRadiusKm(null)} />
+                ) : undefined
+              }
+            />
+          )
+        }
+        ListFooterComponent={
+          list.isLoadingMore ? (
+            <ActivityIndicator style={styles.footer} color={colors.brand} />
+          ) : list.error && list.items.length > 0 ? (
+            <AppButton title={t('common.retry')} variant="secondary" icon="refresh" onPress={list.retry} style={styles.footer} />
+          ) : undefined
+        }
+      />
+    </View>
   )
 }
 
 const useStyles = makeStyles((colors) => ({
+  screen: { flex: 1, backgroundColor: colors.background },
   list: { backgroundColor: colors.background },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl, flexGrow: 1, backgroundColor: colors.background },
   header: { gap: spacing.md, marginBottom: spacing.lg },

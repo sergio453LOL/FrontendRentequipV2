@@ -17,6 +17,7 @@ const MESSAGE_CODES = [
   'PAYMENT_PROVIDER_ERROR',
   'EQUIPMENT_HAS_HISTORY',
   'TOO_MANY_REQUESTS',
+  'DEMO_ACCOUNT_LOCKED',
 ] as const
 
 type MessageCode = (typeof MESSAGE_CODES)[number]

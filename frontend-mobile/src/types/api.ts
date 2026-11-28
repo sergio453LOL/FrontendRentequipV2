@@ -115,6 +115,31 @@ export interface Equipment extends Omit<EquipmentSummary, 'primaryImageUrl'> {
   imageUrls: string[]
   categories: string[]
   createdAt: IsoDateTime
+  ownerCompanyVerified: boolean
+  /** The daily rate includes someone to run the machine. */
+  operatorIncluded: boolean
+  operator: OperatorProfile | null
+  /** Set when the owner also sells it; null when it is only for rent. */
+  salePrice: number | null
+  usageHours: number | null
+  /** A YouTube (or other) video of the machine working. */
+  videoUrl: string | null
+  /** Usage and safety instructions as a PDF. */
+  manualUrl: string | null
+}
+
+export interface OperatorProfile {
+  name: string
+  license: string | null
+  experienceYears: number | null
+  /** One certification per line. */
+  certifications: string | null
+}
+
+/** A stretch the machine is already taken (pending, confirmed or in progress). */
+export interface BlockedWindow {
+  startDate: IsoDate
+  endDate: IsoDate
 }
 
 export interface EquipmentRating {
@@ -151,6 +176,8 @@ export interface ReservationCreateRequest {
   startDate: IsoDate
   endDate: IsoDate
   notes?: string
+  /** An accepted price offer: the reservation is made at its agreed rate. */
+  offerId?: number
 }
 
 export interface Availability {
@@ -263,4 +290,120 @@ export interface AssistantChatResponse {
    * `guardrail` when the backend answered locally (greeting, off-topic or spam) without calling a model.
    */
   source: 'gemini' | 'claude' | 'catalog-search' | 'guardrail'
+}
+
+/** What /users/me says about the signed-in user; only the fields the app reads. */
+export interface UserProfile {
+  id: number
+  email: string
+  /** The shared one-click demo account: some changes are blocked and the payment step takes test cards. */
+  demoAccount: boolean
+}
+
+export interface Review {
+  id: number
+  reservationId: number
+  equipmentId: number
+  reviewerCompanyId: number
+  reviewerCompanyName: string
+  rating: number
+  conditionRating: number | null
+  comment: string | null
+  createdAt: IsoDateTime
+}
+
+export interface ReviewCreateRequest {
+  reservationId: number
+  rating: number
+  conditionRating?: number
+  comment?: string
+}
+
+export type OfferStatus = 'PENDING' | 'COUNTERED' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED' | 'USED'
+
+/** A price negotiation on a machine's daily rate, seen from either side. */
+export interface PriceOffer {
+  id: number
+  equipmentId: number
+  equipmentName: string
+  equipmentImageUrl: string | null
+  ownerCompanyId: number
+  ownerCompanyName: string
+  renterCompanyId: number
+  renterCompanyName: string
+  listDailyRate: number
+  proposedDailyRate: number
+  counterDailyRate: number | null
+  agreedDailyRate: number | null
+  currency: string
+  startDate: IsoDate | null
+  endDate: IsoDate | null
+  renterMessage: string | null
+  ownerMessage: string | null
+  status: OfferStatus
+  createdAt: IsoDateTime
+  updatedAt: IsoDateTime
+}
+
+export interface OfferCreateRequest {
+  equipmentId: number
+  dailyRate: number
+  startDate?: IsoDate
+  endDate?: IsoDate
+  message?: string
+}
+
+export interface OfferReplyRequest {
+  dailyRate?: number
+  message?: string
+}
+
+/** An alert in the company's inbox. */
+export interface AppNotification {
+  id: number
+  type: string
+  title: string
+  message: string
+  /** Web path of the related screen (e.g. /reservations/12); the app maps the ones it has. */
+  link: string | null
+  read: boolean
+  createdAt: IsoDateTime
+}
+
+export type PurchaseStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED' | 'PAID'
+/** Why a renter cannot buy from a reservation right now. */
+export type PurchaseIneligibility = 'NOT_FOR_SALE' | 'SOLD' | 'RESERVATION_STATUS'
+
+/** What buying the rented machine costs now: list price minus the share of the rent already paid. */
+export interface PurchaseQuote {
+  eligible: boolean
+  reason: PurchaseIneligibility | null
+  listPrice: number | null
+  rentPaid: number
+  rentCreditPercent: number
+  rentCredit: number
+  finalPrice: number | null
+  currency: string
+  /** A request already waiting for the owner or for payment. */
+  openRequestId: number | null
+}
+
+export interface PurchaseRequest {
+  id: number
+  reservationId: number
+  equipmentId: number
+  equipmentName: string
+  equipmentImageUrl: string | null
+  buyerCompanyId: number
+  buyerCompanyName: string
+  sellerCompanyId: number
+  sellerCompanyName: string
+  listPrice: number
+  rentCredit: number
+  finalPrice: number
+  currency: string
+  status: PurchaseStatus
+  createdAt: IsoDateTime
+  decidedAt: IsoDateTime | null
+  paidAt: IsoDateTime | null
 }

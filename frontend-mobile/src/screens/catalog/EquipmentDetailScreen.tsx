@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View, useWindowDimensions } from 'react-native'
 import { AppButton } from '../../components/AppButton'
 import { EquipmentStatusBadge } from '../../components/Badge'
 import { DateField } from '../../components/DateField'
 import { EquipmentImage } from '../../components/EquipmentCard'
+import { EquipmentBadges, EquipmentExtras, OfferForm, ReviewsSection } from '../../components/EquipmentExtras'
 import { ErrorView, LoadingView } from '../../components/StateViews'
 import { TextField } from '../../components/TextField'
 import { useAction } from '../../hooks/useAction'
@@ -18,11 +19,21 @@ import { equipmentService, reservationService } from '../../services/rentequipAp
 import { radius, spacing } from '../../theme'
 import { makeStyles } from '../../theme/makeStyles'
 import type { Equipment, IsoDate } from '../../types/api'
-import { formatCurrency, formatDays, rentalDays, todayIso } from '../../utils/format'
+import { addDaysIso, firstFreeRange, formatCurrency, formatDays, rentalDays, todayIso } from '../../utils/format'
 import { photoCredit } from '../../utils/photoCredits'
 
 const MAX_RENTAL_DAYS = 365
 const MAX_NOTES = 500
+/** Length of the stretch the form proposes before the renter picks dates. */
+const PROPOSED_DAYS = 3
+/** The backend serves at most 120 days of calendar per request. */
+const BLOCKED_HORIZON_DAYS = 119
+
+/** An accepted price offer the renter is booking with: its id and agreed daily rate. */
+interface AgreedOffer {
+  id: number
+  dailyRate: number
+}
 
 function parseSpecifications(text: string | null): { label: string; value: string }[] {
   if (!text) return []
@@ -66,7 +77,7 @@ function Gallery({ images, width }: { images: string[]; width: number }) {
   )
 }
 
-function ReservationForm({ equipment, onBooked }: { equipment: Equipment; onBooked: () => void }) {
+function ReservationForm({ equipment, offer, onBooked }: { equipment: Equipment; offer?: AgreedOffer; onBooked: () => void }) {
   const { t } = useTranslation()
   const styles = useStyles()
   const [startDate, setStartDate] = useState<IsoDate | null>(null)
@@ -74,6 +85,23 @@ function ReservationForm({ equipment, onBooked }: { equipment: Equipment; onBook
   const [notes, setNotes] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const { run, isRunning } = useAction()
+  const dailyRate = offer?.dailyRate ?? equipment.dailyRate
+
+  // Proposes the first free stretch from tomorrow, so the renter starts from dates that work.
+  useEffect(() => {
+    const controller = new AbortController()
+    const from = addDaysIso(todayIso(), 1)
+    equipmentService.blockedDates(equipment.id, from, addDaysIso(from, BLOCKED_HORIZON_DAYS), controller.signal).then(
+      (windows) => {
+        const range = firstFreeRange(PROPOSED_DAYS, windows, from, BLOCKED_HORIZON_DAYS - PROPOSED_DAYS)
+        if (!range) return
+        setStartDate((current) => current ?? range.startDate)
+        setEndDate((current) => current ?? range.endDate)
+      },
+      () => undefined,
+    )
+    return () => controller.abort()
+  }, [equipment.id])
 
   const today = todayIso()
   // i18n keys, translated by DateField.
@@ -106,7 +134,8 @@ function ReservationForm({ equipment, onBooked }: { equipment: Equipment; onBook
     setSubmitted(true)
     if (!datesValid || !startDate || !endDate || isTaken) return
     await run(
-      () => reservationService.create({ equipmentId: equipment.id, startDate, endDate, notes: notes.trim() || undefined }),
+      () =>
+        reservationService.create({ equipmentId: equipment.id, startDate, endDate, notes: notes.trim() || undefined, offerId: offer?.id }),
       { successMessage: t('equipmentDetail.requestSent'), errorTitle: t('equipmentDetail.requestFailed'), onSuccess: onBooked },
     )
   }
@@ -116,6 +145,7 @@ function ReservationForm({ equipment, onBooked }: { equipment: Equipment; onBook
   return (
     <View style={styles.card}>
       <Text style={styles.sectionTitle}>{t('equipmentDetail.requestTitle')}</Text>
+      {offer && <Text style={styles.free}>✓ {t('offers.bookingAtAgreed', { rate: money(offer.dailyRate) })}</Text>}
       <View style={styles.dates}>
         <DateField label={t('equipmentDetail.from')} value={startDate} onChange={setStartDate} minimumDate={new Date()} error={startError} />
         <DateField label={t('equipmentDetail.to')} value={endDate} onChange={setEndDate} minimumDate={new Date()} error={endError} />
@@ -142,9 +172,9 @@ function ReservationForm({ equipment, onBooked }: { equipment: Equipment; onBook
         style={styles.notes}
       />
       <View style={styles.summary}>
-        <Row label={`${money(equipment.dailyRate)} × ${formatDays(days)}`} value={money(days * equipment.dailyRate)} />
+        <Row label={`${money(dailyRate)} × ${formatDays(days)}`} value={money(days * dailyRate)} />
         <Row label={t('equipmentDetail.deposit')} value={money(equipment.securityDeposit)} />
-        <Row label={t('equipmentDetail.estimatedTotal')} value={money(days * equipment.dailyRate + equipment.securityDeposit)} bold />
+        <Row label={t('equipmentDetail.estimatedTotal')} value={money(days * dailyRate + equipment.securityDeposit)} bold />
       </View>
       <AppButton title={t('equipmentDetail.send')} icon="send" onPress={submit} isLoading={isRunning} disabled={isChecking || isTaken} />
     </View>
@@ -165,7 +195,8 @@ export default function EquipmentDetailScreen({ route, navigation }: RootScreenP
   const { t } = useTranslation()
   const { colors } = useTheme()
   const styles = useStyles()
-  const { equipmentId } = route.params
+  const { equipmentId, offerId, agreedDailyRate } = route.params
+  const offer = offerId && agreedDailyRate ? { id: offerId, dailyRate: agreedDailyRate } : undefined
   const { user } = useAuth()
   const { width } = useWindowDimensions()
 
@@ -194,6 +225,7 @@ export default function EquipmentDetailScreen({ route, navigation }: RootScreenP
               </Text>
             )}
           </View>
+          <EquipmentBadges equipment={equipment} />
           <Text style={styles.title}>{equipment.name}</Text>
           <Text style={styles.muted}>
             {equipment.brand} · {equipment.model}
@@ -230,16 +262,24 @@ export default function EquipmentDetailScreen({ route, navigation }: RootScreenP
             </View>
           )}
 
+          <EquipmentExtras equipment={equipment} />
+
           {isOwn ? (
             <Text style={styles.notice}>{t('equipmentDetail.own')}</Text>
           ) : equipment.status !== 'AVAILABLE' ? (
             <Text style={styles.notice}>{t('equipmentDetail.unavailable')}</Text>
           ) : (
-            <ReservationForm
-              equipment={equipment}
-              onBooked={() => navigation.navigate('Main', { screen: 'Reservations', params: { role: 'RENTER' } })}
-            />
+            <>
+              <ReservationForm
+                equipment={equipment}
+                offer={offer}
+                onBooked={() => navigation.navigate('Main', { screen: 'Reservations', params: { role: 'RENTER' } })}
+              />
+              {!offer && <OfferForm equipment={equipment} onSent={() => navigation.navigate('Offers', { role: 'RENTER' })} />}
+            </>
           )}
+
+          <ReviewsSection equipmentId={equipment.id} />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

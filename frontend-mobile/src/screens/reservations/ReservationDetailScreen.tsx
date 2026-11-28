@@ -6,6 +6,8 @@ import { Alert, Image, Modal, Pressable, RefreshControl, ScrollView, Text, View 
 import { AppButton } from '../../components/AppButton'
 import { PaymentStatusBadge, ReservationStatusBadge } from '../../components/Badge'
 import { ReceiptShareButtons } from '../../components/ReceiptShareButtons'
+import { PurchaseCard } from '../../components/PurchaseCard'
+import { ReviewForm } from '../../components/ReviewForm'
 import { ErrorView, LoadingView } from '../../components/StateViews'
 import { useAction } from '../../hooks/useAction'
 import { useAsync } from '../../hooks/useAsync'
@@ -184,6 +186,10 @@ export default function ReservationDetailScreen({ route, navigation }: RootScree
           <ReceiptShareButtons reservationId={data.id} />
         </View>
       )}
+
+      {!isOwner && data.status === 'COMPLETED' && <ReviewForm reservationId={data.id} />}
+
+      {!isOwner && <PurchaseCard reservationId={data.id} />}
 
       {actions.length > 0 && (
         <View style={styles.actions}>

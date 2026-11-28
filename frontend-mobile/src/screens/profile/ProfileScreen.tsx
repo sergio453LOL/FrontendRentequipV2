@@ -65,6 +65,18 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.card}>
+        <Text style={styles.sectionTitle}>{t('profile.activity')}</Text>
+        <AppButton title={t('nav.offers')} icon="pricetags-outline" variant="secondary" onPress={() => navigation.navigate('Offers')} />
+        <AppButton title={t('nav.purchases')} icon="cart-outline" variant="secondary" onPress={() => navigation.navigate('Purchases')} />
+        <AppButton
+          title={t('nav.notifications')}
+          icon="notifications-outline"
+          variant="secondary"
+          onPress={() => navigation.navigate('Notifications')}
+        />
+      </View>
+
+      <View style={styles.card}>
         <Text style={styles.sectionTitle}>{t('preferences.title')}</Text>
         <PreferencesPicker />
       </View>

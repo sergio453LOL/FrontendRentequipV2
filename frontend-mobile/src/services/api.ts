@@ -54,8 +54,29 @@ interface RetriableConfig extends InternalAxiosRequestConfig {
   _retried?: boolean
 }
 
+/** Origin of the API, e.g. https://rentequip-pe.vercel.app when the app talks to the backend through Vercel. */
+const API_ORIGIN = API_BASE_URL.match(/^https?:\/\/[^/]+/)?.[0]
+/** Photos, manuals and uploads the backend links with its own host (a bare http IP behind the proxy). */
+const FILE_URL = /^https?:\/\/[^/]+(\/(?:demo-images|uploads|demo-manuals)\/[^\s]*)$/
+
+/**
+ * Serves every file link from the API's origin. Behind the HTTPS proxy the backend writes http://<ip>/...,
+ * which Android refuses to load in a release build (cleartext); the proxy serves the same paths over HTTPS.
+ */
+function toApiOrigin(value: unknown): unknown {
+  if (typeof value === 'string') return API_ORIGIN ? value.replace(FILE_URL, `${API_ORIGIN}$1`) : value
+  if (Array.isArray(value)) return value.map(toApiOrigin)
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toApiOrigin(item)]))
+  }
+  return value
+}
+
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    response.data = toApiOrigin(response.data)
+    return response
+  },
   async (error: unknown) => {
     if (isCancel(error) || !(error instanceof AxiosError)) return Promise.reject(error)
 

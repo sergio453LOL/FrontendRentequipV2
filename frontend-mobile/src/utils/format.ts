@@ -58,3 +58,30 @@ export function distanceKm(from: Coordinates, to: Coordinates): number {
 export function formatDistance(km: number): string {
   return km < 1 ? `${Math.round(km * 1000)} m` : `${km < 10 ? km.toFixed(1) : Math.round(km)} km`
 }
+
+export function addDaysIso(date: IsoDate, days: number): IsoDate {
+  const parsed = parseIsoDate(date)
+  parsed.setDate(parsed.getDate() + days)
+  return toIsoDate(parsed)
+}
+
+/**
+ * The first stretch of `days` days from `from` on that touches none of the taken windows, looking up to
+ * `horizonDays` ahead; null when there is none. Used to propose dates instead of an empty form.
+ */
+export function firstFreeRange(
+  days: number,
+  windows: { startDate: IsoDate; endDate: IsoDate }[],
+  from: IsoDate,
+  horizonDays = 180,
+): { startDate: IsoDate; endDate: IsoDate } | null {
+  const limit = addDaysIso(from, horizonDays)
+  let start = from
+  while (start <= limit) {
+    const end = addDaysIso(start, days - 1)
+    const clash = windows.find((window) => window.startDate <= end && window.endDate >= start)
+    if (!clash) return { startDate: start, endDate: end }
+    start = addDaysIso(clash.endDate, 1)
+  }
+  return null
+}

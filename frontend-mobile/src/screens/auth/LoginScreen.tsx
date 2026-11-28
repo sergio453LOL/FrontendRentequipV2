@@ -31,7 +31,8 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
   const { t } = useTranslation()
   const { colors } = useTheme()
   const styles = useStyles()
-  const { login, verifyLogin } = useAuth()
+  const { login, verifyLogin, loginDemo } = useAuth()
+  const [isOpeningDemo, setIsOpeningDemo] = useState(false)
   const toast = useToast()
   const [formError, setFormError] = useState<string | null>(null)
   /** Set when the account has the two-step verification on: the password was right and a code was sent. */
@@ -63,6 +64,17 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
     } catch (error) {
       const apiError = ApiError.from(error)
       setFormError(apiError.status === 401 ? t('auth.wrongCredentials') : apiError.message)
+    }
+  }
+
+  async function onDemo() {
+    setFormError(null)
+    setIsOpeningDemo(true)
+    try {
+      await loginDemo()
+    } catch (error) {
+      setFormError(`${t('demo.failed')}: ${ApiError.from(error).message}`)
+      setIsOpeningDemo(false)
     }
   }
 
@@ -168,6 +180,16 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
             </>
           ) : (
             <>
+              <View style={styles.demoCard}>
+                <Text style={styles.demoTitle}>{t('demo.loginTitle')}</Text>
+                <Text style={styles.demoText}>{t('demo.loginText')}</Text>
+                <AppButton title={t('demo.cta')} icon="flask-outline" onPress={() => void onDemo()} isLoading={isOpeningDemo} disabled={isSubmitting} />
+              </View>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>{t('demo.orSignIn')}</Text>
+                <View style={styles.dividerLine} />
+              </View>
               <Controller
                 control={control}
                 name="email"
@@ -255,4 +277,17 @@ const useStyles = makeStyles((colors, typography) => ({
   stepTitle: { ...typography.heading, textAlign: 'center' },
   codeInput: { fontSize: 22, letterSpacing: 8, textAlign: 'center' },
   server: { ...typography.caption, textAlign: 'center', fontSize: 11 },
+  demoCard: {
+    backgroundColor: colors.brandSoft,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.brand,
+  },
+  demoTitle: { ...typography.heading, fontSize: 16 },
+  demoText: { ...typography.body, color: colors.text },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { ...typography.caption },
 }))

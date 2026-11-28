@@ -26,7 +26,18 @@ import type {
   ReservationRole,
   ReservationStatus,
   UploadedImage,
+  AppNotification,
+  BlockedWindow,
+  OfferCreateRequest,
+  OfferReplyRequest,
+  PriceOffer,
+  Review,
+  ReviewCreateRequest,
+  UserProfile,
+  PurchaseQuote,
+  PurchaseRequest,
 } from '../types/api'
+import { ApiError } from '../utils/apiError'
 import { api } from './api'
 
 export const authService = {
@@ -39,6 +50,71 @@ export const authService = {
   },
   async register(request: RegisterRequest): Promise<AuthResponse> {
     return (await api.post<AuthResponse>('/auth/register', request)).data
+  },
+  /** One-click demo: tokens of the shared demo renter, no password (404 when the server has it closed). */
+  async demo(): Promise<AuthResponse> {
+    return (await api.post<AuthResponse>('/auth/demo')).data
+  },
+}
+
+export const userService = {
+  async me(signal?: AbortSignal): Promise<UserProfile> {
+    return (await api.get<UserProfile>('/users/me', { signal })).data
+  },
+}
+
+export const reviewService = {
+  async listForEquipment(equipmentId: number, signal?: AbortSignal): Promise<PageResponse<Review>> {
+    return (await api.get<PageResponse<Review>>(`/equipment/${equipmentId}/reviews`, { params: { page: 0, size: 10 }, signal }))
+      .data
+  },
+  /** The review left for a reservation, or null when there is none yet. */
+  async findByReservation(reservationId: number, signal?: AbortSignal): Promise<Review | null> {
+    try {
+      return (await api.get<Review>('/reviews', { params: { reservationId }, signal })).data
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null
+      throw error
+    }
+  },
+  async create(request: ReviewCreateRequest): Promise<Review> {
+    return (await api.post<Review>('/reviews', request)).data
+  },
+}
+
+export const offerService = {
+  async create(request: OfferCreateRequest): Promise<PriceOffer> {
+    return (await api.post<PriceOffer>('/offers', request)).data
+  },
+  async list(role: ReservationRole, page: number, signal?: AbortSignal): Promise<PageResponse<PriceOffer>> {
+    return (await api.get<PageResponse<PriceOffer>>('/offers', { params: { role, page, size: 10 }, signal })).data
+  },
+  async accept(id: number, reply?: OfferReplyRequest): Promise<PriceOffer> {
+    return (await api.post<PriceOffer>(`/offers/${id}/acceptance`, reply ?? {})).data
+  },
+  async reject(id: number, reply?: OfferReplyRequest): Promise<PriceOffer> {
+    return (await api.post<PriceOffer>(`/offers/${id}/rejection`, reply ?? {})).data
+  },
+  async counter(id: number, reply: OfferReplyRequest): Promise<PriceOffer> {
+    return (await api.post<PriceOffer>(`/offers/${id}/counter`, reply)).data
+  },
+  async cancel(id: number): Promise<PriceOffer> {
+    return (await api.post<PriceOffer>(`/offers/${id}/cancellation`)).data
+  },
+}
+
+export const notificationService = {
+  async list(page: number, signal?: AbortSignal): Promise<PageResponse<AppNotification>> {
+    return (await api.get<PageResponse<AppNotification>>('/notifications', { params: { page, size: 20 }, signal })).data
+  },
+  async unreadCount(signal?: AbortSignal): Promise<number> {
+    return (await api.get<{ unread: number }>('/notifications/unread-count', { signal })).data.unread ?? 0
+  },
+  async markRead(id: number): Promise<void> {
+    await api.patch(`/notifications/${id}/read`)
+  },
+  async markAllRead(): Promise<void> {
+    await api.post('/notifications/read-all')
   },
 }
 
@@ -59,6 +135,10 @@ export const equipmentService = {
   },
   async findById(id: number, signal?: AbortSignal): Promise<Equipment> {
     return (await api.get<Equipment>(`/equipment/${id}`, { signal })).data
+  },
+  /** Stretches already taken in the next months, to propose the first free dates. */
+  async blockedDates(equipmentId: number, from: string, until: string, signal?: AbortSignal): Promise<BlockedWindow[]> {
+    return (await api.get<BlockedWindow[]>(`/equipment/${equipmentId}/blocked-dates`, { params: { from, until }, signal })).data
   },
   async rating(equipmentId: number, signal?: AbortSignal): Promise<EquipmentRating> {
     return (await api.get<EquipmentRating>('/reviews/ratings', { params: { equipmentId }, signal })).data
@@ -224,5 +304,32 @@ export const handoverService = {
       },
     })
     return data
+  },
+}
+
+/** Buying a rented machine: quote from the reservation, request, the owner's answer and the payment. */
+export const purchaseService = {
+  async quote(reservationId: number, signal?: AbortSignal): Promise<PurchaseQuote> {
+    return (await api.get<PurchaseQuote>(`/reservations/${reservationId}/purchase-quote`, { signal })).data
+  },
+  async request(reservationId: number): Promise<PurchaseRequest> {
+    return (await api.post<PurchaseRequest>(`/reservations/${reservationId}/purchase-requests`)).data
+  },
+  async list(role: ReservationRole, page: number, signal?: AbortSignal): Promise<PageResponse<PurchaseRequest>> {
+    return (await api.get<PageResponse<PurchaseRequest>>('/purchase-requests', { params: { role, page, size: 10 }, signal })).data
+  },
+  async accept(id: number): Promise<PurchaseRequest> {
+    return (await api.post<PurchaseRequest>(`/purchase-requests/${id}/acceptance`)).data
+  },
+  async reject(id: number): Promise<PurchaseRequest> {
+    return (await api.post<PurchaseRequest>(`/purchase-requests/${id}/rejection`)).data
+  },
+  async cancel(id: number): Promise<PurchaseRequest> {
+    return (await api.post<PurchaseRequest>(`/purchase-requests/${id}/cancellation`)).data
+  },
+  async pay(id: number, paymentToken: string): Promise<PurchaseRequest> {
+    return (
+      await api.post<PurchaseRequest>(`/purchase-requests/${id}/payment`, { paymentToken }, { timeout: PAYMENT_TIMEOUT_MS })
+    ).data
   },
 }

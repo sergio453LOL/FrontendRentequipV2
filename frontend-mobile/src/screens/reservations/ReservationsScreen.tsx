@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { AppButton } from '../../components/AppButton'
 import { Chip } from '../../components/Chip'
+import { DemoBanner } from '../../components/DemoBanner'
 import { ReservationCard } from '../../components/ReservationCard'
 import { EmptyState, ErrorView, LoadingView } from '../../components/StateViews'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
@@ -56,6 +57,7 @@ export default function ReservationsScreen() {
 
   return (
     <View style={styles.container}>
+      <DemoBanner />
       <View style={styles.filters}>
         <View style={styles.segmented} accessibilityRole="tablist">
           {(['RENTER', 'OWNER'] as const).map((option) => (

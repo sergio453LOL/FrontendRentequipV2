@@ -7,13 +7,14 @@ import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-na
 import { z } from 'zod'
 import { AppButton } from '../../components/AppButton'
 import { Chip } from '../../components/Chip'
+import { DemoBanner } from '../../components/DemoBanner'
 import { ReceiptShareButtons } from '../../components/ReceiptShareButtons'
 import { ErrorView, LoadingView } from '../../components/StateViews'
 import { TextField } from '../../components/TextField'
 import { useAsync } from '../../hooks/useAsync'
 import { useTheme } from '../../hooks/useTheme'
 import type { RootScreenProps } from '../../navigation/types'
-import { paymentService, reservationService } from '../../services/rentequipApi'
+import { paymentService, purchaseService, reservationService } from '../../services/rentequipApi'
 import { radius, spacing } from '../../theme'
 import { makeStyles } from '../../theme/makeStyles'
 import type { Payment } from '../../types/api'
@@ -49,7 +50,8 @@ export default function PaymentScreen({ route, navigation }: RootScreenProps<'Pa
   const { t } = useTranslation()
   const { colors } = useTheme()
   const styles = useStyles()
-  const { reservationId } = route.params
+  const { reservationId, purchase } = route.params
+  const [purchasePaid, setPurchasePaid] = useState(false)
   const fetchReservation = useCallback((signal: AbortSignal) => reservationService.findById(reservationId, signal), [reservationId])
   const reservation = useAsync(fetchReservation)
   const [payments, setPayments] = useState<Payment[] | null>(null)
@@ -78,10 +80,32 @@ export default function PaymentScreen({ route, navigation }: RootScreenProps<'Pa
     setFormError(null)
     try {
       const token = await createCardToken(values)
-      setPayments(await paymentService.pay(data.id, token))
+      if (purchase) {
+        await purchaseService.pay(purchase.id, token)
+        setPurchasePaid(true)
+      } else {
+        setPayments(await paymentService.pay(data.id, token))
+      }
     } catch (error) {
       setFormError(ApiError.from(error).message)
     }
+  }
+
+  if (purchase && purchasePaid) {
+    return (
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <View style={[styles.card, styles.center]}>
+          <View style={styles.successIcon}>
+            <Ionicons name="checkmark" size={36} color={colors.success} />
+          </View>
+          <Text style={styles.title}>{t('purchases.paidTitle')}</Text>
+          <Text style={[styles.caption, styles.centerText]}>
+            {t('purchases.paidDetail', { name: purchase.equipmentName, amount: formatCurrency(purchase.finalPrice, purchase.currency) })}
+          </Text>
+        </View>
+        <AppButton title={t('purchases.backToPurchases')} icon="arrow-back" onPress={() => navigation.goBack()} />
+      </ScrollView>
+    )
   }
 
   if (payments) {
@@ -107,13 +131,20 @@ export default function PaymentScreen({ route, navigation }: RootScreenProps<'Pa
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <DemoBanner />
       <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
           <Text style={styles.caption}>{t('reservationDetail.code', { id: data.id })}</Text>
           <Text style={styles.sectionTitle}>{data.equipmentName}</Text>
-          <Amount label={t('payment.rentalNow')} value={money(data.rentalAmount)} />
-          <Amount label={t('payment.depositHeld')} value={money(data.securityDeposit)} />
-          <Amount label={t('payment.total')} value={money(data.totalAmount)} bold />
+          {purchase ? (
+            <Amount label={t('purchases.finalPrice')} value={formatCurrency(purchase.finalPrice, purchase.currency)} bold />
+          ) : (
+            <>
+              <Amount label={t('payment.rentalNow')} value={money(data.rentalAmount)} />
+              <Amount label={t('payment.depositHeld')} value={money(data.securityDeposit)} />
+              <Amount label={t('payment.total')} value={money(data.totalAmount)} bold />
+            </>
+          )}
         </View>
 
         <View style={styles.card}>
@@ -220,7 +251,7 @@ export default function PaymentScreen({ route, navigation }: RootScreenProps<'Pa
         </View>
 
         <AppButton
-          title={t('payment.pay', { amount: money(data.totalAmount) })}
+          title={t('payment.pay', { amount: purchase ? formatCurrency(purchase.finalPrice, purchase.currency) : money(data.totalAmount) })}
           icon="lock-closed-outline"
           onPress={handleSubmit(onSubmit)}
           isLoading={isSubmitting}

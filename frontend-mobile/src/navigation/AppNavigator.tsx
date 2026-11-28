@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import { useNavigation } from '@react-navigation/native'
+import { useFocusEffect, useNavigation } from '@react-navigation/native'
+import { useCallback, useState } from 'react'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { useTranslation } from 'react-i18next'
 import { Pressable, Text, View } from 'react-native'
@@ -17,11 +18,15 @@ import EquipmentDetailScreen from '../screens/catalog/EquipmentDetailScreen'
 import EquipmentFormScreen from '../screens/fleet/EquipmentFormScreen'
 import FleetScreen from '../screens/fleet/FleetScreen'
 import MapScreen from '../screens/map/MapScreen'
+import NotificationsScreen from '../screens/notifications/NotificationsScreen'
+import OffersScreen from '../screens/offers/OffersScreen'
+import PurchasesScreen from '../screens/purchases/PurchasesScreen'
 import PaymentScreen from '../screens/payments/PaymentScreen'
 import CategoriesScreen from '../screens/profile/CategoriesScreen'
 import ProfileScreen from '../screens/profile/ProfileScreen'
 import ReservationDetailScreen from '../screens/reservations/ReservationDetailScreen'
 import ReservationsScreen from '../screens/reservations/ReservationsScreen'
+import { notificationService } from '../services/rentequipApi'
 import { radius, spacing } from '../theme'
 import { makeStyles } from '../theme/makeStyles'
 import { canPublish } from '../utils/roles'
@@ -59,6 +64,49 @@ function AssistantButton() {
   )
 }
 
+/** Bell with the unread count; refreshed each time the screen comes into view. */
+function NotificationsButton() {
+  const { t } = useTranslation()
+  const { colors } = useTheme()
+  const styles = useStyles()
+  const navigation = useNavigation<RootNavigation>()
+  const [unread, setUnread] = useState(0)
+  useFocusEffect(
+    useCallback(() => {
+      const controller = new AbortController()
+      notificationService.unreadCount(controller.signal).then(setUnread, () => undefined)
+      return () => controller.abort()
+    }, []),
+  )
+  return (
+    <Pressable
+      onPress={() => navigation.navigate('Notifications')}
+      accessibilityRole="button"
+      accessibilityLabel={unread > 0 ? t('nav.notificationsUnread', { n: unread }) : t('nav.notifications')}
+      hitSlop={8}
+      style={styles.bell}
+    >
+      <Ionicons name={unread > 0 ? 'notifications' : 'notifications-outline'} size={22} color={colors.ink} />
+      {unread > 0 && (
+        <View style={styles.bellBadge}>
+          <Text style={styles.bellBadgeText}>{unread > 9 ? '9+' : unread}</Text>
+        </View>
+      )}
+    </Pressable>
+  )
+}
+
+function HeaderActions({ withAssistant }: { withAssistant?: boolean }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <NotificationsButton />
+      {withAssistant && <AssistantButton />}
+    </View>
+  )
+}
+const CatalogHeader = () => <HeaderActions withAssistant />
+const PlainHeader = () => <HeaderActions />
+
 function AuthNavigator() {
   const { t } = useTranslation()
   return (
@@ -86,11 +134,11 @@ function MainTabs() {
         tabBarIcon: ({ color, size }) => <Ionicons name={TAB_ICONS[route.name]} size={size} color={color} />,
       })}
     >
-      <Tabs.Screen name="Catalog" component={CatalogScreen} options={{ title: t('nav.catalog'), headerRight: AssistantButton }} />
-      <Tabs.Screen name="Map" component={MapScreen} options={{ title: t('nav.map'), headerRight: AssistantButton }} />
+      <Tabs.Screen name="Catalog" component={CatalogScreen} options={{ title: t('nav.catalog'), headerRight: CatalogHeader }} />
+      <Tabs.Screen name="Map" component={MapScreen} options={{ title: t('nav.map'), headerRight: CatalogHeader }} />
       {canPublish(user?.role) && <Tabs.Screen name="Fleet" component={FleetScreen} options={{ title: t('nav.fleet') }} />}
-      <Tabs.Screen name="Reservations" component={ReservationsScreen} options={{ title: t('nav.reservations') }} />
-      <Tabs.Screen name="Profile" component={ProfileScreen} options={{ title: t('nav.profile') }} />
+      <Tabs.Screen name="Reservations" component={ReservationsScreen} options={{ title: t('nav.reservations'), headerRight: PlainHeader }} />
+      <Tabs.Screen name="Profile" component={ProfileScreen} options={{ title: t('nav.profile'), headerRight: PlainHeader }} />
     </Tabs.Navigator>
   )
 }
@@ -124,7 +172,11 @@ export function AppNavigator() {
               component={HandoverCameraScreen}
               options={{ headerShown: false, presentation: 'fullScreenModal' }}
             />
-            <RootStack.Screen name="Payment" component={PaymentScreen} options={{ title: t('nav.payment') }} />
+            <RootStack.Screen
+              name="Payment"
+              component={PaymentScreen}
+              options={({ route }) => ({ title: route.params.purchase ? t('nav.purchasePayment') : t('nav.payment') })}
+            />
             <RootStack.Screen
               name="Assistant"
               component={AssistantScreen}
@@ -136,6 +188,9 @@ export function AppNavigator() {
               options={({ route }) => ({ title: route.params.equipmentId ? t('nav.editEquipment') : t('nav.publishEquipment') })}
             />
             <RootStack.Screen name="Categories" component={CategoriesScreen} options={{ title: t('nav.categories') }} />
+            <RootStack.Screen name="Offers" component={OffersScreen} options={{ title: t('nav.offers') }} />
+            <RootStack.Screen name="Notifications" component={NotificationsScreen} options={{ title: t('nav.notifications') }} />
+            <RootStack.Screen name="Purchases" component={PurchasesScreen} options={{ title: t('nav.purchases') }} />
           </>
         )}
       </RootStack.Navigator>
@@ -155,4 +210,18 @@ const useStyles = makeStyles((colors) => ({
     backgroundColor: colors.brandSoft,
   },
   headerButtonText: { fontSize: 13, fontWeight: '700', color: colors.brandDark },
+  bell: { marginRight: spacing.md, padding: 2 },
+  bellBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
 }))
