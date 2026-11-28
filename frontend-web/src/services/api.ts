@@ -15,11 +15,21 @@ if (window.location.protocol === 'https:' && API_BASE_URL.startsWith('http://'))
  * which some networks block. VITE_BACKEND_ORIGIN names that host so responses can use same-origin paths
  * instead, served by the same proxy.
  */
-const BACKEND_ORIGIN = API_BASE_URL.startsWith('/') ? import.meta.env.VITE_BACKEND_ORIGIN?.replace(/\/$/, '') : undefined
+const BEHIND_PROXY = API_BASE_URL.startsWith('/')
+const BACKEND_ORIGIN = BEHIND_PROXY ? import.meta.env.VITE_BACKEND_ORIGIN?.replace(/\/$/, '') : undefined
+
+/**
+ * Files the proxy also serves. Whatever host the backend wrote in front of them (its own IP when the
+ * proxy reaches it directly), the same-origin path works and never trips mixed content.
+ */
+const PROXIED_FILE = /^https?:\/\/[^/]+(\/(?:demo-images|uploads|demo-manuals)\/[^\s]*)$/
 
 function toSameOrigin(value: unknown): unknown {
   if (typeof value === 'string') {
-    return BACKEND_ORIGIN && value.startsWith(`${BACKEND_ORIGIN}/`) ? value.slice(BACKEND_ORIGIN.length) : value
+    if (BACKEND_ORIGIN && value.startsWith(`${BACKEND_ORIGIN}/`)) {
+      return value.slice(BACKEND_ORIGIN.length)
+    }
+    return value.replace(PROXIED_FILE, '$1')
   }
   if (Array.isArray(value)) {
     return value.map(toSameOrigin)
@@ -96,7 +106,7 @@ interface RetriableRequestConfig extends InternalAxiosRequestConfig {
 
 api.interceptors.response.use(
   (response) => {
-    if (BACKEND_ORIGIN) {
+    if (BEHIND_PROXY) {
       response.data = toSameOrigin(response.data)
     }
     return response
