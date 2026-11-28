@@ -5,10 +5,10 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://44-215-225-249.sslip.io/api/:path*" },
-    { "source": "/demo-images/:path*", "destination": "https://44-215-225-249.sslip.io/demo-images/:path*" },
-    { "source": "/uploads/:path*", "destination": "https://44-215-225-249.sslip.io/uploads/:path*" },
-    { "source": "/demo-manuals/:path*", "destination": "https://44-215-225-249.sslip.io/demo-manuals/:path*" },
+    { "source": "/api/:path*", "destination": "http://44.215.225.249:8080/api/:path*" },
+    { "source": "/demo-images/:path*", "destination": "http://44.215.225.249:8080/demo-images/:path*" },
+    { "source": "/uploads/:path*", "destination": "http://44.215.225.249:8080/uploads/:path*" },
+    { "source": "/demo-manuals/:path*", "destination": "http://44.215.225.249:8080/demo-manuals/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
